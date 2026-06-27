@@ -343,3 +343,213 @@ input {
     display: none;
   }
 }
+/* ---------- Tabs ---------- */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab--active {
+  color: var(--ink);
+  border-bottom-color: var(--amber);
+}
+
+/* ---------- Section header ---------- */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-header__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.btn--small {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+/* ---------- Forms ---------- */
+.entity-form {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.field-row {
+  display: flex;
+  gap: 14px;
+}
+.field-row .field {
+  flex: 1;
+}
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+}
+.field textarea:focus,
+.field select:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+.form-error {
+  color: var(--rust);
+  font-size: 13px;
+  margin: 4px 0 12px;
+}
+.form-success {
+  color: var(--teal);
+  font-size: 13px;
+  margin: 4px 0 12px;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ---------- Simple list (venues) ---------- */
+.simple-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.simple-list__item {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.simple-list__title {
+  font-weight: 600;
+}
+.simple-list__subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- Address autocomplete ---------- */
+.address-autocomplete {
+  position: relative;
+}
+.address-autocomplete__list {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(30, 27, 22, 0.08);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.address-autocomplete__list li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.address-autocomplete__list li:hover {
+  background: var(--paper);
+}
+.address-autocomplete__credit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+/* ---------- Tag input (instruments) ---------- */
+.tag-input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--paper);
+}
+.tag-input__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(200, 134, 46, 0.14);
+  color: var(--amber-dark);
+  border-radius: 99px;
+  padding: 3px 6px 3px 10px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+.tag button {
+  background: none;
+  border: none;
+  color: var(--amber-dark);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.tag-input input {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: 14px;
+  padding: 4px 2px;
+}
+.tag-input input:focus {
+  outline: none;
+}
+
+/* ---------- Login extras ---------- */
+.login-card__toggle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--amber-dark);
+  font-size: 13px;
+  margin-top: 14px;
+  cursor: pointer;
+}
+.login-card__info {
+  color: var(--teal);
+  font-size: 13px;
+  margin: -6px 0 16px;
+}
