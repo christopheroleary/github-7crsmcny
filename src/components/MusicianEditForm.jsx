@@ -2,36 +2,23 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
 
-export default function MyProfile() {
-  const [loading, setLoading] = useState(true);
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+export default function MusicianEditForm({ profile, onSaved, onCancel }) {
+  const [fullName, setFullName] = useState(profile.full_name || '');
+  const [phone, setPhone] = useState(profile.phone || '');
+  const [isActive, setIsActive] = useState(profile.is_active);
   const [allInstruments, setAllInstruments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [originalIds, setOriginalIds] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [saved, setSaved] = useState(false);
-  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
     async function load() {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData?.user?.id;
-      if (!uid) return;
-      setUserId(uid);
-
-      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone').eq('id', uid).single(),
+      const [{ data: instruments }, { data: links }] = await Promise.all([
         supabase.from('instruments').select('id, name').order('sort_order'),
-        supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
+        supabase.from('profile_instruments').select('instrument_id').eq('profile_id', profile.id),
       ]);
-
-      if (profileError) setError(profileError.message);
-      else {
-        setFullName(profile.full_name || '');
-        setPhone(profile.phone || '');
-      }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
       setSelectedIds(ids);
@@ -39,52 +26,49 @@ export default function MyProfile() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [profile.id]);
 
-  async function handleSave(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    setSaved(false);
 
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName, phone: phone || null, is_active: isActive })
+      .eq('id', profile.id);
+
+    let writeError = profileError;
     const toAdd = selectedIds.filter((id) => !originalIds.includes(id));
     const toRemove = originalIds.filter((id) => !selectedIds.includes(id));
-
-    const { error: profileError } = await supabase.from('profiles').update({ phone: phone || null }).eq('id', userId);
-    let writeError = profileError;
 
     if (!writeError && toAdd.length > 0) {
       const { error } = await supabase
         .from('profile_instruments')
-        .insert(toAdd.map((instrument_id) => ({ profile_id: userId, instrument_id })));
+        .insert(toAdd.map((instrument_id) => ({ profile_id: profile.id, instrument_id })));
       writeError = error;
     }
     if (!writeError && toRemove.length > 0) {
       const { error } = await supabase
         .from('profile_instruments')
         .delete()
-        .eq('profile_id', userId)
+        .eq('profile_id', profile.id)
         .in('instrument_id', toRemove);
       writeError = error;
     }
 
     setSaving(false);
     if (writeError) setError(writeError.message);
-    else {
-      setOriginalIds(selectedIds);
-      setSaved(true);
-    }
+    else onSaved?.();
   }
 
-  if (loading) return <p className="state-message">Loading profile…</p>;
+  if (loading) return <p className="state-message">Loading…</p>;
 
   return (
-    <form className="entity-form" onSubmit={handleSave}>
-      <h2 className="section-header__title">My profile</h2>
-
+    <form className="entity-form" onSubmit={handleSubmit}>
       <label className="field">
         <span className="field__label">Name</span>
-        <input value={fullName} disabled />
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
       </label>
 
       <label className="field">
@@ -97,12 +81,17 @@ export default function MyProfile() {
         <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
       </label>
 
+      <label className="field field--checkbox">
+        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+        <span>Active band member</span>
+      </label>
+
       {error && <p className="form-error">{error}</p>}
-      {saved && <p className="form-success">Saved.</p>}
 
       <div className="form-actions">
+        <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn--primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save profile'}
+          {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
     </form>

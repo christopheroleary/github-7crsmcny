@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import Login from './components/Login.jsx';
 import GigsList from './components/GigsList.jsx';
 import VenuesList from './components/VenuesList.jsx';
+import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
   const tabs = [
     ['gigs', 'Gigs'],
     ['venues', 'Venues'],
+    ['musicians', 'Musicians'],
     ['profile', 'My profile'],
   ];
 
@@ -52,6 +54,7 @@ export default function App() {
       <main>
         {view === 'gigs' && <GigsList />}
         {view === 'venues' && <VenuesList />}
+        {view === 'musicians' && <MusiciansList />}
         {view === 'profile' && <MyProfile />}
       </main>
     </div>

@@ -591,3 +591,54 @@ input {
   font-size: 14px;
   padding: 4px 2px;
 }
+.simple-list__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.simple-list__actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.link-button--danger {
+  color: var(--rust);
+}
+.detail-list {
+  margin: 12px 0 4px;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 12px;
+  font-size: 14px;
+}
+.detail-list dt {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.detail-list dd {
+  margin: 0;
+}
+.entity-detail {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+}
+.field--checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-direction: row;
+}
+.field--checkbox input {
+  width: auto;
+}
+@media (max-width: 480px) {
+  .detail-list {
+    grid-template-columns: 1fr;
+  }
+  .simple-list__row {
+    flex-direction: column;
+  }
+}

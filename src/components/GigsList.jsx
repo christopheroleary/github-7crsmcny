@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import AddGigForm from './AddGigForm.jsx';
+import GigForm from './GigForm.jsx';
+import GigDetail from './GigDetail.jsx';
 
 export default function GigsList() {
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedGigId, setSelectedGigId] = useState(null);
 
   const loadGigs = useCallback(async () => {
     setLoading(true);
@@ -24,20 +26,47 @@ export default function GigsList() {
   }, [loadGigs]);
 
   function handleCreated() {
-    setShowForm(false);
+    setShowAddForm(false);
     loadGigs();
+  }
+
+  async function handleDelete(gig, e) {
+    e.stopPropagation();
+    const ok = window.confirm(
+      'Delete this gig? This also permanently deletes its lineup, setlist, and invoice records. This cannot be undone.'
+    );
+    if (!ok) return;
+    const { error } = await supabase.from('gigs').delete().eq('id', gig.id);
+    if (error) {
+      alert(`Couldn't delete: ${error.message}`);
+      return;
+    }
+    loadGigs();
+  }
+
+  if (selectedGigId) {
+    return (
+      <GigDetail
+        gigId={selectedGigId}
+        onBack={() => setSelectedGigId(null)}
+        onDeleted={() => {
+          setSelectedGigId(null);
+          loadGigs();
+        }}
+      />
+    );
   }
 
   return (
     <div>
       <div className="section-header">
         <h2 className="section-header__title">Gigs</h2>
-        <button className="btn btn--primary btn--small" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Close' : '+ Add gig'}
+        <button className="btn btn--primary btn--small" onClick={() => setShowAddForm((v) => !v)}>
+          {showAddForm ? 'Close' : '+ Add gig'}
         </button>
       </div>
 
-      {showForm && <AddGigForm onCreated={handleCreated} onCancel={() => setShowForm(false)} />}
+      {showAddForm && <GigForm onSaved={handleCreated} onCancel={() => setShowAddForm(false)} />}
 
       {loading ? (
         <p className="state-message">Loading gigs…</p>
@@ -52,12 +81,13 @@ export default function GigsList() {
             const day = date.toLocaleDateString('en-GB', { day: '2-digit' });
             const month = date.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
             return (
-              <li className="gig-card" key={gig.id}>
+              <li className="gig-card" key={gig.id} onClick={() => setSelectedGigId(gig.id)} style={{ cursor: 'pointer' }}>
                 <div className="gig-card__main">
                   <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
                   <h2 className="gig-card__venue">{gig.venues?.name ?? 'No venue set'}</h2>
                   <p className="gig-card__client">{gig.clients?.name ?? 'No client set'}</p>
                   {gig.fee_amount != null && <p className="gig-card__fee">£{Number(gig.fee_amount).toFixed(2)}</p>}
+                  <button className="link-button link-button--danger" onClick={(e) => handleDelete(gig, e)}>Delete</button>
                 </div>
                 <div className="gig-card__stub">
                   <span className="gig-card__day">{day}</span>

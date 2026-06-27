@@ -1,29 +1,31 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-export default function AddGigForm({ onCreated, onCancel }) {
+export default function GigForm({ gig, onSaved, onCancel }) {
+  const isEdit = Boolean(gig);
   const [venues, setVenues] = useState([]);
   const [clients, setClients] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
-  const [venueId, setVenueId] = useState('');
-  const [clientId, setClientId] = useState('');
+  const [venueId, setVenueId] = useState(gig?.venue_id || '');
+  const [clientId, setClientId] = useState(gig?.client_id || '');
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
 
-  const [gigDate, setGigDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [loadInTime, setLoadInTime] = useState('');
-  const [soundcheckTime, setSoundcheckTime] = useState('');
-  const [status, setStatus] = useState('inquiry');
-  const [feeAmount, setFeeAmount] = useState('');
-  const [parkingNotes, setParkingNotes] = useState('');
-  const [notes, setNotes] = useState('');
+  const [gigDate, setGigDate] = useState(gig?.gig_date || '');
+  const [startTime, setStartTime] = useState(gig?.start_time?.slice(0, 5) || '');
+  const [endTime, setEndTime] = useState(gig?.end_time?.slice(0, 5) || '');
+  const [loadInTime, setLoadInTime] = useState(gig?.load_in_time?.slice(0, 5) || '');
+  const [soundcheckTime, setSoundcheckTime] = useState(gig?.soundcheck_time?.slice(0, 5) || '');
+  const [status, setStatus] = useState(gig?.status || 'inquiry');
+  const [feeAmount, setFeeAmount] = useState(gig?.fee_amount ?? '');
+  const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
+  const [notes, setNotes] = useState(gig?.notes || '');
 
   const [requirements, setRequirements] = useState([]);
+  const [originalRequirementIds, setOriginalRequirementIds] = useState([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -32,10 +34,22 @@ export default function AddGigForm({ onCreated, onCancel }) {
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
-  }, []);
+
+    if (isEdit) {
+      supabase
+        .from('gig_requirements')
+        .select('id, instrument_id, quantity')
+        .eq('gig_id', gig.id)
+        .then(({ data }) => {
+          const rows = (data || []).map((r) => ({ id: r.id, instrument_id: r.instrument_id, quantity: r.quantity }));
+          setRequirements(rows);
+          setOriginalRequirementIds(rows.map((r) => r.id));
+        });
+    }
+  }, [isEdit, gig?.id]);
 
   function addRequirementRow() {
-    setRequirements([...requirements, { instrument_id: '', quantity: 1 }]);
+    setRequirements([...requirements, { id: null, instrument_id: '', quantity: 1 }]);
   }
   function updateRequirementRow(index, field, value) {
     setRequirements(requirements.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
@@ -50,7 +64,6 @@ export default function AddGigForm({ onCreated, onCancel }) {
     setSubmitting(true);
 
     let finalClientId = clientId || null;
-
     if (showNewClient && newClientName.trim()) {
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
@@ -65,48 +78,75 @@ export default function AddGigForm({ onCreated, onCancel }) {
       finalClientId = newClient.id;
     }
 
-    const { data: gig, error: gigError } = await supabase
-      .from('gigs')
-      .insert({
-        venue_id: venueId || null,
-        client_id: finalClientId,
-        gig_date: gigDate,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        load_in_time: loadInTime || null,
-        soundcheck_time: soundcheckTime || null,
-        status,
-        fee_amount: feeAmount === '' ? null : Number(feeAmount),
-        parking_notes: parkingNotes || null,
-        notes: notes || null,
-      })
-      .select()
-      .single();
+    const payload = {
+      venue_id: venueId || null,
+      client_id: finalClientId,
+      gig_date: gigDate,
+      start_time: startTime || null,
+      end_time: endTime || null,
+      load_in_time: loadInTime || null,
+      soundcheck_time: soundcheckTime || null,
+      status,
+      fee_amount: feeAmount === '' ? null : Number(feeAmount),
+      parking_notes: parkingNotes || null,
+      notes: notes || null,
+    };
 
-    if (gigError) {
-      setError(gigError.message);
-      setSubmitting(false);
-      return;
+    let gigId = gig?.id;
+    if (isEdit) {
+      const { error: updateError } = await supabase.from('gigs').update(payload).eq('id', gigId);
+      if (updateError) {
+        setError(updateError.message);
+        setSubmitting(false);
+        return;
+      }
+    } else {
+      const { data: newGig, error: insertError } = await supabase.from('gigs').insert(payload).select().single();
+      if (insertError) {
+        setError(insertError.message);
+        setSubmitting(false);
+        return;
+      }
+      gigId = newGig.id;
     }
 
-    const validRequirements = requirements.filter((r) => r.instrument_id);
-    if (validRequirements.length > 0) {
-      const { error: reqError } = await supabase.from('gig_requirements').insert(
-        validRequirements.map((r) => ({
-          gig_id: gig.id,
-          instrument_id: r.instrument_id,
-          quantity: Number(r.quantity) || 1,
-        }))
-      );
-      if (reqError) {
-        setError(reqError.message);
+    const currentIds = requirements.filter((r) => r.id).map((r) => r.id);
+    const toDelete = originalRequirementIds.filter((id) => !currentIds.includes(id));
+    if (toDelete.length > 0) {
+      const { error: delError } = await supabase.from('gig_requirements').delete().in('id', toDelete);
+      if (delError) {
+        setError(delError.message);
         setSubmitting(false);
         return;
       }
     }
 
+    for (const r of requirements) {
+      if (!r.instrument_id) continue;
+      if (r.id) {
+        const { error: updError } = await supabase
+          .from('gig_requirements')
+          .update({ instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 })
+          .eq('id', r.id);
+        if (updError) {
+          setError(updError.message);
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        const { error: insError } = await supabase
+          .from('gig_requirements')
+          .insert({ gig_id: gigId, instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 });
+        if (insError) {
+          setError(insError.message);
+          setSubmitting(false);
+          return;
+        }
+      }
+    }
+
     setSubmitting(false);
-    onCreated?.();
+    onSaved?.(gigId);
   }
 
   return (
@@ -195,7 +235,7 @@ export default function AddGigForm({ onCreated, onCancel }) {
       <div className="field">
         <span className="field__label">Instruments needed</span>
         {requirements.map((r, i) => (
-          <div className="field-row requirement-row" key={i}>
+          <div className="field-row requirement-row" key={r.id ?? `new-${i}`}>
             <select value={r.instrument_id} onChange={(e) => updateRequirementRow(i, 'instrument_id', e.target.value)}>
               <option value="">Choose instrument…</option>
               {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
@@ -218,7 +258,7 @@ export default function AddGigForm({ onCreated, onCancel }) {
       <div className="form-actions">
         <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn--primary" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save gig'}
+          {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Save gig'}
         </button>
       </div>
     </form>

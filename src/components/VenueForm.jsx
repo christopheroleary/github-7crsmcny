@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 
-export default function AddVenueForm({ onCreated, onCancel }) {
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [contactName, setContactName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [loadInNotes, setLoadInNotes] = useState('');
+export default function VenueForm({ venue, onSaved, onCancel }) {
+  const isEdit = Boolean(venue);
+  const [name, setName] = useState(venue?.name || '');
+  const [address, setAddress] = useState(venue?.address || '');
+  const [contactName, setContactName] = useState(venue?.contact_name || '');
+  const [phone, setPhone] = useState(venue?.phone || '');
+  const [email, setEmail] = useState(venue?.email || '');
+  const [loadInNotes, setLoadInNotes] = useState(venue?.load_in_notes || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -17,21 +18,25 @@ export default function AddVenueForm({ onCreated, onCancel }) {
     setError(null);
     setSubmitting(true);
 
-    const { error } = await supabase.from('venues').insert({
+    const payload = {
       name,
       address: address || null,
       contact_name: contactName || null,
       phone: phone || null,
       email: email || null,
       load_in_notes: loadInNotes || null,
-    });
+    };
+
+    const { error } = isEdit
+      ? await supabase.from('venues').update(payload).eq('id', venue.id)
+      : await supabase.from('venues').insert(payload);
 
     setSubmitting(false);
     if (error) {
       setError(error.message);
       return;
     }
-    onCreated?.();
+    onSaved?.();
   }
 
   return (
@@ -72,7 +77,7 @@ export default function AddVenueForm({ onCreated, onCancel }) {
       <div className="form-actions">
         <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn--primary" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save venue'}
+          {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Save venue'}
         </button>
       </div>
     </form>
