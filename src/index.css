@@ -553,3 +553,41 @@ input {
   font-size: 13px;
   margin: -6px 0 16px;
 }
+.link-button {
+  background: none;
+  border: none;
+  color: var(--amber-dark);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+.inline-subform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.inline-subform input {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.requirement-row {
+  align-items: center;
+  margin-bottom: 8px;
+}
+.requirement-row select {
+  flex: 2;
+}
+.tag-input select {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: 14px;
+  padding: 4px 2px;
+}

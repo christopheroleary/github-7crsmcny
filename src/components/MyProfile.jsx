@@ -5,45 +5,47 @@ export default function MyProfile() {
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [instruments, setInstruments] = useState([]);
-  const [instrumentInput, setInstrumentInput] = useState('');
+  const [allInstruments, setAllInstruments] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [originalIds, setOriginalIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
     async function load() {
       const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-      if (!userId) return;
+      const uid = userData?.user?.id;
+      if (!uid) return;
+      setUserId(uid);
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, phone, instruments_played')
-        .eq('id', userId)
-        .single();
+      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
+        supabase.from('profiles').select('full_name, phone').eq('id', uid).single(),
+        supabase.from('instruments').select('id, name').order('sort_order'),
+        supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
+      ]);
 
-      if (error) setError(error.message);
+      if (profileError) setError(profileError.message);
       else {
-        setFullName(data.full_name || '');
-        setPhone(data.phone || '');
-        setInstruments(data.instruments_played || []);
+        setFullName(profile.full_name || '');
+        setPhone(profile.phone || '');
       }
+      setAllInstruments(instruments || []);
+      const ids = (links || []).map((l) => l.instrument_id);
+      setSelectedIds(ids);
+      setOriginalIds(ids);
       setLoading(false);
     }
     load();
   }, []);
 
-  function addInstrument() {
-    const trimmed = instrumentInput.trim();
-    if (trimmed && !instruments.includes(trimmed)) {
-      setInstruments([...instruments, trimmed]);
-    }
-    setInstrumentInput('');
+  function addInstrument(id) {
+    if (id && !selectedIds.includes(id)) setSelectedIds([...selectedIds, id]);
   }
 
-  function removeInstrument(name) {
-    setInstruments(instruments.filter((i) => i !== name));
+  function removeInstrument(id) {
+    setSelectedIds(selectedIds.filter((i) => i !== id));
   }
 
   async function handleSave(e) {
@@ -52,20 +54,40 @@ export default function MyProfile() {
     setError(null);
     setSaved(false);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const toAdd = selectedIds.filter((id) => !originalIds.includes(id));
+    const toRemove = originalIds.filter((id) => !selectedIds.includes(id));
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ phone: phone || null, instruments_played: instruments })
-      .eq('id', userId);
+    const { error: profileError } = await supabase.from('profiles').update({ phone: phone || null }).eq('id', userId);
+    let writeError = profileError;
+
+    if (!writeError && toAdd.length > 0) {
+      const { error } = await supabase
+        .from('profile_instruments')
+        .insert(toAdd.map((instrument_id) => ({ profile_id: userId, instrument_id })));
+      writeError = error;
+    }
+
+    if (!writeError && toRemove.length > 0) {
+      const { error } = await supabase
+        .from('profile_instruments')
+        .delete()
+        .eq('profile_id', userId)
+        .in('instrument_id', toRemove);
+      writeError = error;
+    }
 
     setSaving(false);
-    if (error) setError(error.message);
-    else setSaved(true);
+    if (writeError) setError(writeError.message);
+    else {
+      setOriginalIds(selectedIds);
+      setSaved(true);
+    }
   }
 
   if (loading) return <p className="state-message">Loading profile…</p>;
+
+  const availableInstruments = allInstruments.filter((i) => !selectedIds.includes(i.id));
+  const selectedInstruments = allInstruments.filter((i) => selectedIds.includes(i.id));
 
   return (
     <form className="entity-form" onSubmit={handleSave}>
@@ -85,26 +107,19 @@ export default function MyProfile() {
         <span className="field__label">Instruments</span>
         <div className="tag-input">
           <div className="tag-input__tags">
-            {instruments.map((name) => (
-              <span className="tag" key={name}>
-                {name}
-                <button type="button" onClick={() => removeInstrument(name)} aria-label={`Remove ${name}`}>
-                  ×
-                </button>
+            {selectedInstruments.map((i) => (
+              <span className="tag" key={i.id}>
+                {i.name}
+                <button type="button" onClick={() => removeInstrument(i.id)} aria-label={`Remove ${i.name}`}>×</button>
               </span>
             ))}
           </div>
-          <input
-            value={instrumentInput}
-            onChange={(e) => setInstrumentInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ',') {
-                e.preventDefault();
-                addInstrument();
-              }
-            }}
-            placeholder="Type an instrument, press Enter"
-          />
+          <select value="" onChange={(e) => addInstrument(e.target.value)}>
+            <option value="">+ Add an instrument…</option>
+            {availableInstruments.map((i) => (
+              <option key={i.id} value={i.id}>{i.name}</option>
+            ))}
+          </select>
         </div>
       </label>
 
