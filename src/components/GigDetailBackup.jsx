@@ -61,12 +61,6 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     return <GigForm gig={gig} onSaved={handleSaved} onCancel={() => setEditing(false)} />;
   }
 
-  // Section 3: Prepare Map and Direction URLs if address exists
-  const venueAddress = gig.venues?.address;
-  const encodedAddress = venueAddress ? encodeURIComponent(venueAddress) : '';
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
-  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-
   return (
     <div className="entity-detail">
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
@@ -87,7 +81,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
           {gig.end_time && ` – ${gig.end_time.slice(0, 5)}`}
         </dd>
         <dt>Fee</dt><dd>{gig.fee_amount != null ? `£${Number(gig.fee_amount).toFixed(2)}` : '—'}</dd>
-        <dt>Venue address</dt><dd>{venueAddress || '—'}</dd>
+        <dt>Venue address</dt><dd>{gig.venues?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
         <dt>Instruments needed</dt>
@@ -102,40 +96,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         </dd>
       </dl>
 
-      {/* Section 3: Map & Directions Integration */}
-      {venueAddress ? (
-        <div className="gig-map-section" style={{ margin: '24px 0', borderTop: '1px solid #eee', paddingTop: '24px' }}>
-          <h3 style={{ marginBottom: '12px' }}>Location & Directions</h3>
-          <div className="map-container" style={{ width: '100%', height: '250px', borderRadius: '8px', overflow: 'hidden', background: '#f5f5f5', marginBottom: '12px' }}>
-            <iframe
-              title="Venue Map Location"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              scrolling="no"
-              marginHeight="0"
-              marginWidth="0"
-              src={mapEmbedUrl}
-              style={{ border: 0 }}
-            />
-          </div>
-          <a 
-            href={directionsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--secondary"
-            style={{ display: 'inline-inline-block', textDecoration: 'none', textAlign: 'center' }}
-          >
-            🚗 Start Google Directions
-          </a>
-        </div>
-      ) : (
-        <div className="gig-map-section gig-map-section--missing" style={{ margin: '24px 0', color: '#666' }}>
-          <p>⚠️ Map and directions unavailable because no venue address has been assigned to this gig.</p>
-        </div>
-      )}
-
-      {/* Future Admin Layout Placeholder: Roster, vacancy tracking, and setlist land here next */}
+      {/* Roster, vacancy tracking, setlist, and the map/directions button land here next */}
 
       <div className="form-actions">
         <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
