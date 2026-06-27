@@ -13,7 +13,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     setLoading(true);
     const { data, error } = await supabase
       .from('gigs')
-      .select('*, venues(name, address), clients(name)')
+      .select('*, venues(name, address, latitude, longitude), clients(name)')
       .eq('id', gigId)
       .single();
     if (error) {
@@ -61,18 +61,31 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     return <GigForm gig={gig} onSaved={handleSaved} onCancel={() => setEditing(false)} />;
   }
 
-  // Section 3: Prepare Map and Direction URLs if address exists
-  const venueAddress = gig.venues?.address;
-  const encodedAddress = venueAddress ? encodeURIComponent(venueAddress) : '';
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
-  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const venue = gig.venues;
+  const hasPin = venue && venue.latitude != null && venue.longitude != null;
+
+  let mapSrc = null;
+  if (hasPin) {
+    const minLon = venue.longitude - 0.006;
+    const minLat = venue.latitude - 0.004;
+    const maxLon = venue.longitude + 0.006;
+    const maxLat = venue.latitude + 0.004;
+    mapSrc =
+      'https://www.openstreetmap.org/export/embed.html?bbox=' +
+      minLon + ',' + minLat + ',' + maxLon + ',' + maxLat +
+      '&marker=' + venue.latitude + ',' + venue.longitude;
+  }
+
+  const directionsHref = venue?.address
+    ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(venue.address) + '&travelmode=driving'
+    : null;
 
   return (
     <div className="entity-detail">
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
 
       <div className="section-header">
-        <h2 className="section-header__title">{gig.venues?.name ?? 'No venue set'}</h2>
+        <h2 className="section-header__title">{venue?.name ?? 'No venue set'}</h2>
         <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
       </div>
 
@@ -87,7 +100,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
           {gig.end_time && ` – ${gig.end_time.slice(0, 5)}`}
         </dd>
         <dt>Fee</dt><dd>{gig.fee_amount != null ? `£${Number(gig.fee_amount).toFixed(2)}` : '—'}</dd>
-        <dt>Venue address</dt><dd>{venueAddress || '—'}</dd>
+        <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
         <dt>Instruments needed</dt>
@@ -102,40 +115,35 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         </dd>
       </dl>
 
-      {/* Section 3: Map & Directions Integration */}
-      {venueAddress ? (
-        <div className="gig-map-section" style={{ margin: '24px 0', borderTop: '1px solid #eee', paddingTop: '24px' }}>
-          <h3 style={{ marginBottom: '12px' }}>Location & Directions</h3>
-          <div className="map-container" style={{ width: '100%', height: '250px', borderRadius: '8px', overflow: 'hidden', background: '#f5f5f5', marginBottom: '12px' }}>
-            <iframe
-              title="Venue Map Location"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              scrolling="no"
-              marginHeight="0"
-              marginWidth="0"
-              src={mapEmbedUrl}
-              style={{ border: 0 }}
-            />
-          </div>
-          <a 
-            href={directionsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--secondary"
-            style={{ display: 'inline-inline-block', textDecoration: 'none', textAlign: 'center' }}
-          >
-            🚗 Start Google Directions
-          </a>
-        </div>
-      ) : (
-        <div className="gig-map-section gig-map-section--missing" style={{ margin: '24px 0', color: '#666' }}>
-          <p>⚠️ Map and directions unavailable because no venue address has been assigned to this gig.</p>
-        </div>
+      {hasPin && (
+        <iframe
+          title="Venue location"
+          width="100%"
+          height="220"
+          style={{ border: 0, borderRadius: 12, marginTop: 12 }}
+          loading="lazy"
+          src={mapSrc}
+        />
       )}
 
-      {/* Future Admin Layout Placeholder: Roster, vacancy tracking, and setlist land here next */}
+      {!hasPin && venue?.address && (
+        <p className="state-message" style={{ padding: '12px 0', textAlign: 'left' }}>
+          No map pin yet — edit the venue and re-pick its address from the suggestion list to add one.
+        </p>
+      )}
+
+      {directionsHref && (
+        <button
+          type="button"
+          className="btn btn--primary"
+          style={{ marginTop: 12 }}
+          onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
+        >
+          Get directions
+        </button>
+      )}
+
+      {/* Roster, vacancy tracking, and the setlist land here next (Section 4) */}
 
       <div className="form-actions">
         <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>

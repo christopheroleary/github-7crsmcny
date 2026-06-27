@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function AddressAutocomplete({ value, onChange, placeholder }) {
+export default function AddressAutocomplete({ value, onChange, onCoordinatesChange, placeholder }) {
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
@@ -22,9 +22,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder }) {
     }
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://photon.komoot.io/api?q=${encodeURIComponent(text)}&limit=5`
-        );
+        const res = await fetch(`https://photon.komoot.io/api?q=${encodeURIComponent(text)}&limit=5`);
         const data = await res.json();
         setSuggestions(data.features || []);
         setOpen(true);
@@ -36,12 +34,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder }) {
 
   function formatAddress(feature) {
     const p = feature.properties;
-    return [
-      [p.housenumber, p.street].filter(Boolean).join(' '),
-      p.city,
-      p.postcode,
-      p.country,
-    ]
+    return [[p.housenumber, p.street].filter(Boolean).join(' '), p.city, p.postcode, p.country]
       .filter(Boolean)
       .join(', ');
   }
@@ -50,6 +43,8 @@ export default function AddressAutocomplete({ value, onChange, placeholder }) {
     const formatted = formatAddress(feature);
     setQuery(formatted);
     onChange(formatted);
+    const [lon, lat] = feature.geometry?.coordinates || [];
+    if (lat != null && lon != null) onCoordinatesChange?.(lat, lon);
     setSuggestions([]);
     setOpen(false);
   }

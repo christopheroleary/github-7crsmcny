@@ -6,6 +6,8 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
   const isEdit = Boolean(venue);
   const [name, setName] = useState(venue?.name || '');
   const [address, setAddress] = useState(venue?.address || '');
+  const [latitude, setLatitude] = useState(venue?.latitude ?? null);
+  const [longitude, setLongitude] = useState(venue?.longitude ?? null);
   const [contactName, setContactName] = useState(venue?.contact_name || '');
   const [phone, setPhone] = useState(venue?.phone || '');
   const [email, setEmail] = useState(venue?.email || '');
@@ -21,6 +23,8 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
     const payload = {
       name,
       address: address || null,
+      latitude,
+      longitude,
       contact_name: contactName || null,
       phone: phone || null,
       email: email || null,
@@ -48,7 +52,20 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
 
       <label className="field">
         <span className="field__label">Address</span>
-        <AddressAutocomplete value={address} onChange={setAddress} placeholder="Start typing an address…" />
+        <AddressAutocomplete
+          value={address}
+          onChange={(text) => {
+            setAddress(text);
+            setLatitude(null);
+            setLongitude(null);
+          }}
+          onCoordinatesChange={(lat, lon) => {
+            setLatitude(lat);
+            setLongitude(lon);
+          }}
+          placeholder="Start typing an address…"
+        />
+        {latitude != null && <p className="address-autocomplete__credit">Map location set ✓</p>}
       </label>
 
       <div className="field-row">
