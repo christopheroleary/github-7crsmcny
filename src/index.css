@@ -1,0 +1,345 @@
+:root {
+  --ink: #1e1b16;
+  --paper: #faf6ef;
+  --paper-raised: #ffffff;
+  --amber: #c8862e;
+  --amber-dark: #a06a1e;
+  --teal: #1f3d3a;
+  --rust: #b6452c;
+  --line: #ddd5c7;
+  --text-muted: #6b6357;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ---------- Login ---------- */
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 1px 2px rgba(30, 27, 22, 0.04);
+}
+
+.login-card__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber-dark);
+  margin: 0 0 4px;
+}
+
+.login-card__title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 28px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.field__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.field input:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.login-card__error {
+  color: var(--rust);
+  font-size: 13px;
+  margin: -6px 0 16px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.05s ease, background-color 0.15s ease;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--amber);
+  color: var(--paper-raised);
+  width: 100%;
+}
+
+.btn--primary:hover {
+  background: var(--amber-dark);
+}
+
+.btn--primary:active {
+  transform: scale(0.99);
+}
+
+.btn--primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn--ghost:hover {
+  background: var(--paper-raised);
+}
+
+/* ---------- App shell ---------- */
+
+.app-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 28px;
+}
+
+.app-header__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.state-message {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.state-message--error {
+  color: var(--rust);
+}
+
+/* ---------- Gig "ticket stub" cards ---------- */
+
+.gig-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gig-card {
+  display: flex;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(30, 27, 22, 0.04);
+}
+
+.gig-card__main {
+  flex: 1;
+  padding: 18px 20px;
+}
+
+.gig-card__venue {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 6px 0 2px;
+}
+
+.gig-card__client {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.gig-card__fee {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  margin: 0;
+}
+
+.gig-card__stub {
+  position: relative;
+  width: 92px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-left: 2px dashed var(--line);
+  background: var(--paper);
+}
+
+.gig-card__stub::before,
+.gig-card__stub::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+}
+
+.gig-card__stub::before {
+  top: -7px;
+}
+
+.gig-card__stub::after {
+  bottom: -7px;
+}
+
+.gig-card__day {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.gig-card__month {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.gig-card__time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.status-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--line);
+  color: var(--ink);
+}
+
+.status-tag--confirmed {
+  background: rgba(31, 61, 58, 0.12);
+  color: var(--teal);
+}
+
+.status-tag--inquiry {
+  background: rgba(200, 134, 46, 0.14);
+  color: var(--amber-dark);
+}
+
+.status-tag--cancelled {
+  background: rgba(182, 69, 44, 0.12);
+  color: var(--rust);
+}
+
+.status-tag--completed {
+  background: rgba(30, 27, 22, 0.08);
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .gig-card {
+    flex-direction: column;
+  }
+  .gig-card__stub {
+    width: auto;
+    flex-direction: row;
+    border-left: none;
+    border-top: 2px dashed var(--line);
+    padding: 10px 0;
+  }
+  .gig-card__stub::before,
+  .gig-card__stub::after {
+    display: none;
+  }
+}
