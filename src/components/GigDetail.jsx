@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import GigForm from './GigForm.jsx';
+import GigRoster from './GigRoster.jsx';
+import GigSetlist from './GigSetlist.jsx';
 
 export default function GigDetail({ gigId, onBack, onDeleted }) {
   const [gig, setGig] = useState(null);
@@ -42,7 +44,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     if (!ok) return;
     const { error } = await supabase.from('gigs').delete().eq('id', gigId);
     if (error) {
-      alert(`Couldn't delete: ${error.message}`);
+      alert("Couldn't delete: " + error.message);
       return;
     }
     onDeleted?.();
@@ -143,7 +145,8 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         </button>
       )}
 
-      {/* Roster, vacancy tracking, and the setlist land here next (Section 4) */}
+      <GigRoster gigId={gigId} />
+      <GigSetlist gigId={gigId} />
 
       <div className="form-actions">
         <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
