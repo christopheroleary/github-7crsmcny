@@ -790,3 +790,15 @@ input {
   background: var(--paper);
   resize: vertical;
 }
+.reference-player {
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.reference-player iframe {
+  display: block;
+  border: none;
+}
+.band-members {
+  margin-top: 10px;
+}

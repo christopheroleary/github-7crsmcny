@@ -14,7 +14,7 @@ export default function GigsList() {
     setLoading(true);
     const { data, error } = await supabase
       .from('gigs')
-      .select('id, gig_date, start_time, status, fee_amount, venues(name), clients(name)')
+      .select('id, gig_date, start_time, status, fee_amount, venues(name), clients(name), bands(name)')
       .order('gig_date', { ascending: true });
     if (error) setError(error.message);
     else setGigs(data);
@@ -85,6 +85,7 @@ export default function GigsList() {
                 <div className="gig-card__main">
                   <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
                   <h2 className="gig-card__venue">{gig.venues?.name ?? 'No venue set'}</h2>
+                  <p className="gig-card__client">{gig.bands?.name ?? 'No band set'}</p>
                   <p className="gig-card__client">{gig.clients?.name ?? 'No client set'}</p>
                   {gig.fee_amount != null && <p className="gig-card__fee">£{Number(gig.fee_amount).toFixed(2)}</p>}
                   <button className="link-button link-button--danger" onClick={(e) => handleDelete(gig, e)}>Delete</button>

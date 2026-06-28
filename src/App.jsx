@@ -6,6 +6,7 @@ import VenuesList from './components/VenuesList.jsx';
 import ClientsList from './components/ClientsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
+import BandsList from './components/BandsList.jsx';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -32,6 +33,7 @@ export default function App() {
     ['clients', 'Clients'],
     ['musicians', 'Musicians'],
     ['profile', 'My profile'],
+    ['bands', 'Bands']
   ];
 
   return (
@@ -56,6 +58,7 @@ export default function App() {
         {view === 'venues' && <VenuesList />}
         {view === 'clients' && <ClientsList />}
         {view === 'musicians' && <MusiciansList />}
+        {view === 'bands' && <BandsList />}
         {view === 'profile' && <MyProfile />}
       </main>
     </div>

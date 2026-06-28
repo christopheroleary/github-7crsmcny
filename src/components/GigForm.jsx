@@ -3,10 +3,12 @@ import { supabase } from '../supabaseClient';
 
 export default function GigForm({ gig, onSaved, onCancel }) {
   const isEdit = Boolean(gig);
+  const [bands, setBands] = useState([]);
   const [venues, setVenues] = useState([]);
   const [clients, setClients] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
+  const [bandId, setBandId] = useState(gig?.band_id || '');
   const [venueId, setVenueId] = useState(gig?.venue_id || '');
   const [clientId, setClientId] = useState(gig?.client_id || '');
   const [showNewClient, setShowNewClient] = useState(false);
@@ -31,6 +33,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    supabase.from('bands').select('id, name').order('name').then(({ data }) => setBands(data || []));
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
@@ -79,6 +82,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     }
 
     const payload = {
+      band_id: bandId || null,
       venue_id: venueId || null,
       client_id: finalClientId,
       gig_date: gigDate,
@@ -151,6 +155,14 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
   return (
     <form className="entity-form" onSubmit={handleSubmit}>
+      <label className="field">
+        <span className="field__label">Band</span>
+        <select value={bandId} onChange={(e) => setBandId(e.target.value)}>
+          <option value="">No band set</option>
+          {bands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+      </label>
+
       <label className="field">
         <span className="field__label">Venue</span>
         <select value={venueId} onChange={(e) => setVenueId(e.target.value)}>

@@ -15,7 +15,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     setLoading(true);
     const { data, error } = await supabase
       .from('gigs')
-      .select('*, venues(name, address, latitude, longitude), clients(name)')
+      .select('*, venues(name, address, latitude, longitude), clients(name), bands(name)')
       .eq('id', gigId)
       .single();
     if (error) {
@@ -92,6 +92,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
       </div>
 
       <dl className="detail-list">
+        <dt>Band</dt><dd>{gig.bands?.name || '—'}</dd>
         <dt>Date</dt><dd>{gig.gig_date}</dd>
         <dt>Client</dt><dd>{gig.clients?.name || '—'}</dd>
         <dt>Times</dt>
@@ -146,7 +147,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
       )}
 
       <GigRoster gigId={gigId} />
-      <GigSetlist gigId={gigId} />
+      <GigSetlist gigId={gigId} bandId={gig.band_id} />
 
       <div className="form-actions">
         <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>

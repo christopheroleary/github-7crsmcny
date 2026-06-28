@@ -2,51 +2,95 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../hooks/useCurrentProfile.js';
 
-export default function GigSetlist({ gigId }) {
+export default function GigSetlist({ gigId, bandId }) {
   const { isAdmin } = useCurrentProfile();
-  const [setlists, setSetlists] = useState([]);
+  const [bandSetlists, setBandSetlists] = useState([]);
+  const [attachedIds, setAttachedIds] = useState([]);
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newSetName, setNewSetName] = useState('');
+  const [pickedExistingId, setPickedExistingId] = useState('');
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!bandId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+
     const { data: setlistRows } = await supabase
       .from('setlists')
-      .select('id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics))')
-      .eq('gig_id', gigId)
+      .select('id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url))')
+      .eq('band_id', bandId)
       .order('name');
 
     const sorted = (setlistRows || []).map((sl) => ({
       ...sl,
       setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
     }));
-    setSetlists(sorted);
+    setBandSetlists(sorted);
+
+    const { data: links } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
+    setAttachedIds((links || []).map((l) => l.setlist_id));
 
     const { data: songRows } = await supabase.from('songs').select('id, title').order('title');
     setSongs(songRows || []);
     setLoading(false);
-  }, [gigId]);
+  }, [gigId, bandId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function handleAddSetlist(e) {
+  async function handleCreateAndAttach(e) {
     e.preventDefault();
     if (!newSetName.trim()) return;
-    const { error } = await supabase.from('setlists').insert({ gig_id: gigId, name: newSetName });
-    if (error) {
-      setError(error.message);
+    const { data: newSetlist, error: createError } = await supabase
+      .from('setlists')
+      .insert({ band_id: bandId, name: newSetName })
+      .select()
+      .single();
+    if (createError) {
+      setError(createError.message);
+      return;
+    }
+    const { error: attachError } = await supabase.from('gig_setlists').insert({ gig_id: gigId, setlist_id: newSetlist.id });
+    if (attachError) {
+      setError(attachError.message);
       return;
     }
     setNewSetName('');
     load();
   }
 
-  async function handleDeleteSetlist(setlist) {
-    const ok = window.confirm('Delete "' + setlist.name + '" and all its songs from this gig?');
+  async function handleAttachExisting(e) {
+    e.preventDefault();
+    if (!pickedExistingId) return;
+    const { error } = await supabase.from('gig_setlists').insert({ gig_id: gigId, setlist_id: pickedExistingId });
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setPickedExistingId('');
+    load();
+  }
+
+  async function handleDetach(setlistId) {
+    const ok = window.confirm("Remove this set from tonight's gig? It stays in the band's library for reuse elsewhere.");
+    if (!ok) return;
+    const { error } = await supabase.from('gig_setlists').delete().eq('gig_id', gigId).eq('setlist_id', setlistId);
+    if (error) {
+      alert("Couldn't remove: " + error.message);
+      return;
+    }
+    load();
+  }
+
+  async function handleDeleteTemplate(setlist) {
+    const ok = window.confirm(
+      'Permanently delete "' + setlist.name + '" from the band library? This removes it from every gig that uses it, not just this one. This cannot be undone.'
+    );
     if (!ok) return;
     const { error } = await supabase.from('setlists').delete().eq('id', setlist.id);
     if (error) {
@@ -88,15 +132,29 @@ export default function GigSetlist({ gigId }) {
     load();
   }
 
+  if (!bandId) {
+    return (
+      <div className="roster-section">
+        <h3 className="roster-section__title">Setlist</h3>
+        <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>
+          Assign a band to this gig first — setlists now live in a band's library, so this gig needs to know which band it's for.
+        </p>
+      </div>
+    );
+  }
+
   if (loading) return <p className="state-message">Loading setlist…</p>;
+
+  const attachedSetlists = bandSetlists.filter((sl) => attachedIds.includes(sl.id));
+  const availableToAttach = bandSetlists.filter((sl) => !attachedIds.includes(sl.id));
 
   return (
     <div className="roster-section">
       <h3 className="roster-section__title">Setlist</h3>
 
-      {setlists.length === 0 && <p className="state-message">No sets yet.</p>}
+      {attachedSetlists.length === 0 && <p className="state-message">No sets attached to this gig yet.</p>}
 
-      {setlists.map((setlist) => (
+      {attachedSetlists.map((setlist) => (
         <SetlistBlock
           key={setlist.id}
           setlist={setlist}
@@ -104,27 +162,42 @@ export default function GigSetlist({ gigId }) {
           isAdmin={isAdmin}
           onAddSong={handleAddSong}
           onRemoveSong={handleRemoveSong}
-          onDeleteSetlist={handleDeleteSetlist}
+          onDetach={() => handleDetach(setlist.id)}
+          onDeleteTemplate={() => handleDeleteTemplate(setlist)}
           reload={load}
         />
       ))}
 
       {isAdmin && (
-        <form className="inline-subform" onSubmit={handleAddSetlist}>
-          <input placeholder="New set name, e.g. Set 2" value={newSetName} onChange={(e) => setNewSetName(e.target.value)} />
+        <div className="inline-subform">
+          {availableToAttach.length > 0 && (
+            <form onSubmit={handleAttachExisting} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <select value={pickedExistingId} onChange={(e) => setPickedExistingId(e.target.value)}>
+                <option value="">Attach an existing set from this band's library…</option>
+                {availableToAttach.map((sl) => (
+                  <option key={sl.id} value={sl.id}>{sl.name}</option>
+                ))}
+              </select>
+              <button type="submit" className="btn btn--ghost btn--small">Attach</button>
+            </form>
+          )}
+          <form onSubmit={handleCreateAndAttach} style={{ display: 'flex', gap: 8 }}>
+            <input placeholder="Or create a new set, e.g. Set 2" value={newSetName} onChange={(e) => setNewSetName(e.target.value)} />
+            <button type="submit" className="btn btn--primary btn--small">+ Create</button>
+          </form>
           {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn btn--primary btn--small">+ Add a set</button>
-        </form>
+        </div>
       )}
     </div>
   );
 }
 
-function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeleteSetlist, reload }) {
+function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
   const [showLyricsId, setShowLyricsId] = useState(null);
+  const [showPlayerId, setShowPlayerId] = useState(null);
 
   function handleAdd(e) {
     e.preventDefault();
@@ -136,11 +209,9 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDele
   function handleDragStart(e, itemId) {
     e.dataTransfer.setData('text/plain', itemId);
   }
-
   function handleDragOver(e) {
     e.preventDefault();
   }
-
   async function handleDrop(e, targetItemId) {
     e.preventDefault();
     const draggedId = e.dataTransfer.getData('text/plain');
@@ -154,9 +225,7 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDele
     const [moved] = items.splice(fromIndex, 1);
     items.splice(toIndex, 0, moved);
 
-    await Promise.all(
-      items.map((item, idx) => supabase.from('setlist_items').update({ position: idx + 1 }).eq('id', item.id))
-    );
+    await Promise.all(items.map((item, idx) => supabase.from('setlist_items').update({ position: idx + 1 }).eq('id', item.id)));
     reload();
   }
 
@@ -165,9 +234,10 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDele
       <div className="section-header">
         <h4 className="section-header__title" style={{ fontSize: 15 }}>{setlist.name}</h4>
         {isAdmin && (
-          <button className="link-button link-button--danger" onClick={() => onDeleteSetlist(setlist)}>
-            Delete set
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="link-button" onClick={onDetach}>Remove from this gig</button>
+            <button className="link-button link-button--danger" onClick={onDeleteTemplate}>Delete set entirely</button>
+          </div>
         )}
       </div>
 
@@ -194,6 +264,11 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDele
                     {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
                   </span>
                   <div className="setlist-song__actions">
+                    {song?.reference_url && (
+                      <button className="link-button" onClick={() => setShowPlayerId(showPlayerId === item.id ? null : item.id)}>
+                        {showPlayerId === item.id ? 'Hide player' : 'Listen'}
+                      </button>
+                    )}
                     {song?.lyrics && (
                       <button className="link-button" onClick={() => setShowLyricsId(showLyricsId === item.id ? null : item.id)}>
                         {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
@@ -217,6 +292,7 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDele
                   />
                 )}
 
+                {!isEditing && showPlayerId === item.id && <ReferencePlayer url={song?.reference_url} />}
                 {!isEditing && showLyricsId === item.id && <LyricsView text={song?.lyrics} />}
               </li>
             );
@@ -258,11 +334,13 @@ function SongEditFields({ song, onSaved, onCancel }) {
   const [title, setTitle] = useState(song.title || '');
   const [artist, setArtist] = useState(song.artist || '');
   const [key, setKey] = useState(song.original_key || '');
+  const [referenceUrl, setReferenceUrl] = useState(song.reference_url || '');
   const [lyrics, setLyrics] = useState(song.lyrics || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
+  const lyricsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
+  const chordsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
 
   async function handleSave(e) {
     e.preventDefault();
@@ -270,7 +348,13 @@ function SongEditFields({ song, onSaved, onCancel }) {
     setError(null);
     const { error } = await supabase
       .from('songs')
-      .update({ title, artist: artist || null, original_key: key || null, lyrics: lyrics || null })
+      .update({
+        title,
+        artist: artist || null,
+        original_key: key || null,
+        reference_url: referenceUrl || null,
+        lyrics: lyrics || null,
+      })
       .eq('id', song.id);
     setSaving(false);
     if (error) {
@@ -298,17 +382,26 @@ function SongEditFields({ song, onSaved, onCancel }) {
       </div>
 
       <label className="field">
+        <span className="field__label">YouTube or Spotify link</span>
+        <input value={referenceUrl} onChange={(e) => setReferenceUrl(e.target.value)} placeholder="Paste a YouTube or Spotify track URL" />
+      </label>
+
+      <label className="field">
         <span className="field__label">
           Lyrics{' '}
-          <a href={searchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
+          <a href={lyricsSearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
             Find lyrics ↗
+          </a>
+          {' · '}
+          <a href={chordsSearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
+            Find chords ↗
           </a>
         </span>
         <textarea
           value={lyrics}
           onChange={(e) => setLyrics(e.target.value)}
           rows={8}
-          placeholder={'Paste lyrics here. Wrap section markers in brackets to bold them, e.g.\n[Verse 1]\n[Chorus]'}
+          placeholder={'Paste lyrics (or your own chord notes) here. Wrap section markers in brackets to bold them, e.g.\n[Verse 1]\n[Chorus]'}
         />
       </label>
 
@@ -321,6 +414,44 @@ function SongEditFields({ song, onSaved, onCancel }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function ReferencePlayer({ url }) {
+  if (!url) return null;
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if (ytMatch) {
+    return (
+      <div className="reference-player">
+        <iframe
+          width="100%"
+          height="200"
+          src={'https://www.youtube.com/embed/' + ytMatch[1]}
+          title="Song reference"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  const spotifyMatch = url.match(/open\.spotify\.com\/(track|album|playlist)\/([\w]+)/);
+  if (spotifyMatch) {
+    return (
+      <div className="reference-player">
+        <iframe
+          width="100%"
+          height="152"
+          src={'https://open.spotify.com/embed/' + spotifyMatch[1] + '/' + spotifyMatch[2]}
+          title="Song reference"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        />
+      </div>
+    );
+  }
+  return (
+    <p className="state-message" style={{ textAlign: 'left', padding: '8px 0' }}>
+      <a href={url} target="_blank" rel="noopener noreferrer">Open reference link ↗</a>
+    </p>
   );
 }
 
