@@ -841,7 +841,7 @@ input {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .print-modal-toolbar {
     width: 100%;
     background: var(--ink);
@@ -854,6 +854,27 @@ input {
     position: sticky;
     top: 0;
     z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .btn--toolbar-ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+  }
+  .btn--toolbar-ghost:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.6);
+  }
+  .btn--toolbar-close {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn--toolbar-close:hover {
+    background: rgba(182,69,44,0.7);
+    border-color: transparent;
   }
   
   .print-modal-toolbar__left {
@@ -877,7 +898,7 @@ input {
      The invoice page itself — A4 proportions, white card
      ============================================================ */
   
-  .invoice-page {
+  .invoice-page-preview {
     background: #ffffff;
     width: 210mm;
     min-height: 297mm;
@@ -1191,7 +1212,7 @@ input {
       overflow: visible;
     }
   
-    .invoice-page {
+    .invoice-page-preview {
       width: 100%;
       min-height: auto;
       margin: 0;
