@@ -1,5 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
 
+function formatAddress(feature) {
+  const p = feature.properties;
+
+  // Build the first line: named place (venue/POI) takes priority over
+  // raw house number + street. If both exist, combine them so you get
+  // e.g. "The Bell & Anchor, 14 Quay Street" rather than losing the name.
+  const namePart = p.name || '';
+  const streetPart = [p.housenumber, p.street].filter(Boolean).join(' ');
+
+  let firstLine = '';
+  if (namePart && streetPart && namePart !== streetPart) {
+    firstLine = namePart + ', ' + streetPart;
+  } else {
+    firstLine = namePart || streetPart;
+  }
+
+  // City falls back to district, then county — covers smaller towns and
+  // villages that Photon doesn't give a 'city' value for.
+  const locality = p.city || p.district || p.county || '';
+
+  const parts = [firstLine, locality, p.postcode, p.country]
+    .map((s) => (s || '').trim())
+    .filter(Boolean);
+
+  return parts.join(', ');
+}
+
 export default function AddressAutocomplete({ value, onChange, onCoordinatesChange, placeholder }) {
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
@@ -16,27 +43,29 @@ export default function AddressAutocomplete({ value, onChange, onCoordinatesChan
     onChange(text);
 
     clearTimeout(debounceRef.current);
-    if (text.trim().length < 3) {
+    if (text.trim().length < 2) {
       setSuggestions([]);
+      setOpen(false);
       return;
     }
+
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://photon.komoot.io/api?q=${encodeURIComponent(text)}&limit=5`);
+        // bias results toward the UK since that's where you're based
+        const res = await fetch(
+          'https://photon.komoot.io/api?q=' +
+            encodeURIComponent(text) +
+            '&limit=6&lang=en&bbox=-10.5,49.5,2.0,61.0'
+        );
         const data = await res.json();
-        setSuggestions(data.features || []);
-        setOpen(true);
+        const features = (data.features || []).filter((f) => formatAddress(f).trim().length > 0);
+        setSuggestions(features);
+        setOpen(features.length > 0);
       } catch {
         setSuggestions([]);
+        setOpen(false);
       }
-    }, 400);
-  }
-
-  function formatAddress(feature) {
-    const p = feature.properties;
-    return [[p.housenumber, p.street].filter(Boolean).join(' '), p.city, p.postcode, p.country]
-      .filter(Boolean)
-      .join(', ');
+    }, 350);
   }
 
   function handleSelect(feature) {
@@ -49,6 +78,10 @@ export default function AddressAutocomplete({ value, onChange, onCoordinatesChan
     setOpen(false);
   }
 
+  function handleBlur() {
+    setTimeout(() => setOpen(false), 150);
+  }
+
   return (
     <div className="address-autocomplete">
       <input
@@ -56,17 +89,20 @@ export default function AddressAutocomplete({ value, onChange, onCoordinatesChan
         value={query}
         onChange={handleInput}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder={placeholder}
+        onBlur={handleBlur}
+        placeholder={placeholder || 'Start typing a venue name or address…'}
         autoComplete="off"
       />
       {open && suggestions.length > 0 && (
         <ul className="address-autocomplete__list">
-          {suggestions.map((f, i) => (
-            <li key={i} onClick={() => handleSelect(f)}>
-              {formatAddress(f)}
-            </li>
-          ))}
+          {suggestions.map((f, i) => {
+            const label = formatAddress(f);
+            return (
+              <li key={i} onClick={() => handleSelect(f)}>
+                {label}
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="address-autocomplete__credit">Address search by OpenStreetMap</p>

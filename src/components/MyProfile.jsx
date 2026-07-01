@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
+import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function MyProfile() {
   const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [homeLat, setHomeLat] = useState(null);
+  const [homeLon, setHomeLon] = useState(null);
   const [allInstruments, setAllInstruments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [originalIds, setOriginalIds] = useState([]);
@@ -20,9 +25,10 @@ export default function MyProfile() {
       const uid = userData?.user?.id;
       if (!uid) return;
       setUserId(uid);
+      setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -31,6 +37,9 @@ export default function MyProfile() {
       else {
         setFullName(profile.full_name || '');
         setPhone(profile.phone || '');
+        setHomeAddress(profile.home_address || '');
+        setHomeLat(profile.home_latitude ?? null);
+        setHomeLon(profile.home_longitude ?? null);
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -50,7 +59,17 @@ export default function MyProfile() {
     const toAdd = selectedIds.filter((id) => !originalIds.includes(id));
     const toRemove = originalIds.filter((id) => !selectedIds.includes(id));
 
-    const { error: profileError } = await supabase.from('profiles').update({ phone: phone || null }).eq('id', userId);
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        full_name: fullName,
+        phone: phone || null,
+        home_address: homeAddress || null,
+        home_latitude: homeLat,
+        home_longitude: homeLon,
+      })
+      .eq('id', userId);
+
     let writeError = profileError;
 
     if (!writeError && toAdd.length > 0) {
@@ -83,13 +102,42 @@ export default function MyProfile() {
       <h2 className="section-header__title">My profile</h2>
 
       <label className="field">
+        <span className="field__label">Email</span>
+        <input value={email} disabled />
+        <span className="field__hint">Login email — changing it needs its own confirmation step.</span>
+      </label>
+
+      <label className="field">
         <span className="field__label">Name</span>
-        <input value={fullName} disabled />
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
       </label>
 
       <label className="field">
         <span className="field__label">Phone</span>
         <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Home address (used for travel cost calculations)</span>
+        <AddressAutocomplete
+          value={homeAddress}
+          onChange={(text) => {
+            setHomeAddress(text);
+            setHomeLat(null);
+            setHomeLon(null);
+          }}
+          onCoordinatesChange={(lat, lon) => {
+            setHomeLat(lat);
+            setHomeLon(lon);
+          }}
+          placeholder="Start typing your home address…"
+        />
+        {homeLat != null && <span className="field__hint">Location set ✓</span>}
+        {homeLat == null && homeAddress && (
+          <span className="field__hint" style={{ color: 'var(--rust)' }}>
+            Pick a suggestion from the dropdown to set the map pin — needed for distance calculation.
+          </span>
+        )}
       </label>
 
       <label className="field">

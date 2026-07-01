@@ -802,3 +802,402 @@ input {
 .band-members {
   margin-top: 10px;
 }
+.travel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.travel-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.travel-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.travel-table tfoot td {
+  border-top: 2px solid var(--line);
+  border-bottom: none;
+  padding-top: 10px;
+}
+.travel-table input {
+  font-size: 13px;
+}
+/* ============================================================
+   Invoice print modal
+   ============================================================ */
+
+   .print-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: #e8e4dd;
+    z-index: 1000;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .print-modal-toolbar {
+    width: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .print-modal-toolbar__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .print-modal-toolbar__title {
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  
+  .print-modal-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  /* ============================================================
+     The invoice page itself — A4 proportions, white card
+     ============================================================ */
+  
+  .invoice-page {
+    background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 18mm 16mm;
+    margin: 24px auto;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.18);
+    position: relative;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+  }
+  
+  /* ---- Stamp ---- */
+  .invoice-stamp {
+    position: absolute;
+    top: 40mm;
+    right: 14mm;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 36pt;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    transform: rotate(-22deg);
+    opacity: 0.12;
+    pointer-events: none;
+    border: 6px solid;
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  .invoice-stamp--paid { color: #1f3d3a; border-color: #1f3d3a; }
+  .invoice-stamp--overdue { color: #b6452c; border-color: #b6452c; }
+  
+  /* ---- Header ---- */
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 10mm;
+  }
+  
+  .invoice-header__band {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22pt;
+    font-weight: 700;
+    color: #c8862e;
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+  
+  .invoice-header__address,
+  .invoice-header__contact {
+    margin: 1px 0;
+    font-size: 9pt;
+    color: #555;
+    line-height: 1.5;
+  }
+  
+  .invoice-header__meta {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  
+  .invoice-header__label-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-bottom: 6px;
+  }
+  
+  .invoice-header__label {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #999;
+    font-weight: 600;
+  }
+  
+  .invoice-header__value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10pt;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+  
+  .invoice-divider {
+    height: 3px;
+    background: linear-gradient(90deg, #c8862e 0%, #e8a84e 60%, transparent 100%);
+    border-radius: 2px;
+    margin-bottom: 8mm;
+  }
+  
+  /* ---- Parties ---- */
+  .invoice-parties {
+    display: flex;
+    gap: 12mm;
+    margin-bottom: 8mm;
+  }
+  
+  .invoice-parties__bill-to {
+    flex: 1;
+  }
+  
+  .invoice-parties__heading {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #999;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  
+  .invoice-parties__name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14pt;
+    font-weight: 700;
+    margin: 0 0 3px;
+  }
+  
+  .invoice-parties__detail {
+    margin: 1px 0;
+    font-size: 9pt;
+    color: #555;
+  }
+  
+  .invoice-event-box {
+    background: #f5f2ec;
+    border-left: 3px solid #c8862e;
+    border-radius: 4px;
+    padding: 10px 14px;
+    flex: 1;
+    max-width: 80mm;
+  }
+  
+  .invoice-event-box__heading {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #999;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  
+  .invoice-event-box__venue {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 0 0 3px;
+    color: #1a1a1a;
+  }
+  
+  .invoice-event-box__detail {
+    margin: 1px 0;
+    font-size: 9pt;
+    color: #555;
+  }
+  
+  /* ---- Line items table ---- */
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+  }
+  
+  .invoice-table th {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    background: #1e1b16;
+    padding: 7px 10px;
+    font-weight: 600;
+    text-align: left;
+  }
+  
+  .invoice-table th.invoice-table__qty,
+  .invoice-table th.invoice-table__unit,
+  .invoice-table th.invoice-table__total {
+    text-align: right;
+  }
+  
+  .invoice-table td {
+    padding: 7px 10px;
+    font-size: 9.5pt;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .invoice-table td:nth-child(2),
+  .invoice-table td:nth-child(3),
+  .invoice-table td:nth-child(4) {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9pt;
+  }
+  
+  .invoice-table__row-alt td {
+    background: #faf8f5;
+  }
+  
+  /* ---- Totals ---- */
+  .invoice-totals {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 0;
+    border-top: 2px solid #1e1b16;
+    padding-top: 8px;
+    margin-bottom: 8mm;
+  }
+  
+  .invoice-totals__row {
+    display: flex;
+    gap: 32px;
+    justify-content: flex-end;
+    padding: 3px 10px;
+    font-size: 9.5pt;
+    color: #555;
+    width: 100%;
+  }
+  
+  .invoice-totals__row span:last-child {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9pt;
+    min-width: 70px;
+    text-align: right;
+  }
+  
+  .invoice-totals__row--total {
+    background: #c8862e;
+    border-radius: 4px;
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12pt;
+    font-weight: 700;
+    padding: 8px 10px;
+    margin-top: 6px;
+  }
+  
+  .invoice-totals__row--total span:last-child {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12pt;
+  }
+  
+  /* ---- Payment details ---- */
+  .invoice-payment {
+    background: #f5f2ec;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 6mm;
+  }
+  
+  .invoice-payment__heading {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #999;
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+  
+  .invoice-payment__grid {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 4px 12px;
+    font-size: 9.5pt;
+  }
+  
+  .invoice-payment__label {
+    color: #888;
+    font-weight: 600;
+  }
+  
+  /* ---- Footer notes ---- */
+  .invoice-footer-notes {
+    border-top: 1px solid #eee;
+    padding-top: 6mm;
+    margin-bottom: 6mm;
+    font-size: 8.5pt;
+    color: #777;
+    line-height: 1.6;
+  }
+  
+  .invoice-footer-notes p {
+    margin: 0 0 4px;
+  }
+  
+  /* ---- Page footer ---- */
+  .invoice-footer {
+    position: absolute;
+    bottom: 10mm;
+    left: 16mm;
+    right: 16mm;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #bbb;
+    border-top: 1px solid #eee;
+    padding-top: 4mm;
+  }
+  
+  /* ============================================================
+     Print media — hide everything except the invoice page
+     ============================================================ */
+  
+  @media print {
+    .no-print { display: none !important; }
+  
+    .print-modal-overlay {
+      position: static;
+      background: white;
+      overflow: visible;
+    }
+  
+    .invoice-page {
+      width: 100%;
+      min-height: auto;
+      margin: 0;
+      padding: 10mm 12mm;
+      box-shadow: none;
+    }
+  
+    body { background: white; }
+  }

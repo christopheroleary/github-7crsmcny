@@ -32,8 +32,8 @@ export default function App() {
     ['venues', 'Venues'],
     ['clients', 'Clients'],
     ['musicians', 'Musicians'],
-    ['profile', 'My profile'],
-    ['bands', 'Bands']
+    ['bands', 'Bands'],
+    ['profile', 'My profile']
   ];
 
   return (

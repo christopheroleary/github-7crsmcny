@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigSetlist from './GigSetlist.jsx';
+import TravelCalculator from './TravelCalculator.jsx';
+import GigInvoice from './GigInvoice.jsx';
 
 export default function GigDetail({ gigId, onBack, onDeleted }) {
   const [gig, setGig] = useState(null);
@@ -92,17 +94,18 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
       </div>
 
       <dl className="detail-list">
-        <dt>Band</dt><dd>{gig.bands?.name || '—'}</dd>
         <dt>Date</dt><dd>{gig.gig_date}</dd>
+        <dt>Band</dt><dd>{gig.bands?.name || '—'}</dd>
         <dt>Client</dt><dd>{gig.clients?.name || '—'}</dd>
         <dt>Times</dt>
         <dd>
-          {gig.load_in_time && `Load-in ${gig.load_in_time.slice(0, 5)} · `}
-          {gig.soundcheck_time && `Soundcheck ${gig.soundcheck_time.slice(0, 5)} · `}
-          {gig.start_time && `On stage ${gig.start_time.slice(0, 5)}`}
-          {gig.end_time && ` – ${gig.end_time.slice(0, 5)}`}
+          {gig.load_in_time && 'Load-in ' + gig.load_in_time.slice(0, 5) + ' · '}
+          {gig.soundcheck_time && 'Soundcheck ' + gig.soundcheck_time.slice(0, 5) + ' · '}
+          {gig.start_time && 'On stage ' + gig.start_time.slice(0, 5)}
+          {gig.end_time && ' – ' + gig.end_time.slice(0, 5)}
         </dd>
-        <dt>Fee</dt><dd>{gig.fee_amount != null ? `£${Number(gig.fee_amount).toFixed(2)}` : '—'}</dd>
+        <dt>Fee</dt><dd>{gig.fee_amount != null ? '£' + Number(gig.fee_amount).toFixed(2) : '—'}</dd>
+        <dt>Mileage rate</dt><dd>{gig.mileage_rate_pence ?? 35}p per mile</dd>
         <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
@@ -147,7 +150,21 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
       )}
 
       <GigRoster gigId={gigId} />
+
+      <TravelCalculator
+        gigId={gigId}
+        venueLat={venue?.latitude}
+        venueLon={venue?.longitude}
+        mileageRatePence={gig.mileage_rate_pence}
+      />
+
       <GigSetlist gigId={gigId} bandId={gig.band_id} />
+
+      <GigInvoice
+        gigId={gigId}
+        gigFeeAmount={gig.fee_amount}
+        mileageRatePence={gig.mileage_rate_pence}
+      />
 
       <div className="form-actions">
         <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
