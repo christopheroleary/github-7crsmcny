@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { useCurrentProfile } from '../hooks/useCurrentProfile.js';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function GigSetlist({ gigId, bandId }) {
   const { isAdmin } = useCurrentProfile();

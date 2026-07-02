@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import BandForm from './BandForm.jsx';
 import BandMembers from './BandMembers.jsx';
-import { useCurrentProfile } from '../hooks/useCurrentProfile.js';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function BandsList() {
   const { isAdmin } = useCurrentProfile();

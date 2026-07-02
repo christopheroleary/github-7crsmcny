@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
-import { useCurrentProfile } from '../hooks/useCurrentProfile.js';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin } = useCurrentProfile();

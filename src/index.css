@@ -1222,3 +1222,229 @@ input {
   
     body { background: white; }
   }
+  /* ---- Day sheet (band member view) ---- */
+.day-sheet {
+  padding-bottom: 40px;
+}
+
+.day-sheet__confirm-banner {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.day-sheet__confirm-banner--yes {
+  background: rgba(31, 61, 58, 0.1);
+  color: var(--teal);
+  border: 1px solid rgba(31, 61, 58, 0.2);
+}
+.day-sheet__confirm-banner--no {
+  background: rgba(200, 134, 46, 0.12);
+  color: var(--amber-dark);
+  border: 1px solid rgba(200, 134, 46, 0.25);
+}
+
+.day-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.day-sheet__band {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amber-dark);
+  margin: 0 0 4px;
+}
+
+.day-sheet__venue {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.day-sheet__date {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.day-sheet__section {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.day-sheet__section-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.day-sheet__times {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-sheet__time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.day-sheet__time-row:last-child {
+  border-bottom: none;
+}
+.day-sheet__time-row--main .day-sheet__time-label,
+.day-sheet__time-row--main .day-sheet__time-value {
+  font-weight: 700;
+  color: var(--amber-dark);
+  font-size: 18px;
+}
+
+.day-sheet__time-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.day-sheet__time-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.day-sheet__text {
+  font-size: 14px;
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+.day-sheet__text--muted {
+  color: var(--text-muted);
+}
+
+.day-sheet__roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-sheet__roster-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.day-sheet__roster-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.day-sheet__roster-instrument {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.day-sheet__set {
+  margin-bottom: 14px;
+}
+
+.day-sheet__set-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amber-dark);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.day-sheet__songs {
+  list-style: decimal;
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-sheet__song {
+  font-size: 14px;
+}
+
+.day-sheet__song-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.day-sheet__song-title {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.day-sheet__song-artist {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.day-sheet__song-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ---- Musician claim card ---- */
+.claim-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claim-card__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.claim-card__label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.claim-card__amount {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+}

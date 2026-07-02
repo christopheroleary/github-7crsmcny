@@ -1,40 +1,54 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
+import { useCurrentProfile } from './context/ProfileContext.jsx';
 import Login from './components/Login.jsx';
 import GigsList from './components/GigsList.jsx';
 import VenuesList from './components/VenuesList.jsx';
 import ClientsList from './components/ClientsList.jsx';
+import BandsList from './components/BandsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
-import BandsList from './components/BandsList.jsx';
 
 export default function App() {
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const { isAdmin, loading: profileLoading } = useCurrentProfile();
   const [view, setView] = useState('gigs');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      setLoading(false);
+      setSessionLoading(false);
     });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
     });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div className="page-loading">Loading…</div>;
+  if (sessionLoading || profileLoading) {
+    return <div className="page-loading">Loading…</div>;
+  }
+
   if (!session) return <Login />;
 
-  const tabs = [
+  const adminTabs = [
     ['gigs', 'Gigs'],
     ['venues', 'Venues'],
     ['clients', 'Clients'],
-    ['musicians', 'Musicians'],
     ['bands', 'Bands'],
-    ['profile', 'My profile']
+    ['musicians', 'Musicians'],
+    ['profile', 'My profile'],
   ];
+
+  const memberTabs = [
+    ['gigs', 'My gigs'],
+    ['profile', 'My profile'],
+  ];
+
+  const tabs = isAdmin ? adminTabs : memberTabs;
 
   return (
     <div className="app-shell">
@@ -47,7 +61,11 @@ export default function App() {
 
       <nav className="tab-nav">
         {tabs.map(([key, label]) => (
-          <button key={key} className={view === key ? 'tab tab--active' : 'tab'} onClick={() => setView(key)}>
+          <button
+            key={key}
+            className={view === key ? 'tab tab--active' : 'tab'}
+            onClick={() => setView(key)}
+          >
             {label}
           </button>
         ))}
@@ -55,10 +73,10 @@ export default function App() {
 
       <main>
         {view === 'gigs' && <GigsList />}
-        {view === 'venues' && <VenuesList />}
-        {view === 'clients' && <ClientsList />}
-        {view === 'musicians' && <MusiciansList />}
-        {view === 'bands' && <BandsList />}
+        {view === 'venues' && isAdmin && <VenuesList />}
+        {view === 'clients' && isAdmin && <ClientsList />}
+        {view === 'bands' && isAdmin && <BandsList />}
+        {view === 'musicians' && isAdmin && <MusiciansList />}
         {view === 'profile' && <MyProfile />}
       </main>
     </div>

@@ -5,6 +5,7 @@ import GigRoster from './GigRoster.jsx';
 import GigSetlist from './GigSetlist.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
 import GigInvoice from './GigInvoice.jsx';
+import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 
 export default function GigDetail({ gigId, onBack, onDeleted }) {
   const [gig, setGig] = useState(null);
@@ -157,6 +158,8 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         venueLon={venue?.longitude}
         mileageRatePence={gig.mileage_rate_pence}
       />
+
+      <MusicianClaimsAdmin gigId={gigId} />
 
       <GigSetlist gigId={gigId} bandId={gig.band_id} />
 
