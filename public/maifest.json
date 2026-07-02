@@ -1,0 +1,18 @@
+{
+    "name": "Gig Manager",
+    "short_name": "Gigs",
+    "description": "Your gigs, setlists and day sheets — available offline.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#faf6ef",
+    "theme_color": "#c8862e",
+    "orientation": "portrait-primary",
+    "icons": [
+      {
+        "src": "/icons/icon.svg",
+        "sizes": "any",
+        "type": "image/svg+xml",
+        "purpose": "any maskable"
+      }
+    ]
+  }

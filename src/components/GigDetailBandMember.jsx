@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import MusicianClaim from './MusicianClaim.jsx';
 
 function formatTime(t) {
@@ -10,67 +11,32 @@ function formatTime(t) {
 function formatDate(d) {
   if (!d) return '—';
   const date = new Date(d + 'T00:00:00');
-  return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+function formatSyncTime(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return diffMins + ' minute' + (diffMins === 1 ? '' : 's') + ' ago';
+  if (diffHours < 24) return diffHours + ' hour' + (diffHours === 1 ? '' : 's') + ' ago';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
-  const [gig, setGig] = useState(null);
-  const [lineup, setLineup] = useState([]);
-  const [setlists, setSetlists] = useState([]);
-  const [myEntry, setMyEntry] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
   const [confirming, setConfirming] = useState(false);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-
-    const { data: gigData, error: gigError } = await supabase
-      .from('gigs')
-      .select('id, gig_date, start_time, end_time, load_in_time, soundcheck_time, status, parking_notes, notes, venues(name, address, latitude, longitude), bands(name)')
-      .eq('id', gigId)
-      .single();
-
-    if (gigError) {
-      setError(gigError.message);
-      setLoading(false);
-      return;
-    }
-    setGig(gigData);
-
-    const { data: lineupData } = await supabase
-      .from('gig_lineup')
-      .select('id, profile_id, confirmed, instrument_id, travel_cost_pence, profiles(full_name), instruments(name)')
-      .eq('gig_id', gigId);
-
-    setLineup(lineupData || []);
-    setMyEntry((lineupData || []).find((l) => l.profile_id === myProfileId) || null);
-
-    const { data: setlistLinks } = await supabase
-      .from('gig_setlists')
-      .select('setlists(id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url)))')
-      .eq('gig_id', gigId);
-
-    const sets = (setlistLinks || [])
-      .map((l) => l.setlists)
-      .filter(Boolean)
-      .map((sl) => ({
-        ...sl,
-        setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
-      }));
-    setSetlists(sets);
-
-    setLoading(false);
-  }, [gigId, myProfileId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function handleConfirm() {
-    if (!myEntry) return;
+  async function handleConfirm(myEntry) {
     setConfirming(true);
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', myEntry.id);
     setConfirming(false);
@@ -78,12 +44,24 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       alert("Couldn't confirm: " + error.message);
       return;
     }
-    load();
+    refresh();
   }
 
-  if (loading) return <p className="state-message">Loading gig details…</p>;
-  if (error) return <p className="state-message state-message--error">Couldn't load gig: {error}</p>;
-  if (!gig) return null;
+  // Loading state — show cache immediately if available, show spinner if not
+  if (!gig && !error) {
+    return <p className="state-message">Loading gig details…</p>;
+  }
+
+  if (!gig && error) {
+    return (
+      <div>
+        <button className="link-button" onClick={onBack}>← Back to my gigs</button>
+        <div className="day-sheet__section" style={{ marginTop: 16 }}>
+          <p className="state-message state-message--error" style={{ padding: 0 }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   const venue = gig.venues;
   const hasPin = venue?.latitude != null && venue?.longitude != null;
@@ -103,27 +81,63 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
     ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(venue.address) + '&travelmode=driving'
     : null;
 
+  const myEntry = lineup.find((l) => l.profile_id === myProfileId) || null;
   const myTravel = myEntry?.travel_cost_pence;
 
   return (
     <div className="day-sheet">
       <button className="link-button" onClick={onBack}>← Back to my gigs</button>
 
+      {/* Sync status bar */}
+      <div className={'sync-bar ' + (isOffline ? 'sync-bar--offline' : 'sync-bar--online')}>
+        <div className="sync-bar__left">
+          <span className={'sync-bar__dot sync-bar__dot--' + (isOffline ? 'offline' : 'online')} />
+          {isOffline ? (
+            <span>
+              <strong>Offline</strong>
+              {syncedAt ? ' — showing data cached ' + formatSyncTime(syncedAt) : ' — no cached data'}
+            </span>
+          ) : syncing ? (
+            <span>Syncing…</span>
+          ) : (
+            <span>Online · synced {formatSyncTime(syncedAt)}</span>
+          )}
+        </div>
+        {!isOffline && !syncing && (
+          <button className="sync-bar__refresh" onClick={refresh} title="Refresh">
+            ↻ Refresh
+          </button>
+        )}
+      </div>
+
+      {/* Offline warning if data might be stale */}
+      {isOffline && syncedAt && (
+        <div className="offline-banner">
+          ⚠ You're offline. This data was last updated on{' '}
+          <strong>
+            {new Date(syncedAt).toLocaleDateString('en-GB', {
+              weekday: 'short', day: 'numeric', month: 'short',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </strong>
+          . Maps and media players won't work without a connection.
+        </div>
+      )}
+
       {/* Confirmation banner */}
       {myEntry && (
         <div className={'day-sheet__confirm-banner day-sheet__confirm-banner--' + (myEntry.confirmed ? 'yes' : 'no')}>
           {myEntry.confirmed ? (
-            <span>✓ You are confirmed for this gig as <strong>{myEntry.instruments?.name || 'musician'}</strong></span>
+            <span>✓ You are confirmed on this gig as <strong>{myEntry.instruments?.name || 'musician'}</strong></span>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <span>You haven't confirmed this gig yet.</span>
-              <button
-                className="btn btn--primary btn--small"
-                onClick={handleConfirm}
-                disabled={confirming}
-              >
-                {confirming ? 'Confirming…' : 'Confirm I\'m available'}
-              </button>
+              {!isOffline && (
+                <button className="btn btn--primary btn--small" onClick={() => handleConfirm(myEntry)} disabled={confirming}>
+                  {confirming ? 'Confirming…' : "Confirm I'm available"}
+                </button>
+              )}
+              {isOffline && <span className="field__hint">Connect to confirm.</span>}
             </div>
           )}
         </div>
@@ -184,7 +198,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
             <strong>Your travel:</strong> £{(myTravel / 100).toFixed(2)}
           </p>
         )}
-        {hasPin && (
+        {hasPin && !isOffline && (
           <iframe
             title="Venue map"
             width="100%"
@@ -194,6 +208,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
             src={mapSrc}
           />
         )}
+        {hasPin && isOffline && (
+          <p className="field__hint" style={{ marginTop: 8 }}>
+            Map not available offline — use the directions button to navigate.
+          </p>
+        )}
         {directionsHref && (
           <button
             type="button"
@@ -201,16 +220,21 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
             style={{ marginTop: 10 }}
             onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
           >
-            Get directions
+            Get directions ↗
           </button>
         )}
       </div>
 
       {/* Notes */}
-      {gig.notes && (
+      {(gig.notes || gig.clients?.name) && (
         <div className="day-sheet__section">
-          <h3 className="day-sheet__section-title">Notes</h3>
-          <p className="day-sheet__text">{gig.notes}</p>
+          <h3 className="day-sheet__section-title">Event notes</h3>
+          {gig.clients?.name && (
+            <p className="day-sheet__text">
+              <strong>Client:</strong> {gig.clients.name}
+            </p>
+          )}
+          {gig.notes && <p className="day-sheet__text">{gig.notes}</p>}
         </div>
       )}
 
@@ -231,6 +255,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
               </span>
             </li>
           ))}
+          {lineup.length === 0 && <li className="state-message">No one booked yet.</li>}
         </ul>
       </div>
 
@@ -251,13 +276,15 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
                       <div className="day-sheet__song-row">
                         <span className="day-sheet__song-title">
                           {song?.title}
-                          {song?.artist && <span className="day-sheet__song-artist"> — {song.artist}</span>}
+                          {song?.artist && (
+                            <span className="day-sheet__song-artist"> — {song.artist}</span>
+                          )}
                           {song?.original_key && (
                             <span className="setlist-song__key">{song.original_key}</span>
                           )}
                         </span>
                         <div className="day-sheet__song-actions">
-                          {song?.reference_url && (
+                          {song?.reference_url && !isOffline && (
                             <button
                               className="link-button"
                               onClick={() => setShowPlayerId(isShowingPlayer ? null : item.id)}
@@ -275,7 +302,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
                           )}
                         </div>
                       </div>
-                      {isShowingPlayer && song?.reference_url && (
+                      {isShowingPlayer && song?.reference_url && !isOffline && (
                         <ReferencePlayer url={song.reference_url} />
                       )}
                       {isShowingLyrics && song?.lyrics && (
@@ -290,8 +317,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
         </div>
       )}
 
-      {/* Musician's own payment claim */}
-      <MusicianClaim gigId={gigId} myProfileId={myProfileId} />
+      {/* Payment claim — only when online */}
+      {!isOffline && (
+        <MusicianClaim gigId={gigId} myProfileId={myProfileId} />
+      )}
+      {isOffline && (
+        <div className="day-sheet__section">
+          <h3 className="day-sheet__section-title">My payment claim</h3>
+          <p className="field__hint">Payment claims require a connection.</p>
+        </div>
+      )}
     </div>
   );
 }
