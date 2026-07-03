@@ -1,142 +1,92 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { useCurrentProfile } from '../context/ProfileContext.jsx';
-import GigForm from './GigForm.jsx';
-import GigDetail from './GigDetail.jsx';
-import GigDetailBandMember from './GigDetailBandMember.jsx';
+import ClientForm from './ClientForm.jsx';
 
-export default function GigsList() {
-  const { profile, isAdmin, loading: profileLoading } = useCurrentProfile();
-  const [gigs, setGigs] = useState([]);
+export default function ClientsList() {
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedGigId, setSelectedGigId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
-  const loadGigs = useCallback(async () => {
-    if (profileLoading) return;
+  const loadClients = useCallback(async () => {
     setLoading(true);
-    const query = supabase
-      .from('gigs')
-      .select('id, gig_date, start_time, status, venues(name), clients(name), bands(name)');
-
-    if (!isAdmin) {
-      // RLS enforces this server-side too; this is just belt-and-braces
-      // deliberately not fetching fee_amount for band members
-    } else {
-      // admin gets fee amount
-    }
-
-    const { data, error } = await query
-      .order('gig_date', { ascending: true });
-
+    const { data, error } = await supabase.from('clients').select('*').order('name');
     if (error) setError(error.message);
-    else setGigs(data);
+    else setClients(data);
     setLoading(false);
-  }, [isAdmin, profileLoading]);
+  }, []);
 
   useEffect(() => {
-    loadGigs();
-  }, [loadGigs]);
+    loadClients();
+  }, [loadClients]);
 
-  function handleCreated() {
+  function handleSaved() {
     setShowAddForm(false);
-    loadGigs();
+    setEditingId(null);
+    loadClients();
   }
 
-  async function handleDelete(gig, e) {
-    e.stopPropagation();
-    const ok = window.confirm(
-      'Delete this gig? This also permanently deletes its lineup, setlist, and invoice records. This cannot be undone.'
-    );
+  async function handleDelete(client) {
+    const ok = window.confirm(`Delete "${client.name}"? This can't be undone.`);
     if (!ok) return;
-    const { error } = await supabase.from('gigs').delete().eq('id', gig.id);
+    const { error } = await supabase.from('clients').delete().eq('id', client.id);
     if (error) {
-      alert("Couldn't delete: " + error.message);
+      alert(`Couldn't delete: ${error.message}`);
       return;
     }
-    loadGigs();
-  }
-
-  if (selectedGigId) {
-    if (isAdmin) {
-      return (
-        <GigDetail
-          gigId={selectedGigId}
-          onBack={() => setSelectedGigId(null)}
-          onDeleted={() => {
-            setSelectedGigId(null);
-            loadGigs();
-          }}
-        />
-      );
-    }
-    return (
-      <GigDetailBandMember
-        gigId={selectedGigId}
-        myProfileId={profile?.id}
-        onBack={() => setSelectedGigId(null)}
-      />
-    );
+    loadClients();
   }
 
   return (
     <div>
       <div className="section-header">
-        <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
-        {isAdmin && (
-          <button className="btn btn--primary btn--small" onClick={() => setShowAddForm((v) => !v)}>
-            {showAddForm ? 'Close' : '+ Add gig'}
-          </button>
-        )}
+        <h2 className="section-header__title">Clients</h2>
+        <button className="btn btn--primary btn--small" onClick={() => setShowAddForm((v) => !v)}>
+          {showAddForm ? 'Close' : '+ Add client'}
+        </button>
       </div>
 
-      {isAdmin && showAddForm && (
-        <GigForm onSaved={handleCreated} onCancel={() => setShowAddForm(false)} />
-      )}
+      {showAddForm && <ClientForm onSaved={handleSaved} onCancel={() => setShowAddForm(false)} />}
 
       {loading ? (
-        <p className="state-message">Loading gigs…</p>
+        <p className="state-message">Loading clients…</p>
       ) : error ? (
-        <p className="state-message state-message--error">Couldn't load gigs: {error}</p>
-      ) : gigs.length === 0 ? (
-        <p className="state-message">
-          {isAdmin ? 'No gigs yet.' : "You haven't been added to any gigs yet."}
-        </p>
+        <p className="state-message state-message--error">Couldn't load clients: {error}</p>
+      ) : clients.length === 0 ? (
+        <p className="state-message">No clients yet.</p>
       ) : (
-        <ul className="gig-list">
-          {gigs.map((gig) => {
-            const date = new Date(`${gig.gig_date}T00:00:00`);
-            const day = date.toLocaleDateString('en-GB', { day: '2-digit' });
-            const month = date.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
-            return (
-              <li
-                className="gig-card"
-                key={gig.id}
-                onClick={() => setSelectedGigId(gig.id)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="gig-card__main">
-                  <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
-                  <h2 className="gig-card__venue">{gig.venues?.name ?? 'No venue set'}</h2>
-                  <p className="gig-card__client">{gig.bands?.name ?? ''}</p>
-                  {isAdmin && gig.clients?.name && (
-                    <p className="gig-card__client">{gig.clients.name}</p>
+        <ul className="simple-list">
+          {clients.map((c) => (
+            <li className="simple-list__item" key={c.id}>
+              {editingId === c.id ? (
+                <ClientForm client={c} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
+              ) : (
+                <>
+                  <div className="simple-list__row">
+                    <div>
+                      <span className="simple-list__title">{c.name}</span>
+                      {c.email && <span className="simple-list__subtitle">{c.email}</span>}
+                    </div>
+                    <div className="simple-list__actions">
+                      <button className="link-button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
+                        {expandedId === c.id ? 'Hide details' : 'View details'}
+                      </button>
+                      <button className="link-button" onClick={() => setEditingId(c.id)}>Edit</button>
+                      <button className="link-button link-button--danger" onClick={() => handleDelete(c)}>Delete</button>
+                    </div>
+                  </div>
+                  {expandedId === c.id && (
+                    <dl className="detail-list">
+                      <dt>Phone</dt><dd>{c.phone || '—'}</dd>
+                      <dt>Billing notes</dt><dd>{c.billing_notes || '—'}</dd>
+                    </dl>
                   )}
-                  {isAdmin && (
-                    <button className="link-button link-button--danger" onClick={(e) => handleDelete(gig, e)}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-                <div className="gig-card__stub">
-                  <span className="gig-card__day">{day}</span>
-                  <span className="gig-card__month">{month}</span>
-                  {gig.start_time && <span className="gig-card__time">{gig.start_time.slice(0, 5)}</span>}
-                </div>
-              </li>
-            );
-          })}
+                </>
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </div>
