@@ -242,8 +242,6 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
 
   return (
     <div className="setlist-block">
-
-      // Then in the JSX:
       <div className="section-header">
         {renaming ? (
           <form onSubmit={handleRename} style={{ display: 'flex', gap: 8, flex: 1 }}>
