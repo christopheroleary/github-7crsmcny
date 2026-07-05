@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Gig Manager",
   "short_name": "Gigs",
   "description": "Your gigs, setlists and day sheets — available offline.",
@@ -32,12 +33,21 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "label": "My gigs list"
     },
     {
-      "src": "/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "/screenshots/screenshot-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Admin gig management"
     }
   ]
 }
