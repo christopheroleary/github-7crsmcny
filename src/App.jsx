@@ -8,6 +8,7 @@ import ClientsList from './components/ClientsList.jsx';
 import BandsList from './components/BandsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
+import NotificationBell from './components/NotificationBell.jsx';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -27,6 +28,15 @@ export default function App() {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Handle notification click navigation
+  // Notification URLs are tab names like '/gigs' or '/profile'
+  function handleNotificationNavigate(url) {
+    if (!url) return;
+    const tab = url.replace('/', '');
+    const validTabs = ['gigs', 'venues', 'clients', 'bands', 'musicians', 'profile'];
+    if (validTabs.includes(tab)) setView(tab);
+  }
 
   if (sessionLoading || profileLoading) {
     return <div className="page-loading">Loading…</div>;
@@ -54,9 +64,12 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <span className="app-header__title">Gig Manager</span>
-        <button className="btn btn--ghost" onClick={() => supabase.auth.signOut()}>
-          Sign out
-        </button>
+        <div className="app-header__right">
+          <NotificationBell onNavigate={handleNotificationNavigate} />
+          <button className="btn btn--ghost" onClick={() => supabase.auth.signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <nav className="tab-nav">
