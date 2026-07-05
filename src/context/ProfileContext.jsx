@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 const ProfileContext = createContext(null);
@@ -6,52 +6,48 @@ const ProfileContext = createContext(null);
 export function ProfileProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
+
+  async function loadProfile() {
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) {
+      setProfile(null);
+      setLoading(false);
+      loadedRef.current = false;
+      return;
+    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('id', uid)
+      .single();
+    setProfile(data || null);
+    setLoading(false);
+    loadedRef.current = true;
+  }
 
   useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData?.user?.id;
-      if (!uid) {
-        if (active) { setProfile(null); setLoading(false); }
-        return;
-      }
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .eq('id', uid)
-        .single();
-      if (active) {
-        setProfile(data || null);
-        setLoading(false);
-      }
-    }
-
     loadProfile();
 
-    // Re-load profile whenever auth state changes (sign in / sign out)
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
-        if (active) { setProfile(null); setLoading(false); }
-      } else if (event === 'SIGNED_IN') {
+        setProfile(null);
+        setLoading(false);
+        loadedRef.current = false;
+      } else if (event === 'SIGNED_IN' && !loadedRef.current) {
+        // Only reload if we don't already have a profile —
+        // prevents tab-focus token refreshes from wiping navigation state
         setLoading(true);
         loadProfile();
       }
     });
 
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   return (
-    <ProfileContext.Provider value={{
-      profile,
-      isAdmin: profile?.role === 'admin',
-      loading,
-    }}>
+    <ProfileContext.Provider value={{ profile, isAdmin: profile?.role === 'admin', loading }}>
       {children}
     </ProfileContext.Provider>
   );

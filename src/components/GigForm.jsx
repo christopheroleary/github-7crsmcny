@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import TimeInput from './TimeInput.jsx';
 
 export default function GigForm({ gig, onSaved, onCancel }) {
   const isEdit = Boolean(gig);
@@ -8,8 +9,19 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [clients, setClients] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
+  // Band
   const [bandId, setBandId] = useState(gig?.band_id || '');
+  const [showNewBand, setShowNewBand] = useState(false);
+  const [newBandName, setNewBandName] = useState('');
+
+  // Venue
   const [venueId, setVenueId] = useState(gig?.venue_id || '');
+  const [showNewVenue, setShowNewVenue] = useState(false);
+  const [newVenueName, setNewVenueName] = useState('');
+  const [newVenueContact, setNewVenueContact] = useState('');
+  const [newVenuePhone, setNewVenuePhone] = useState('');
+
+  // Client
   const [clientId, setClientId] = useState(gig?.client_id || '');
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState('');
@@ -22,13 +34,11 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [loadInTime, setLoadInTime] = useState(gig?.load_in_time?.slice(0, 5) || '');
   const [soundcheckTime, setSoundcheckTime] = useState(gig?.soundcheck_time?.slice(0, 5) || '');
   const [status, setStatus] = useState(gig?.status || 'inquiry');
-  const [feeAmount, setFeeAmount] = useState(gig?.fee_amount ?? '');
+  const [feeAmount, setFeeAmount] = useState(gig?.fee_amount != null ? Math.round(Number(gig.fee_amount)) : '');
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
-
   const [requirements, setRequirements] = useState([]);
   const [originalRequirementIds, setOriginalRequirementIds] = useState([]);
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -37,53 +47,57 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
-
     if (isEdit) {
-      supabase
-        .from('gig_requirements')
-        .select('id, instrument_id, quantity')
-        .eq('gig_id', gig.id)
-        .then(({ data }) => {
-          const rows = (data || []).map((r) => ({ id: r.id, instrument_id: r.instrument_id, quantity: r.quantity }));
-          setRequirements(rows);
-          setOriginalRequirementIds(rows.map((r) => r.id));
-        });
+      supabase.from('gig_requirements').select('id, instrument_id, quantity').eq('gig_id', gig.id).then(({ data }) => {
+        const rows = (data || []).map((r) => ({ id: r.id, instrument_id: r.instrument_id, quantity: r.quantity }));
+        setRequirements(rows);
+        setOriginalRequirementIds(rows.map((r) => r.id));
+      });
     }
   }, [isEdit, gig?.id]);
 
-  function addRequirementRow() {
-    setRequirements([...requirements, { id: null, instrument_id: '', quantity: 1 }]);
-  }
-  function updateRequirementRow(index, field, value) {
-    setRequirements(requirements.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
-  }
-  function removeRequirementRow(index) {
-    setRequirements(requirements.filter((_, i) => i !== index));
-  }
+  function addRequirementRow() { setRequirements([...requirements, { id: null, instrument_id: '', quantity: 1 }]); }
+  function updateRequirementRow(i, field, value) { setRequirements(requirements.map((r, idx) => idx === i ? { ...r, [field]: value } : r)); }
+  function removeRequirementRow(i) { setRequirements(requirements.filter((_, idx) => idx !== i)); }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
+    // Quick-create band
+    let finalBandId = bandId || null;
+    if (showNewBand && newBandName.trim()) {
+      const { data: nb, error: be } = await supabase.from('bands').insert({ name: newBandName }).select().single();
+      if (be) { setError(be.message); setSubmitting(false); return; }
+      finalBandId = nb.id;
+    }
+
+    // Quick-create venue
+    let finalVenueId = venueId || null;
+    if (showNewVenue && newVenueName.trim()) {
+      const { data: nv, error: ve } = await supabase.from('venues').insert({
+        name: newVenueName,
+        contact_name: newVenueContact || null,
+        phone: newVenuePhone || null,
+      }).select().single();
+      if (ve) { setError(ve.message); setSubmitting(false); return; }
+      finalVenueId = nv.id;
+    }
+
+    // Quick-create client
     let finalClientId = clientId || null;
     if (showNewClient && newClientName.trim()) {
-      const { data: newClient, error: clientError } = await supabase
-        .from('clients')
-        .insert({ name: newClientName, email: newClientEmail || null, phone: newClientPhone || null })
-        .select()
-        .single();
-      if (clientError) {
-        setError(clientError.message);
-        setSubmitting(false);
-        return;
-      }
-      finalClientId = newClient.id;
+      const { data: nc, error: ce } = await supabase.from('clients').insert({
+        name: newClientName, email: newClientEmail || null, phone: newClientPhone || null,
+      }).select().single();
+      if (ce) { setError(ce.message); setSubmitting(false); return; }
+      finalClientId = nc.id;
     }
 
     const payload = {
-      band_id: bandId || null,
-      venue_id: venueId || null,
+      band_id: finalBandId,
+      venue_id: finalVenueId,
       client_id: finalClientId,
       gig_date: gigDate,
       start_time: startTime || null,
@@ -91,61 +105,33 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       load_in_time: loadInTime || null,
       soundcheck_time: soundcheckTime || null,
       status,
-      fee_amount: feeAmount === '' ? null : Number(feeAmount),
+      fee_amount: feeAmount === '' ? null : Math.round(Number(feeAmount)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
     };
 
     let gigId = gig?.id;
     if (isEdit) {
-      const { error: updateError } = await supabase.from('gigs').update(payload).eq('id', gigId);
-      if (updateError) {
-        setError(updateError.message);
-        setSubmitting(false);
-        return;
-      }
+      const { error: ue } = await supabase.from('gigs').update(payload).eq('id', gigId);
+      if (ue) { setError(ue.message); setSubmitting(false); return; }
     } else {
-      const { data: newGig, error: insertError } = await supabase.from('gigs').insert(payload).select().single();
-      if (insertError) {
-        setError(insertError.message);
-        setSubmitting(false);
-        return;
-      }
-      gigId = newGig.id;
+      const { data: ng, error: ie } = await supabase.from('gigs').insert(payload).select().single();
+      if (ie) { setError(ie.message); setSubmitting(false); return; }
+      gigId = ng.id;
     }
 
     const currentIds = requirements.filter((r) => r.id).map((r) => r.id);
     const toDelete = originalRequirementIds.filter((id) => !currentIds.includes(id));
     if (toDelete.length > 0) {
-      const { error: delError } = await supabase.from('gig_requirements').delete().in('id', toDelete);
-      if (delError) {
-        setError(delError.message);
-        setSubmitting(false);
-        return;
-      }
+      const { error: de } = await supabase.from('gig_requirements').delete().in('id', toDelete);
+      if (de) { setError(de.message); setSubmitting(false); return; }
     }
-
     for (const r of requirements) {
       if (!r.instrument_id) continue;
       if (r.id) {
-        const { error: updError } = await supabase
-          .from('gig_requirements')
-          .update({ instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 })
-          .eq('id', r.id);
-        if (updError) {
-          setError(updError.message);
-          setSubmitting(false);
-          return;
-        }
+        await supabase.from('gig_requirements').update({ instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 }).eq('id', r.id);
       } else {
-        const { error: insError } = await supabase
-          .from('gig_requirements')
-          .insert({ gig_id: gigId, instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 });
-        if (insError) {
-          setError(insError.message);
-          setSubmitting(false);
-          return;
-        }
+        await supabase.from('gig_requirements').insert({ gig_id: gigId, instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 });
       }
     }
 
@@ -155,22 +141,48 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
   return (
     <form className="entity-form" onSubmit={handleSubmit}>
-      <label className="field">
+
+      {/* Band */}
+      <div className="field">
         <span className="field__label">Band</span>
-        <select value={bandId} onChange={(e) => setBandId(e.target.value)}>
-          <option value="">No band set</option>
-          {bands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </label>
+        {!showNewBand ? (
+          <>
+            <select value={bandId} onChange={(e) => setBandId(e.target.value)}>
+              <option value="">No band set</option>
+              {bands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <button type="button" className="link-button" onClick={() => setShowNewBand(true)}>+ Quick add band</button>
+          </>
+        ) : (
+          <div className="inline-subform">
+            <input placeholder="Band name" value={newBandName} onChange={(e) => setNewBandName(e.target.value)} required />
+            <button type="button" className="link-button" onClick={() => setShowNewBand(false)}>Cancel, pick existing instead</button>
+          </div>
+        )}
+      </div>
 
-      <label className="field">
+      {/* Venue */}
+      <div className="field">
         <span className="field__label">Venue</span>
-        <select value={venueId} onChange={(e) => setVenueId(e.target.value)}>
-          <option value="">No venue yet</option>
-          {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
-      </label>
+        {!showNewVenue ? (
+          <>
+            <select value={venueId} onChange={(e) => setVenueId(e.target.value)}>
+              <option value="">No venue yet</option>
+              {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+            <button type="button" className="link-button" onClick={() => setShowNewVenue(true)}>+ Quick add venue</button>
+          </>
+        ) : (
+          <div className="inline-subform">
+            <input placeholder="Venue name" value={newVenueName} onChange={(e) => setNewVenueName(e.target.value)} required />
+            <input placeholder="Contact name (optional)" value={newVenueContact} onChange={(e) => setNewVenueContact(e.target.value)} />
+            <input placeholder="Phone (optional)" value={newVenuePhone} onChange={(e) => setNewVenuePhone(e.target.value)} />
+            <button type="button" className="link-button" onClick={() => setShowNewVenue(false)}>Cancel, pick existing instead</button>
+          </div>
+        )}
+      </div>
 
+      {/* Client */}
       <div className="field">
         <span className="field__label">Client</span>
         {!showNewClient ? (
@@ -183,7 +195,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           </>
         ) : (
           <div className="inline-subform">
-            <input placeholder="Client name" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
+            <input placeholder="Client name" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} required />
             <input placeholder="Email (optional)" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} />
             <input placeholder="Phone (optional)" value={newClientPhone} onChange={(e) => setNewClientPhone(e.target.value)} />
             <button type="button" className="link-button" onClick={() => setShowNewClient(false)}>Cancel, pick existing instead</button>
@@ -210,28 +222,35 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       <div className="field-row">
         <label className="field">
           <span className="field__label">Start time</span>
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <TimeInput id="start-time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">End time</span>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <TimeInput id="end-time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </label>
       </div>
 
       <div className="field-row">
         <label className="field">
           <span className="field__label">Load-in time</span>
-          <input type="time" value={loadInTime} onChange={(e) => setLoadInTime(e.target.value)} />
+          <TimeInput id="loadin-time" value={loadInTime} onChange={(e) => setLoadInTime(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">Soundcheck time</span>
-          <input type="time" value={soundcheckTime} onChange={(e) => setSoundcheckTime(e.target.value)} />
+          <TimeInput id="soundcheck-time" value={soundcheckTime} onChange={(e) => setSoundcheckTime(e.target.value)} />
         </label>
       </div>
 
       <label className="field">
-        <span className="field__label">Fee (£)</span>
-        <input type="number" step="0.01" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} />
+        <span className="field__label">Fee (£) — whole number</span>
+        <input
+          type="number"
+          step="1"
+          min="0"
+          value={feeAmount}
+          onChange={(e) => setFeeAmount(e.target.value)}
+          placeholder="e.g. 650"
+        />
       </label>
 
       <label className="field">
@@ -247,18 +266,12 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       <div className="field">
         <span className="field__label">Instruments needed</span>
         {requirements.map((r, i) => (
-          <div className="field-row requirement-row" key={r.id ?? `new-${i}`}>
+          <div className="field-row requirement-row" key={r.id ?? 'new-' + i}>
             <select value={r.instrument_id} onChange={(e) => updateRequirementRow(i, 'instrument_id', e.target.value)}>
               <option value="">Choose instrument…</option>
               {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
             </select>
-            <input
-              type="number"
-              min="1"
-              value={r.quantity}
-              onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)}
-              style={{ maxWidth: '70px' }}
-            />
+            <input type="number" min="1" value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
             <button type="button" className="btn btn--ghost btn--small" onClick={() => removeRequirementRow(i)}>Remove</button>
           </div>
         ))}
@@ -266,7 +279,6 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       </div>
 
       {error && <p className="form-error">{error}</p>}
-
       <div className="form-actions">
         <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn btn--primary" disabled={submitting}>

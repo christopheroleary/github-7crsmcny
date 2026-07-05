@@ -115,6 +115,96 @@ export default function MusiciansList() {
           ))}
         </ul>
       )}
+      {isAdmin && <PlaceholdersSection />}
+    </div>
+  );
+}
+
+function PlaceholdersSection() {
+  const [placeholders, setPlaceholders] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mergeTargets, setMergeTargets] = useState({});
+
+  const load = useCallback(async () => {
+    const [{ data: ph }, { data: pr }] = await Promise.all([
+      supabase.from('placeholder_musicians').select('id, name, instruments(name), merged_into').order('name'),
+      supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+    ]);
+    setPlaceholders(ph || []);
+    setProfiles(pr || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleMerge(ph) {
+    const targetId = mergeTargets[ph.id];
+    if (!targetId) { alert('Pick a profile to merge into first.'); return; }
+    const targetName = profiles.find((p) => p.id === targetId)?.full_name;
+    const ok = window.confirm('Merge all gig history for "' + ph.name + '" into ' + targetName + '? This cannot be undone.');
+    if (!ok) return;
+    const { error } = await supabase.rpc('merge_placeholder_musician', {
+      p_placeholder_id: ph.id,
+      p_target_profile_id: targetId,
+    });
+    if (error) { alert("Couldn't merge: " + error.message); return; }
+    load();
+  }
+
+  const active = placeholders.filter((p) => !p.merged_into);
+  const merged = placeholders.filter((p) => p.merged_into);
+
+  if (loading) return null;
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <div className="section-header">
+        <h2 className="section-header__title">Deps &amp; session musicians</h2>
+      </div>
+      {active.length === 0 ? (
+        <p className="state-message">No placeholder musicians yet — add them from a gig's roster.</p>
+      ) : (
+        <ul className="simple-list">
+          {active.map((ph) => (
+            <li className="simple-list__item" key={ph.id}>
+              <div className="simple-list__row">
+                <div>
+                  <span className="simple-list__title">{ph.name}</span>
+                  {ph.instruments?.name && <span className="simple-list__subtitle">{ph.instruments.name}</span>}
+                </div>
+                <div className="simple-list__actions" style={{ flexWrap: 'wrap', gap: 6 }}>
+                  <select
+                    value={mergeTargets[ph.id] || ''}
+                    onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
+                    style={{ fontSize: 13, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+                  >
+                    <option value="">Merge into real account…</option>
+                    {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  </select>
+                  <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {merged.length > 0 && (
+        <details style={{ marginTop: 16 }}>
+          <summary className="link-button" style={{ cursor: 'pointer' }}>Show {merged.length} merged placeholder{merged.length > 1 ? 's' : ''}</summary>
+          <ul className="simple-list" style={{ marginTop: 8 }}>
+            {merged.map((ph) => {
+              const target = profiles.find((p) => p.id === ph.merged_into);
+              return (
+                <li className="simple-list__item" key={ph.id}>
+                  <span className="simple-list__title" style={{ color: 'var(--text-muted)' }}>{ph.name}</span>
+                  <span className="simple-list__subtitle">→ merged into {target?.full_name || 'unknown account'}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

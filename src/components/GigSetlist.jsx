@@ -229,11 +229,32 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
     reload();
   }
 
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(setlist.name);
+
+  async function handleRename(e) {
+    e.preventDefault();
+    if (!renameValue.trim()) return;
+    await supabase.from('setlists').update({ name: renameValue }).eq('id', setlist.id);
+    setRenaming(false);
+    reload();
+  }
+
   return (
     <div className="setlist-block">
+
+      // Then in the JSX:
       <div className="section-header">
-        <h4 className="section-header__title" style={{ fontSize: 15 }}>{setlist.name}</h4>
-        {isAdmin && (
+        {renaming ? (
+          <form onSubmit={handleRename} style={{ display: 'flex', gap: 8, flex: 1 }}>
+            <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus style={{ flex: 1, padding: '4px 8px', border: '1px solid var(--line)', borderRadius: 6 }} />
+            <button type="submit" className="btn btn--primary btn--small">Save</button>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setRenaming(false)}>Cancel</button>
+          </form>
+        ) : (
+          <h4 className="section-header__title" style={{ fontSize: 15 }} onDoubleClick={() => setRenaming(true)} title="Double-click to rename">{setlist.name}</h4>
+        )}
+          {isAdmin && (
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="link-button" onClick={onDetach}>Remove from this gig</button>
             <button className="link-button link-button--danger" onClick={onDeleteTemplate}>Delete set entirely</button>

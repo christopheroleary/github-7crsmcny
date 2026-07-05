@@ -1719,3 +1719,13 @@ input {
     right: -8px;
   }
 }
+.gig-card--historic {
+  opacity: 0.6;
+}
+.gig-card--historic:hover {
+  opacity: 0.85;
+}
+.notif-bell__btn--active {
+  background: rgba(200, 134, 46, 0.15);
+  color: var(--amber-dark);
+}
