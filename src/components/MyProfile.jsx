@@ -148,7 +148,7 @@ export default function MyProfile() {
 
       <div className="field">
         <span className="field__label">Notifications</span>
-        <NotificationSetup profileId={userId} />
+        <NotificationSetup />
       </div>
 
       {error && <p className="form-error">{error}</p>}
