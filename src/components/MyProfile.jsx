@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
+import NotificationSetup from './NotificationSetup.jsx';
 
 export default function MyProfile() {
   const [loading, setLoading] = useState(true);
@@ -144,6 +145,11 @@ export default function MyProfile() {
         <span className="field__label">Instruments</span>
         <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
       </label>
+
+      <div className="field">
+        <span className="field__label">Notifications</span>
+        <NotificationSetup profileId={userId} />
+      </div>
 
       {error && <p className="form-error">{error}</p>}
       {saved && <p className="form-success">Saved.</p>}
