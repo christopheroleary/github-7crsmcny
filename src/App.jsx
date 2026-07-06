@@ -9,6 +9,9 @@ import BandsList from './components/BandsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import EnquiriesList from './components/EnquiriesList.jsx';
+import EnquiryForm from './components/EnquiryForm.jsx';
 
 function UserIcon() {
   return (
@@ -19,13 +22,25 @@ function UserIcon() {
   );
 }
 
+// Public enquiry form — no auth needed
+if (window.location.pathname.startsWith('/enquiry')) {
+  const root = document.getElementById('root');
+  if (root && !root.dataset.enquiryMounted) {
+    root.dataset.enquiryMounted = 'true';
+  }
+}
+
 export default function App() {
+  // Serve public enquiry form regardless of auth state
+  if (window.location.pathname.startsWith('/enquiry')) {
+    return <EnquiryForm />;
+  }
+
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const { isAdmin, loading: profileLoading } = useCurrentProfile();
+  const [view, setView] = useState(() => sessionStorage.getItem('gig_view') || 'dashboard');
 
-  // Persist view across tab focus/blur and minor re-renders
-  const [view, setView] = useState(() => sessionStorage.getItem('gig_view') || 'gigs');
   function updateView(v) {
     sessionStorage.setItem('gig_view', v);
     setView(v);
@@ -46,7 +61,9 @@ export default function App() {
   if (!session) return <Login />;
 
   const adminTabs = [
+    ['dashboard', 'Dashboard'],
     ['gigs', 'Gigs'],
+    ['enquiries', 'Enquiries'],
     ['venues', 'Venues'],
     ['clients', 'Clients'],
     ['bands', 'Bands'],
@@ -66,7 +83,7 @@ export default function App() {
         <div className="app-header__right">
           <NotificationBell onNavigate={(url) => {
             const tab = url.replace('/', '');
-            if (['gigs','venues','clients','bands','musicians','profile'].includes(tab)) updateView(tab);
+            if (tabs.some(([k]) => k === tab)) updateView(tab);
           }} />
           <button
             className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
@@ -95,7 +112,9 @@ export default function App() {
       </nav>
 
       <main>
+        {view === 'dashboard' && isAdmin && <Dashboard />}
         {view === 'gigs' && <GigsList />}
+        {view === 'enquiries' && isAdmin && <EnquiriesList />}
         {view === 'venues' && isAdmin && <VenuesList />}
         {view === 'clients' && isAdmin && <ClientsList />}
         {view === 'bands' && isAdmin && <BandsList />}

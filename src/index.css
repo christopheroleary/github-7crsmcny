@@ -1729,3 +1729,159 @@ input {
   background: rgba(200, 134, 46, 0.15);
   color: var(--amber-dark);
 }
+/* ---- Dashboard ---- */
+.dashboard { padding-bottom: 32px; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--amber);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.kpi-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.kpi-card__count {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.kpi-card__value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--amber-dark);
+  margin: 0;
+}
+
+.dashboard-chart {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.dashboard-chart__title {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+
+/* ---- Gig card day name ---- */
+.gig-card__dayname {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+/* ---- Enquiry form (public) ---- */
+.enquiry-page {
+  min-height: 100vh;
+  background: var(--paper);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 20px 60px;
+}
+
+.enquiry-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 2px 12px rgba(30,27,22,0.06);
+}
+
+.enquiry-card__header {
+  border-bottom: 3px solid var(--amber);
+  padding: 28px 28px 20px;
+}
+
+.enquiry-card__title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.enquiry-card__sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.enquiry-card form {
+  padding: 20px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.enquiry-section-label {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 6px 0 -6px;
+}
+
+.enquiry-success {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.enquiry-success__icon { font-size: 48px; margin-bottom: 16px; }
+.enquiry-success h1 { font-family: var(--font-display); font-size: 28px; margin: 0 0 10px; }
+.enquiry-success p { color: var(--text-muted); font-size: 16px; }
+
+/* ---- Enquiry admin view ---- */
+.enquiry-share-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(200,134,46,0.08);
+  border: 1px solid rgba(200,134,46,0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.enquiry-url {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--paper);
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.enquiry-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}

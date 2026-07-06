@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import GigForm from './GigForm.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
+import { formatShortDate } from '../utils/formatDate.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -138,6 +139,7 @@ export default function GigsList() {
                   )}
                 </div>
                 <div className="gig-card__stub">
+                  <p className="gig-card__dayname">{formatShortDate(gig.gig_date)}</p>
                   <span className="gig-card__day">{day}</span>
                   <span className="gig-card__month">{month}</span>
                   {gig.start_time && <span className="gig-card__time">{gig.start_time.slice(0, 5)}</span>}

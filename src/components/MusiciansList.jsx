@@ -127,12 +127,21 @@ function PlaceholdersSection() {
   const [mergeTargets, setMergeTargets] = useState({});
 
   const load = useCallback(async () => {
-    const [{ data: ph }, { data: pr }] = await Promise.all([
-      supabase.from('placeholder_musicians').select('id, name, instruments(name), merged_into').order('name'),
+    const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
+      supabase.from('placeholder_musicians').select('id, name, merged_into').order('name'),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+      supabase.from('instruments').select('id, name').order('sort_order'),
+      supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),
     ]);
-    setPlaceholders(ph || []);
+  
+    // Attach instruments to each placeholder
+    const withInsts = (ph || []).map(p => ({
+      ...p,
+      instruments: (phInsts || []).filter(pi => pi.placeholder_id === p.id).map(pi => ({ id: pi.instrument_id, name: pi.instruments?.name })),
+    }));
+    setPlaceholders(withInsts);
     setProfiles(pr || []);
+    setAllInstruments(insts || []);
     setLoading(false);
   }, []);
 
@@ -167,26 +176,58 @@ function PlaceholdersSection() {
       ) : (
         <ul className="simple-list">
           {active.map((ph) => (
-            <li className="simple-list__item" key={ph.id}>
-              <div className="simple-list__row">
-                <div>
-                  <span className="simple-list__title">{ph.name}</span>
-                  {ph.instruments?.name && <span className="simple-list__subtitle">{ph.instruments.name}</span>}
-                </div>
-                <div className="simple-list__actions" style={{ flexWrap: 'wrap', gap: 6 }}>
-                  <select
-                    value={mergeTargets[ph.id] || ''}
-                    onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
-                    style={{ fontSize: 13, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
-                  >
-                    <option value="">Merge into real account…</option>
-                    {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                  </select>
-                  <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
-                </div>
-              </div>
-            </li>
+  <li className="simple-list__item" key={ph.id}>
+    <div className="simple-list__row">
+      <div>
+        <span className="simple-list__title">{ph.name}</span>
+        <span className="simple-list__subtitle">
+          {ph.instruments?.length > 0
+            ? ph.instruments.map(i => i.name).join(', ')
+            : 'No instruments set'}
+        </span>
+        {/* Instrument adder */}
+        <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {ph.instruments.map(inst => (
+            <span key={inst.id} className="tag">
+              {inst.name}
+              <button type="button" onClick={async () => {
+                await supabase.from('placeholder_musician_instruments')
+                  .delete().eq('placeholder_id', ph.id).eq('instrument_id', inst.id);
+                load();
+              }} aria-label={'Remove ' + inst.name}>×</button>
+            </span>
           ))}
+          <select
+            value=""
+            style={{ fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+            onChange={async (e) => {
+              if (!e.target.value) return;
+              await supabase.from('placeholder_musician_instruments')
+                .insert({ placeholder_id: ph.id, instrument_id: e.target.value });
+              load();
+            }}
+          >
+            <option value="">+ Add instrument…</option>
+            {allInstruments.filter(i => !ph.instruments.find(pi => pi.id === i.id)).map(i =>
+              <option key={i.id} value={i.id}>{i.name}</option>
+            )}
+          </select>
+        </div>
+      </div>
+      <div className="simple-list__actions" style={{ flexWrap: 'wrap', gap: 6, alignSelf: 'flex-start' }}>
+        <select
+          value={mergeTargets[ph.id] || ''}
+          onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
+          style={{ fontSize: 13, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+        >
+          <option value="">Merge into real account…</option>
+          {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+        </select>
+        <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
+      </div>
+    </div>
+  </li>
+))}
         </ul>
       )}
       {merged.length > 0 && (

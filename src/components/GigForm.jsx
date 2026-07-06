@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import TimeInput from './TimeInput.jsx';
+import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function GigForm({ gig, onSaved, onCancel }) {
   const isEdit = Boolean(gig);
@@ -20,6 +21,9 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [newVenueName, setNewVenueName] = useState('');
   const [newVenueContact, setNewVenueContact] = useState('');
   const [newVenuePhone, setNewVenuePhone] = useState('');
+  const [newVenueAddress, setNewVenueAddress] = useState('');
+  const [newVenueLat, setNewVenueLat] = useState(null);
+  const [newVenueLon, setNewVenueLon] = useState(null);
 
   // Client
   const [clientId, setClientId] = useState(gig?.client_id || '');
@@ -64,7 +68,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-
+    
     // Quick-create band
     let finalBandId = bandId || null;
     if (showNewBand && newBandName.trim()) {
@@ -78,12 +82,17 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     if (showNewVenue && newVenueName.trim()) {
       const { data: nv, error: ve } = await supabase.from('venues').insert({
         name: newVenueName,
+        address: newVenueAddress || null,
+        latitude: newVenueLat,
+        longitude: newVenueLon,
         contact_name: newVenueContact || null,
         phone: newVenuePhone || null,
       }).select().single();
-      if (ve) { setError(ve.message); setSubmitting(false); return; }
+            if (ve) { setError(ve.message); setSubmitting(false); return; }
       finalVenueId = nv.id;
     }
+
+
 
     // Quick-create client
     let finalClientId = clientId || null;
@@ -174,13 +183,20 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           </>
         ) : (
           <div className="inline-subform">
-            <input placeholder="Venue name" value={newVenueName} onChange={(e) => setNewVenueName(e.target.value)} required />
+            <input placeholder="Venue name *" value={newVenueName} onChange={(e) => setNewVenueName(e.target.value)} required />
+            <AddressAutocomplete
+              value={newVenueAddress}
+              onChange={(text) => { setNewVenueAddress(text); setNewVenueLat(null); setNewVenueLon(null); }}
+              onCoordinatesChange={(lat, lon) => { setNewVenueLat(lat); setNewVenueLon(lon); }}
+              placeholder="Address (start typing…)"
+            />
             <input placeholder="Contact name (optional)" value={newVenueContact} onChange={(e) => setNewVenueContact(e.target.value)} />
             <input placeholder="Phone (optional)" value={newVenuePhone} onChange={(e) => setNewVenuePhone(e.target.value)} />
             <button type="button" className="link-button" onClick={() => setShowNewVenue(false)}>Cancel, pick existing instead</button>
           </div>
         )}
       </div>
+
 
       {/* Client */}
       <div className="field">

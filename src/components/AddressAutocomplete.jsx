@@ -2,29 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 
 function formatAddress(feature) {
   const p = feature.properties;
-
-  // Build the first line: named place (venue/POI) takes priority over
-  // raw house number + street. If both exist, combine them so you get
-  // e.g. "The Bell & Anchor, 14 Quay Street" rather than losing the name.
   const namePart = p.name || '';
   const streetPart = [p.housenumber, p.street].filter(Boolean).join(' ');
-
   let firstLine = '';
-  if (namePart && streetPart && namePart !== streetPart) {
-    firstLine = namePart + ', ' + streetPart;
-  } else {
-    firstLine = namePart || streetPart;
-  }
-
-  // City falls back to district, then county — covers smaller towns and
-  // villages that Photon doesn't give a 'city' value for.
-  const locality = p.city || p.district || p.county || '';
-
-  const parts = [firstLine, locality, p.postcode, p.country]
-    .map((s) => (s || '').trim())
-    .filter(Boolean);
-
-  return parts.join(', ');
+  if (namePart && streetPart && namePart !== streetPart) firstLine = namePart + ', ' + streetPart;
+  else firstLine = namePart || streetPart;
+  const locality = p.city || p.district || '';
+  const county = p.county || '';
+  const parts = [firstLine, locality, county, p.postcode, p.country]
+    .map(s => (s || '').trim()).filter(Boolean);
+  // Deduplicate adjacent equal parts (city === county sometimes)
+  return parts.filter((v, i) => v !== parts[i - 1]).join(', ');
 }
 
 export default function AddressAutocomplete({ value, onChange, onCoordinatesChange, placeholder }) {

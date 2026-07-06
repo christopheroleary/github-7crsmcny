@@ -10,6 +10,8 @@ export default function BandMembers({ bandId, isAdmin }) {
   const [newInstrumentId, setNewInstrumentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [addMode, setAddMode] = useState('musician'); // 'musician' | 'dep'
+  const [depName, setDepName] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -21,6 +23,7 @@ export default function BandMembers({ bandId, isAdmin }) {
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
+      supabase.from('placeholder_musicians').select('id, name, placeholder_musician_instruments(instrument_id, instruments(name))').is('merged_into', null),
     ]);
     setMembers(memberRows || []);
     setMusicians(profiles || []);
@@ -81,38 +84,69 @@ export default function BandMembers({ bandId, isAdmin }) {
       <ul className="simple-list">
         {members.length === 0 && <li className="state-message">No members yet.</li>}
         {members.map((m) => (
+          
           <li className="simple-list__item" key={m.id}>
             <div className="simple-list__row">
-              <span className="simple-list__title">{m.profiles?.full_name}</span>
-              <div className="simple-list__actions">
-                <span className="tag">{m.instruments?.name}</span>
+              <span className="simple-list__title">
+                {m.profiles?.full_name || m.placeholder_musicians?.name || '—'}
+                {!m.profile_id && <span className="status-tag" style={{ marginLeft: 6, fontSize: 10 }}>dep</span>}
+              </span>
                 {isAdmin && (
                   <button className="link-button link-button--danger" onClick={() => handleRemove(m)}>Remove</button>
                 )}
               </div>
-            </div>
           </li>
         ))}
       </ul>
 
-      {isAdmin && (
-        <form className="inline-subform" onSubmit={handleAdd}>
-          <select value={newMusicianId} onChange={(e) => handleMusicianChange(e.target.value)} required>
-            <option value="">Choose musician…</option>
-            {musicians.map((p) => (
-              <option key={p.id} value={p.id}>{p.full_name}</option>
-            ))}
-          </select>
-          <select value={newInstrumentId} onChange={(e) => setNewInstrumentId(e.target.value)} required disabled={!newMusicianId}>
-            <option value="">{newMusicianId ? 'Choose instrument…' : 'Pick a musician first'}</option>
-            {availableInstruments.map((i) => (
-              <option key={i.id} value={i.id}>{i.name}</option>
-            ))}
-          </select>
-          {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn btn--primary btn--small">+ Add to band</button>
-        </form>
-      )}
+{isAdmin && (
+  <div className="inline-subform" style={{ marginTop: 10 }}>
+    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+      <button type="button" className={addMode === 'musician' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+        onClick={() => setAddMode('musician')}>Registered musician</button>
+      <button type="button" className={addMode === 'dep' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+        onClick={() => setAddMode('dep')}>Dep / session</button>
     </div>
-  );
-}
+    {addMode === 'musician' ? (
+      <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <select value={newMusicianId} onChange={(e) => handleMusicianChange(e.target.value)} required>
+          <option value="">Choose musician…</option>
+          {musicians.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+        </select>
+        <select value={newInstrumentId} onChange={(e) => setNewInstrumentId(e.target.value)} required disabled={!newMusicianId}>
+          <option value="">{newMusicianId ? 'Choose instrument…' : 'Pick musician first'}</option>
+          {availableInstruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
+        {error && <p className="form-error">{error}</p>}
+        <button type="submit" className="btn btn--primary btn--small">+ Add to band</button>
+      </form>
+    ) : (
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        if (!newMusicianId || !newInstrumentId) return;
+        const { error } = await supabase.from('band_members').insert({
+          band_id: bandId, profile_id: null, placeholder_id: newMusicianId, instrument_id: newInstrumentId,
+        });
+        if (error) { setError(error.message); return; }
+        setNewMusicianId(''); setNewInstrumentId(''); setDepName('');
+        load();
+      }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <select value={newMusicianId} onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); }} required>
+          <option value="">Choose dep…</option>
+          {allPlaceholders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {newMusicianId && (
+          <select value={newInstrumentId} onChange={(e) => setNewInstrumentId(e.target.value)} required>
+            <option value="">Choose instrument…</option>
+            {(allPlaceholders.find(p => p.id === newMusicianId)?.placeholder_musician_instruments || [])
+              .map(pi => <option key={pi.instrument_id} value={pi.instrument_id}>{pi.instruments?.name}</option>)}
+          </select>
+        )}
+        {error && <p className="form-error">{error}</p>}
+        <button type="submit" className="btn btn--primary btn--small">+ Add dep to band</button>
+   </form>
+    )} 
+  </div>
+)}
+</div>
+)}

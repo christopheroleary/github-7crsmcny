@@ -6,6 +6,7 @@ import GigSetlist from './GigSetlist.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
 import GigInvoice from './GigInvoice.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
+import { formatFullDate } from '../utils/formatDate.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted }) {
   const [gig, setGig] = useState(null);
@@ -95,7 +96,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
       </div>
 
       <dl className="detail-list">
-        <dt>Date</dt><dd>{gig.gig_date}</dd>
+        <dt>Date</dt><dd>{formatFullDate(gig.gig_date)}</dd>
         <dt>Band</dt><dd>{gig.bands?.name || '—'}</dd>
         <dt>Client</dt><dd>{gig.clients?.name || '—'}</dd>
         <dt>Times</dt>
