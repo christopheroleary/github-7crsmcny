@@ -124,6 +124,12 @@ export default function GigsList() {
                 onClick={() => selectGig(gig.id)}
                 style={{ cursor: 'pointer' }}
               >
+                <div className="gig-card__stub">
+                  <span className="gig-card__date">{formatShortDate(gig.gig_date)}</span>
+                  {/* <span className="gig-card__day">{day}</span> */}
+                  {/* <span className="gig-card__month">{month}</span> */}
+                  {gig.start_time && <span className="gig-card__time">{gig.start_time.slice(0, 5)}</span>}
+                </div>
                 <div className="gig-card__main">
                   <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
                   <h2 className="gig-card__venue">{gig.venues?.name ?? 'No venue set'}</h2>
@@ -137,12 +143,6 @@ export default function GigsList() {
                       Delete
                     </button>
                   )}
-                </div>
-                <div className="gig-card__stub">
-                  <p className="gig-card__dayname">{formatShortDate(gig.gig_date)}</p>
-                  <span className="gig-card__day">{day}</span>
-                  <span className="gig-card__month">{month}</span>
-                  {gig.start_time && <span className="gig-card__time">{gig.start_time.slice(0, 5)}</span>}
                 </div>
               </li>
             );
