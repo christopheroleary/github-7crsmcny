@@ -12,6 +12,7 @@ export default function BandMembers({ bandId, isAdmin }) {
   const [error, setError] = useState(null);
   const [addMode, setAddMode] = useState('musician'); // 'musician' | 'dep'
   const [depName, setDepName] = useState('');
+  const [allPlaceholders, setAllPlaceholders] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,7 @@ export default function BandMembers({ bandId, isAdmin }) {
     setMembers(memberRows || []);
     setMusicians(profiles || []);
     setInstruments(insts || []);
+    setAllPlaceholders(placeholderData || []);
 
     const map = {};
     (links || []).forEach((l) => {
