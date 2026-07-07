@@ -27,6 +27,50 @@ export default function GigRoster({ gigId }) {
   const [newDepInstrumentId, setNewDepInstrumentId] = useState('');
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
 
+  // for band members template macro
+  const [applyingPreset, setApplyingPreset] = useState(false);
+  const [gigBandId, setGigBandId] = useState(null);
+
+  // Load the gig's band_id on mount
+  useEffect(() => {
+    supabase.from('gigs').select('band_id').eq('id', gigId).single()
+      .then(({ data }) => setGigBandId(data?.band_id || null));
+  }, [gigId]);
+
+  async function handleApplyPreset() {
+    if (!gigBandId) return;
+    setApplyingPreset(true);
+    setError(null);
+
+    const { data: bandMembers } = await supabase
+      .from('band_members')
+      .select('profile_id, placeholder_id, instrument_id, profiles(full_name), placeholder_musicians(name), instruments(name)')
+      .eq('band_id', gigBandId);
+
+    let added = 0;
+    for (const bm of (bandMembers || [])) {
+      // Skip if already in lineup
+      const alreadyIn = lineup.some(l =>
+        (bm.profile_id && l.profile_id === bm.profile_id) ||
+        (bm.placeholder_id && l.placeholder_id === bm.placeholder_id)
+      );
+      if (alreadyIn) continue;
+
+      await supabase.from('gig_lineup').insert({
+        gig_id: gigId,
+        profile_id: bm.profile_id || null,
+        placeholder_id: bm.placeholder_id || null,
+        instrument_id: bm.instrument_id || null,
+        confirmed: false,
+      });
+      added++;
+    }
+
+    setApplyingPreset(false);
+    if (added === 0) setError('All band preset members are already in the lineup.');
+    load();
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     const [
@@ -280,6 +324,21 @@ export default function GigRoster({ gigId }) {
       {isAdmin && (
         <div style={{ marginTop: 16 }}>
           {error && <p className="form-error" style={{ marginBottom: 8 }}>{error}</p>}
+
+          {/* add band member template for 1st call muscicians macro */}
+          {gigBandId && (
+            <div style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={handleApplyPreset}
+                disabled={applyingPreset}
+              >
+                {applyingPreset ? 'Applying…' : '⚡ Apply band preset'}
+              </button>
+              <span className="field__hint" style={{ marginLeft: 8 }}>Adds all standard band members in one click</span>
+            </div>
+          )}
 
           {/* Add registered musician */}
           <form className="inline-subform" onSubmit={handleAdd} style={{ marginBottom: 12 }}>
