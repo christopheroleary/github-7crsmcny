@@ -62,16 +62,39 @@ export default function Dashboard() {
         value: thisMonthGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
       });
 
-      // Build monthly trend data
+      // Build monthly trend data dynamically
       const monthMap = {};
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(1);
-        d.setMonth(d.getMonth() - i);
-        const key = d.toISOString().slice(0, 7);
+      const now = new Date();
+      let endYear = now.getFullYear();
+      let endMonth = now.getMonth(); // 0-indexed
+
+      // 1. Find the furthest future gig date
+      (trendGigs || []).forEach(g => {
+        const year = parseInt(g.gig_date.slice(0, 4), 10);
+        const month = parseInt(g.gig_date.slice(5, 7), 10) - 1; 
+        if (year > endYear || (year === endYear && month > endMonth)) {
+          endYear = year;
+          endMonth = month;
+        }
+      });
+
+      // 2. Start from 11 months ago
+      const d = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+      // 3. Generate monthMap keys sequentially up to the end date
+      while (true) {
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        const key = `${y}-${String(m + 1).padStart(2, '0')}`;
         const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+        
         monthMap[key] = { month: label, gigs: 0, revenue: 0 };
+        
+        if (y === endYear && m === endMonth) break;
+        d.setMonth(m + 1);
       }
+
+      // 4. Populate the map with gig data
       (trendGigs || []).forEach(g => {
         const key = g.gig_date.slice(0, 7);
         if (monthMap[key]) {
@@ -79,6 +102,7 @@ export default function Dashboard() {
           monthMap[key].revenue += Math.round(Number(g.fee_amount) || 0);
         }
       });
+      
       setTrends(Object.values(monthMap));
       setLoading(false);
     }
@@ -98,7 +122,8 @@ export default function Dashboard() {
       </div>
 
       <div className="dashboard-chart">
-        <p className="dashboard-chart__title">12-month trend</p>
+        {/* Changed the title to reflect future dates being included */}
+        <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={trends} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
