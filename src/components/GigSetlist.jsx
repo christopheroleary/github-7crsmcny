@@ -360,7 +360,8 @@ function SongEditFields({ song, onSaved, onCancel }) {
 
   const lyricsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
   const chordsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
-
+  const youtubeSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' youtube');
+  
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
@@ -401,7 +402,12 @@ function SongEditFields({ song, onSaved, onCancel }) {
       </div>
 
       <label className="field">
-        <span className="field__label">YouTube or Spotify link</span>
+        <span className="field__label">
+          YouTube or Spotify link{' '}
+          <a href={youtubeSearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
+              Find youtube ↗
+          </a>
+        </span>
         <input value={referenceUrl} onChange={(e) => setReferenceUrl(e.target.value)} placeholder="Paste a YouTube or Spotify track URL" />
       </label>
 
