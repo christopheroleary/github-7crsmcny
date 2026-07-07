@@ -386,11 +386,6 @@ export default function GigRoster({ gigId }) {
                       </div>
                     </>
                   )}
-                  {!selectedPlaceholderId && (
-                    <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-                      <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
-                    </div>
-                  )}
                 </form>
               ) : (
                 <form onSubmit={handleAddNewDep} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
