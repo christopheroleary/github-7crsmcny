@@ -3,6 +3,12 @@ import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import MusicianClaim from './MusicianClaim.jsx';
 
+function vocalLabel(role) {
+  if (role === 'lead') return 'Lead vocals';
+  if (role === 'backing') return 'Backing vocals';
+  return null;
+}
+
 function formatTime(t) {
   if (!t) return null;
   return t.slice(0, 5);
@@ -242,21 +248,21 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       <div className="day-sheet__section">
         <h3 className="day-sheet__section-title">Who's on this gig</h3>
         <ul className="day-sheet__roster">
-          {lineup.map((l) => (
-            <li key={l.id} className="day-sheet__roster-row">
-              <div>
-                <span className="day-sheet__roster-name">
-                  {l.profiles?.full_name || l.placeholder_musicians?.name || 'Dep musician'}
-                </span>
-                {l.instruments?.name && (
-                  <span className="day-sheet__roster-instrument">{l.instruments.name}</span>
-                )}
-              </div>
-              <span className={'status-tag status-tag--' + (l.confirmed ? 'confirmed' : 'inquiry')}>
-                {l.confirmed ? 'Confirmed' : 'Pending'}
+        {lineup.map((l) => (
+          <li key={l.id} className="day-sheet__roster-row">
+            <div>
+              <span className="day-sheet__roster-name">
+                {l.profiles?.full_name || l.placeholder_musicians?.name}
               </span>
-            </li>
-          ))}
+              <span className="day-sheet__roster-instrument">
+                {[l.instruments?.name, vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
+              </span>
+            </div>
+            <span className={'status-tag status-tag--' + (l.confirmed ? 'confirmed' : 'inquiry')}>
+              {l.confirmed ? 'Confirmed' : 'Pending'}
+            </span>
+          </li>
+        ))}
           {lineup.length === 0 && <li className="state-message">No one booked yet.</li>}
         </ul>
       </div>

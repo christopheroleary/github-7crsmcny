@@ -2,6 +2,27 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
+const VOCAL_OPTIONS = [
+  { value: '', label: 'Vocals — not set' },
+  { value: 'none', label: 'No vocals' },
+  { value: 'lead', label: 'Lead vocals' },
+  { value: 'backing', label: 'Backing vocals' },
+];
+
+function VocalBadge({ role }) {
+  if (!role || role === 'none') return null;
+  const label = role === 'lead' ? 'Lead vocals' : 'Backing vocals';
+  const colour = role === 'lead' ? 'var(--amber)' : 'var(--teal)';
+  return (
+    <span
+      className="status-tag"
+      style={{ marginLeft: 6, background: colour + '22', color: colour, border: '1px solid ' + colour + '44' }}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function GigRoster({ gigId }) {
   const { profile: me, isAdmin } = useCurrentProfile();
   const [requirements, setRequirements] = useState([]);
@@ -16,22 +37,24 @@ export default function GigRoster({ gigId }) {
   // Real musician add
   const [newMusicianId, setNewMusicianId] = useState('');
   const [newInstrumentId, setNewInstrumentId] = useState('');
+  const [newVocalRole, setNewVocalRole] = useState('');
   const [adding, setAdding] = useState(false);
 
   // Placeholder / dep add
   const [showPlaceholder, setShowPlaceholder] = useState(false);
-  const [placeholderMode, setPlaceholderMode] = useState('existing'); // 'existing' | 'new'
+  const [placeholderMode, setPlaceholderMode] = useState('existing');
   const [selectedPlaceholderId, setSelectedPlaceholderId] = useState('');
   const [placeholderInstrumentId, setPlaceholderInstrumentId] = useState('');
+  const [placeholderVocalRole, setPlaceholderVocalRole] = useState('');
   const [newDepName, setNewDepName] = useState('');
   const [newDepInstrumentId, setNewDepInstrumentId] = useState('');
+  const [newDepVocalRole, setNewDepVocalRole] = useState('');
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
 
-  // for band members template macro
+  // Band preset
   const [applyingPreset, setApplyingPreset] = useState(false);
   const [gigBandId, setGigBandId] = useState(null);
 
-  // Load the gig's band_id on mount
   useEffect(() => {
     supabase.from('gigs').select('band_id').eq('id', gigId).single()
       .then(({ data }) => setGigBandId(data?.band_id || null));
@@ -49,8 +72,7 @@ export default function GigRoster({ gigId }) {
 
     let added = 0;
     for (const bm of (bandMembers || [])) {
-      // Skip if already in lineup
-      const alreadyIn = lineup.some(l =>
+      const alreadyIn = lineup.some((l) =>
         (bm.profile_id && l.profile_id === bm.profile_id) ||
         (bm.placeholder_id && l.placeholder_id === bm.placeholder_id)
       );
@@ -83,7 +105,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, role_on_gig, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -103,7 +125,6 @@ export default function GigRoster({ gigId }) {
     });
     setMusicianInstruments(map);
 
-    // Attach instruments to each placeholder
     const phWithInsts = (ph || []).map((p) => ({
       ...p,
       knownInstruments: (phInsts || [])
@@ -124,7 +145,6 @@ export default function GigRoster({ gigId }) {
     setAdding(true);
     setError(null);
 
-    // Prevent duplicate
     if (lineup.some((l) => l.profile_id === newMusicianId)) {
       setError('This musician is already on the roster.');
       setAdding(false);
@@ -137,11 +157,13 @@ export default function GigRoster({ gigId }) {
       placeholder_id: null,
       instrument_id: newInstrumentId,
       confirmed: false,
+      vocal_role: newVocalRole || null,
     });
     setAdding(false);
     if (error) { setError(error.message); return; }
     setNewMusicianId('');
     setNewInstrumentId('');
+    setNewVocalRole('');
     load();
   }
 
@@ -152,16 +174,17 @@ export default function GigRoster({ gigId }) {
     setAddingPlaceholder(true);
     setError(null);
 
-    // Prevent duplicate
     if (lineup.some((l) => l.placeholder_id === selectedPlaceholderId)) {
       setError('This dep is already on the roster.');
       setAddingPlaceholder(false);
       return;
     }
 
-    // Auto-save instrument to their profile if not already there
     await supabase.from('placeholder_musician_instruments')
-      .upsert({ placeholder_id: selectedPlaceholderId, instrument_id: placeholderInstrumentId }, { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true });
+      .upsert(
+        { placeholder_id: selectedPlaceholderId, instrument_id: placeholderInstrumentId },
+        { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
+      );
 
     const { error } = await supabase.from('gig_lineup').insert({
       gig_id: gigId,
@@ -169,11 +192,13 @@ export default function GigRoster({ gigId }) {
       placeholder_id: selectedPlaceholderId,
       instrument_id: placeholderInstrumentId,
       confirmed: false,
+      vocal_role: placeholderVocalRole || null,
     });
     setAddingPlaceholder(false);
     if (error) { setError(error.message); return; }
     setSelectedPlaceholderId('');
     setPlaceholderInstrumentId('');
+    setPlaceholderVocalRole('');
     setShowPlaceholder(false);
     load();
   }
@@ -185,7 +210,6 @@ export default function GigRoster({ gigId }) {
     setAddingPlaceholder(true);
     setError(null);
 
-    // Check if placeholder with same name already exists
     const existingPh = placeholders.find(
       (p) => p.name.trim().toLowerCase() === newDepName.trim().toLowerCase()
     );
@@ -203,16 +227,17 @@ export default function GigRoster({ gigId }) {
       phId = newPh.id;
     }
 
-    // Prevent duplicate on roster
     if (lineup.some((l) => l.placeholder_id === phId)) {
       setError((existingPh ? existingPh.name : newDepName) + ' is already on the roster.');
       setAddingPlaceholder(false);
       return;
     }
 
-    // Save instrument to their profile
     await supabase.from('placeholder_musician_instruments')
-      .upsert({ placeholder_id: phId, instrument_id: newDepInstrumentId }, { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true });
+      .upsert(
+        { placeholder_id: phId, instrument_id: newDepInstrumentId },
+        { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
+      );
 
     const { error } = await supabase.from('gig_lineup').insert({
       gig_id: gigId,
@@ -220,11 +245,13 @@ export default function GigRoster({ gigId }) {
       placeholder_id: phId,
       instrument_id: newDepInstrumentId,
       confirmed: false,
+      vocal_role: newDepVocalRole || null,
     });
     setAddingPlaceholder(false);
     if (error) { setError(error.message); return; }
     setNewDepName('');
     setNewDepInstrumentId('');
+    setNewDepVocalRole('');
     setShowPlaceholder(false);
     load();
   }
@@ -244,6 +271,12 @@ export default function GigRoster({ gigId }) {
     load();
   }
 
+  async function handleUpdateVocalRole(entryId, vocal_role) {
+    const { error } = await supabase.from('gig_lineup').update({ vocal_role: vocal_role || null }).eq('id', entryId);
+    if (error) { alert("Couldn't update vocal role: " + error.message); return; }
+    load();
+  }
+
   if (loading) return <p className="state-message">Loading roster…</p>;
 
   const filledCounts = {};
@@ -251,17 +284,14 @@ export default function GigRoster({ gigId }) {
     if (l.instrument_id) filledCounts[l.instrument_id] = (filledCounts[l.instrument_id] || 0) + 1;
   });
 
-  // Instruments available for selected registered musician
   const pickedMusicianInstruments = newMusicianId ? musicianInstruments[newMusicianId] || [] : [];
   const availableForMusician = pickedMusicianInstruments.length > 0 ? pickedMusicianInstruments : instruments;
 
-  // Instruments available for selected existing dep — ONLY their known instruments, never all
   const selectedDepData = selectedPlaceholderId ? placeholders.find((p) => p.id === selectedPlaceholderId) : null;
   const availableForDep = selectedDepData?.knownInstruments?.length > 0
     ? selectedDepData.knownInstruments
-    : instruments; // Fallback to all only if none set yet
+    : instruments;
 
-  // Already-on-roster IDs for filtering dropdowns
   const rosteredProfileIds = lineup.filter((l) => l.profile_id).map((l) => l.profile_id);
   const rosteredPlaceholderIds = lineup.filter((l) => l.placeholder_id).map((l) => l.placeholder_id);
 
@@ -301,8 +331,18 @@ export default function GigRoster({ gigId }) {
                         dep
                       </span>
                     )}
+                    <VocalBadge role={entry.vocal_role} />
                   </span>
                   <span className="simple-list__subtitle">{entry.instruments?.name || '—'}</span>
+                  {isAdmin && (
+                    <select
+                      value={entry.vocal_role || ''}
+                      onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}
+                      style={{ fontSize: 12, marginTop: 4, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
+                    >
+                      {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div className="simple-list__actions">
                   <span className={entry.confirmed ? 'status-tag status-tag--confirmed' : 'status-tag status-tag--inquiry'}>
@@ -325,7 +365,6 @@ export default function GigRoster({ gigId }) {
         <div style={{ marginTop: 16 }}>
           {error && <p className="form-error" style={{ marginBottom: 8 }}>{error}</p>}
 
-          {/* add band member template for 1st call muscicians macro */}
           {gigBandId && (
             <div style={{ marginBottom: 12 }}>
               <button
@@ -347,7 +386,7 @@ export default function GigRoster({ gigId }) {
             </span>
             <select
               value={newMusicianId}
-              onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); }}
+              onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); setNewVocalRole(''); }}
               required
             >
               <option value="">Choose musician…</option>
@@ -367,6 +406,13 @@ export default function GigRoster({ gigId }) {
             {newMusicianId && pickedMusicianInstruments.length === 0 && (
               <p className="field__hint">No instruments on profile — showing all.</p>
             )}
+            <select
+              value={newVocalRole}
+              onChange={(e) => setNewVocalRole(e.target.value)}
+              disabled={!newMusicianId}
+            >
+              {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
             <button type="submit" className="btn btn--primary btn--small" disabled={adding}>
               {adding ? 'Adding…' : '+ Add to roster'}
             </button>
@@ -387,14 +433,14 @@ export default function GigRoster({ gigId }) {
                 <button
                   type="button"
                   className={placeholderMode === 'existing' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
-                  onClick={() => { setPlaceholderMode('existing'); setSelectedPlaceholderId(''); setPlaceholderInstrumentId(''); }}
+                  onClick={() => { setPlaceholderMode('existing'); setSelectedPlaceholderId(''); setPlaceholderInstrumentId(''); setPlaceholderVocalRole(''); }}
                 >
                   Existing dep
                 </button>
                 <button
                   type="button"
                   className={placeholderMode === 'new' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
-                  onClick={() => { setPlaceholderMode('new'); setNewDepName(''); setNewDepInstrumentId(''); }}
+                  onClick={() => { setPlaceholderMode('new'); setNewDepName(''); setNewDepInstrumentId(''); setNewDepVocalRole(''); }}
                 >
                   New dep
                 </button>
@@ -408,7 +454,7 @@ export default function GigRoster({ gigId }) {
                     <>
                       <select
                         value={selectedPlaceholderId}
-                        onChange={(e) => { setSelectedPlaceholderId(e.target.value); setPlaceholderInstrumentId(''); }}
+                        onChange={(e) => { setSelectedPlaceholderId(e.target.value); setPlaceholderInstrumentId(''); setPlaceholderVocalRole(''); }}
                         required
                       >
                         <option value="">Choose dep…</option>
@@ -416,7 +462,7 @@ export default function GigRoster({ gigId }) {
                           .filter((p) => !rosteredPlaceholderIds.includes(p.id))
                           .map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.name}{p.knownInstruments?.length ? ' (' + p.knownInstruments.map(i => i.name).join(', ') + ')' : ''}
+                              {p.name}{p.knownInstruments?.length ? ' (' + p.knownInstruments.map((i) => i.name).join(', ') + ')' : ''}
                             </option>
                           ))}
                       </select>
@@ -434,6 +480,12 @@ export default function GigRoster({ gigId }) {
                           {selectedDepData?.knownInstruments?.length === 0 && (
                             <p className="field__hint">No instruments saved for this dep yet — your selection will be saved to their profile.</p>
                           )}
+                          <select
+                            value={placeholderVocalRole}
+                            onChange={(e) => setPlaceholderVocalRole(e.target.value)}
+                          >
+                            {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
                         </>
                       )}
 
@@ -461,6 +513,12 @@ export default function GigRoster({ gigId }) {
                   >
                     <option value="">Choose instrument…</option>
                     {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  <select
+                    value={newDepVocalRole}
+                    onChange={(e) => setNewDepVocalRole(e.target.value)}
+                  >
+                    {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   <p className="field__hint">Their instrument will be saved so you can reuse them on future gigs.</p>
                   <div className="form-actions" style={{ justifyContent: 'flex-start' }}>

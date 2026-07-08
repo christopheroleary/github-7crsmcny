@@ -39,12 +39,12 @@ async function fetchGigData(gigId) {
         .eq('id', gigId)
         .single(),
 
-      supabase
+        supabase
         .from('gig_lineup')
-        .select('id, profile_id, confirmed, instrument_id, travel_cost_pence, profiles(full_name), instruments(name), placeholder_id, placeholder_musicians(name)')
+        .select('id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, profiles(full_name), instruments(name), placeholder_musicians(name)')
         .eq('gig_id', gigId),
 
-      supabase
+        supabase
         .from('gig_setlists')
         .select('setlists(id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url)))')
         .eq('gig_id', gigId),
