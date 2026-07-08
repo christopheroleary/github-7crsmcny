@@ -4,7 +4,7 @@ import TimeInput from './TimeInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function GigForm({ gig, onSaved, onCancel }) {
-  const isEdit = Boolean(gig);
+  const isEdit = Boolean(gig) && !gig._isConvert;
   const [bands, setBands] = useState([]);
   const [venues, setVenues] = useState([]);
   const [clients, setClients] = useState([]);
@@ -17,8 +17,8 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
   // Venue
   const [venueId, setVenueId] = useState(gig?.venue_id || '');
-  const [showNewVenue, setShowNewVenue] = useState(false);
-  const [newVenueName, setNewVenueName] = useState('');
+  // const [showNewVenue, setShowNewVenue] = useState(false);
+  // const [newVenueName, setNewVenueName] = useState('');
   const [newVenueContact, setNewVenueContact] = useState('');
   const [newVenuePhone, setNewVenuePhone] = useState('');
   const [newVenueAddress, setNewVenueAddress] = useState('');
@@ -27,10 +27,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
   // Client
   const [clientId, setClientId] = useState(gig?.client_id || '');
-  const [showNewClient, setShowNewClient] = useState(false);
-  const [newClientName, setNewClientName] = useState('');
-  const [newClientEmail, setNewClientEmail] = useState('');
-  const [newClientPhone, setNewClientPhone] = useState('');
+  // const [showNewClient, setShowNewClient] = useState(false);
+  // const [newClientName, setNewClientName] = useState('');
+  // const [newClientEmail, setNewClientEmail] = useState('');
+  // const [newClientPhone, setNewClientPhone] = useState('');
 
   const [gigDate, setGigDate] = useState(gig?.gig_date || '');
   const [startTime, setStartTime] = useState(gig?.start_time?.slice(0, 5) || '');
@@ -45,6 +45,14 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [originalRequirementIds, setOriginalRequirementIds] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  // for convert enquiries form entry to gig inquiry
+  const [newClientName, setNewClientName] = useState(gig?._clientHint || '');
+  const [newClientEmail, setNewClientEmail] = useState(gig?._clientEmail || '');
+  const [newClientPhone, setNewClientPhone] = useState(gig?._clientPhone || '');
+  const [showNewClient, setShowNewClient] = useState(Boolean(gig?._clientHint)); // ← auto-open if hint
+  const [newVenueName, setNewVenueName] = useState(gig?._venueHint || '');
+  const [showNewVenue, setShowNewVenue] = useState(Boolean(gig?._venueHint)); // ← auto-open if hint
 
   useEffect(() => {
     supabase.from('bands').select('id, name').order('name').then(({ data }) => setBands(data || []));

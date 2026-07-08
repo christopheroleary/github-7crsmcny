@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatShortDate } from '../utils/formatDate.js';
+import GigForm from './GigForm.jsx';
 
 const STATUS_COLOURS = {
   new: 'inquiry', contacted: 'inquiry', converted: 'confirmed', declined: 'cancelled',
@@ -10,6 +11,7 @@ export default function EnquiriesList() {
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+  const [convertingEnq, setConvertingEnq] = useState(null); // ← new
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,6 +32,51 @@ export default function EnquiriesList() {
 
   async function saveNotes(id, notes) {
     await supabase.from('enquiries').update({ admin_notes: notes }).eq('id', id);
+  }
+
+  async function handleGigSaved(gigId, enquiryId) {
+    await supabase.from('enquiries').update({ status: 'converted' }).eq('id', enquiryId);
+    setConvertingEnq(null);
+    setExpandedId(null);
+    load();
+  }
+
+  // Build a prefill object shaped like GigForm expects
+  function buildPrefill(enq) {
+    return {
+      _isConvert: true,           // flag so GigForm doesn't treat as edit
+      gig_date: enq.event_date || '',
+      status: 'inquiry',
+      fee_amount: enq.estimated_budget ?? '',
+      notes: [
+        enq.requirements,
+        enq.admin_notes,
+      ].filter(Boolean).join('\n\n') || '',
+      // venue / client handled via quick-add in the form
+      _venueHint: enq.venue_name || '',
+      _clientHint: enq.client_name || '',
+      _clientEmail: enq.client_email || '',
+      _clientPhone: enq.client_phone || '',
+    };
+  }
+
+  if (convertingEnq) {
+    return (
+      <div>
+        <div className="section-header">
+          <h2 className="section-header__title">Convert enquiry → gig</h2>
+          <span className="field__hint">from {convertingEnq.client_name}</span>
+        </div>
+        <p className="field__hint" style={{ marginBottom: 12 }}>
+          Details pre-filled from the enquiry. Complete any missing fields then save.
+        </p>
+        <GigForm
+          gig={buildPrefill(convertingEnq)}
+          onSaved={(gigId) => handleGigSaved(gigId, convertingEnq.id)}
+          onCancel={() => setConvertingEnq(null)}
+        />
+      </div>
+    );
   }
 
   return (
@@ -106,9 +153,20 @@ export default function EnquiriesList() {
                         </button>
                       )}
                       {enq.status !== 'converted' && (
-                        <button className="btn btn--primary btn--small" onClick={() => updateStatus(enq.id, 'converted')}>
-                          Mark converted
-                        </button>
+                        <>
+                          <button
+                            className="btn btn--primary btn--small"
+                            onClick={() => setConvertingEnq(enq)}  // ← replaces old "Mark converted"
+                          >
+                            Convert to gig
+                          </button>
+                          <button
+                            className="btn btn--ghost btn--small"
+                            onClick={() => updateStatus(enq.id, 'converted')}
+                          >
+                            Mark converted (no gig)
+                          </button>
+                        </>
                       )}
                       {enq.status !== 'declined' && (
                         <button className="btn btn--ghost btn--small" onClick={() => updateStatus(enq.id, 'declined')}
