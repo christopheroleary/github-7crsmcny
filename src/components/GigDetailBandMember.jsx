@@ -245,7 +245,9 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
           {lineup.map((l) => (
             <li key={l.id} className="day-sheet__roster-row">
               <div>
-                <span className="day-sheet__roster-name">{l.profiles?.full_name}</span>
+                <span className="day-sheet__roster-name">
+                  {l.profiles?.full_name || l.placeholder_musicians?.name || 'Dep musician'}
+                </span>
                 {l.instruments?.name && (
                   <span className="day-sheet__roster-instrument">{l.instruments.name}</span>
                 )}
