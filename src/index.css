@@ -407,6 +407,15 @@ input {
     flex-direction: column;
   }
 }
+  .field input[type="date"] {
+    width: 100%;
+    text-align: left;
+    color: var(--ink);
+  }
+  .field input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+  
 .field textarea,
 .field select {
   width: 100%;
