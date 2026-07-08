@@ -399,6 +399,14 @@ input {
   flex: 1;
   min-width: 0;
 }
+.field-row .field input[type="date"] {
+  width: 100%;
+}
+@media (max-width: 480px) {
+  .field-row {
+    flex-direction: column;
+  }
+}
 .field textarea,
 .field select {
   width: 100%;
