@@ -5,11 +5,12 @@ import GigForm from './GigForm.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate } from '../utils/formatDate.js';
+import CalendarFeed from './CalendarFeed.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function GigsList() {
-  const { profile, isAdmin } = useCurrentProfile();
+  const { profile: me, isAdmin } = useCurrentProfile();
 
   const [selectedGigId, setSelectedGigId] = useState(
     () => sessionStorage.getItem('selected_gig_id') || null
@@ -73,7 +74,7 @@ export default function GigsList() {
     return (
       <GigDetailBandMember
         gigId={selectedGigId}
-        myProfileId={profile?.id}
+        myProfileId={me?.id}
         onBack={() => selectGig(null)}
       />
     );
@@ -97,6 +98,10 @@ export default function GigsList() {
           )}
         </div>
       </div>
+
+      {!isAdmin && me && (
+          <CalendarFeed profileId={me.id} />
+      )}
 
       {isAdmin && showAddForm && (
         <GigForm onSaved={() => { setShowAddForm(false); loadGigs(); }} onCancel={() => setShowAddForm(false)} />
