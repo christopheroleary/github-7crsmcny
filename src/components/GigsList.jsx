@@ -27,6 +27,24 @@ export default function GigsList() {
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // React to sessionStorage changes from notification clicks
+useEffect(() => {
+  function handleStorage() {
+    const id = sessionStorage.getItem('selected_gig_id');
+    setSelectedGigId(id || null);
+  }
+  window.addEventListener('storage', handleStorage);
+  return () => window.removeEventListener('storage', handleStorage);
+}, []);
+
+useEffect(() => {
+  function handleGigSelected(e) {
+    setSelectedGigId(e.detail.gig_id || null);
+  }
+  window.addEventListener('gig-selected', handleGigSelected);
+  return () => window.removeEventListener('gig-selected', handleGigSelected);
+}, []);
+
   const loadGigs = useCallback(async () => {
     setLoading(true);
     const selectFields = isAdmin

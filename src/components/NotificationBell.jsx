@@ -27,7 +27,7 @@ export default function NotificationBell({ onNavigate }) {
     load();
   }, [load]);
 
-  // Real-time: new notifications appear instantly without refresh
+  // Real-time: INSERT and UPDATE both handled
   useEffect(() => {
     if (!profile?.id) return;
 
@@ -43,6 +43,32 @@ export default function NotificationBell({ onNavigate }) {
         },
         (payload) => {
           setNotifications((prev) => [payload.new, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: 'profile_id=eq.' + profile.id,
+        },
+        (payload) => {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.new.id ? { ...n, ...payload.new } : n))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: 'profile_id=eq.' + profile.id,
+        },
+        (payload) => {
+          setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
         }
       )
       .subscribe();
@@ -72,8 +98,8 @@ export default function NotificationBell({ onNavigate }) {
       );
     }
     setOpen(false);
-    if (notification.url && onNavigate) {
-      onNavigate(notification.url);
+    if (onNavigate) {
+      onNavigate({ url: notification.url, gig_id: notification.gig_id || null });
     }
   }
 
@@ -112,7 +138,7 @@ export default function NotificationBell({ onNavigate }) {
   return (
     <div className="notif-bell" ref={panelRef}>
       <button
-        className="notif-bell__btn"
+        className={'notif-bell__btn' + (open ? ' notif-bell__btn--active' : '')}
         onClick={() => setOpen((v) => !v)}
         aria-label={'Notifications' + (unreadCount > 0 ? ', ' + unreadCount + ' unread' : '')}
       >

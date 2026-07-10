@@ -81,10 +81,20 @@ export default function App() {
       <header className="app-header">
         <span className="app-header__title">Gig Manager</span>
         <div className="app-header__right">
-          <NotificationBell onNavigate={(url) => {
-            const tab = url.replace('/', '');
-            if (tabs.some(([k]) => k === tab)) updateView(tab);
-          }} />
+        <NotificationBell onNavigate={({ url, gig_id }) => {
+          const tab = url ? url.replace('/', '') : 'gigs';
+          if (tabs.some(([k]) => k === tab)) {
+            if (gig_id) {
+              sessionStorage.setItem('selected_gig_id', gig_id);
+            } else {
+              sessionStorage.removeItem('selected_gig_id');
+            }
+            updateView(tab);
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: gig_id || null } }));
+            }, 50);
+          }
+        }} />
           <button
             className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
             onClick={() => updateView('profile')}
