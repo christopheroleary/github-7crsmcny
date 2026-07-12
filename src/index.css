@@ -1913,3 +1913,20 @@ input {
   padding-top: 12px;
   border-top: 1px solid var(--line);
 }
+
+/* Dimmed gig card when offline and not cached */
+.gig-card--offline-unavailable {
+  opacity: 0.38;
+  pointer-events: none; /* blocks all clicks/taps */
+}
+
+/* Small dot indicator on the gig stub when offline */
+.offline-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 4px;
+}
+.offline-dot--cached   { background-color: #4caf50; } /* green  = available */
+.offline-dot--missing  { background-color: #9e9e9e; } /* grey   = not cached */
