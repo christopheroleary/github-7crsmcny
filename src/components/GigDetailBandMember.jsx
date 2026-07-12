@@ -335,6 +335,19 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
           <p className="field__hint">Payment claims require a connection.</p>
         </div>
       )}
+
+      {/* Confirm button repeated at bottom */}
+      {myEntry && !myEntry.confirmed && !isOffline && (
+        <div className="day-sheet__section" style={{ paddingTop: 8 }}>
+          <button
+            className="btn btn--primary"
+            onClick={() => handleConfirm(myEntry)}
+            disabled={confirming}
+          >
+            {confirming ? 'Confirming…' : "Confirm I'm available"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
