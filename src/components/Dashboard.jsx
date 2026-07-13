@@ -15,7 +15,7 @@ function KPICard({ label, count, value, colour }) {
 }
 
 export default function Dashboard() {
-  const { isAdmin } = useCurrentProfile();
+  const { isAdmin, profile } = useCurrentProfile();
   
   const [loading, setLoading] = useState(true);
   const [outstanding, setOutstanding] = useState({ count: 0, value: 0 });
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [thisMonth, setThisMonth] = useState({ count: 0, value: null });
   const [allGigs, setAllGigs] = useState(0);
   const [unInvoiced, setUnInvoiced] = useState({ count: 0, value: 0 });
+  const [inquiries, setInquiries] = useState({ count: 0 });
   const [trends, setTrends] = useState([]);
 
   useEffect(() => {
@@ -31,23 +32,68 @@ export default function Dashboard() {
       const monthStart = today.slice(0, 7) + '-01';
       const twelveAgo = twelveMonthsAgoStr();
 
+      function buildTrends(trendGigs, includeRevenue) {
+        const monthMap = {};
+        const now = new Date();
+        let endYear = now.getFullYear();
+        let endMonth = now.getMonth(); 
+
+        (trendGigs || []).forEach(g => {
+          const year = parseInt(g.gig_date.slice(0, 4), 10);
+          const month = parseInt(g.gig_date.slice(5, 7), 10) - 1; 
+          if (year > endYear || (year === endYear && month > endMonth)) {
+            endYear = year;
+            endMonth = month;
+          }
+        });
+
+        const d = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+        while (true) {
+          const y = d.getFullYear();
+          const m = d.getMonth();
+          const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+          const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+          
+          monthMap[key] = { month: label, gigs: 0, revenue: 0 };
+          
+          if (y === endYear && m === endMonth) break;
+          d.setMonth(m + 1);
+        }
+
+        (trendGigs || []).forEach(g => {
+          const key = g.gig_date.slice(0, 7);
+          if (monthMap[key]) {
+            monthMap[key].gigs += 1;
+            if (includeRevenue) {
+              monthMap[key].revenue += Math.round(Number(g.fee_amount) || 0);
+            }
+          }
+        });
+        
+        setTrends(Object.values(monthMap));
+      }
+
       if (isAdmin) {
-        // ── ADMIN VIEW: Fetch everything including finances and invoices ──
+        // ── ADMIN VIEW ──
         const [
           { data: completedGigs }, 
           { data: upcomingGigs }, 
           { data: trendGigs },
           { data: allGigsData },
-          { data: pastGigs }
+          { data: pastGigs },
+          { data: inquiryGigs }
         ] = await Promise.all([
           supabase.from('gigs').select('id, fee_amount, invoices(status)').eq('status', 'completed'),
           supabase.from('gigs').select('id, fee_amount, gig_date').gte('gig_date', today).not('status', 'in', '("cancelled")'),
           supabase.from('gigs').select('gig_date, fee_amount, status').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")'),
           supabase.from('gigs').select('id'),
-          supabase.from('gigs').select('id, fee_amount, gig_date, invoices(status)').lt('gig_date', today).not('status', 'in', '("cancelled")')
+          supabase.from('gigs').select('id, fee_amount, gig_date, invoices(status)').lt('gig_date', today).not('status', 'in', '("cancelled")'),
+          supabase.from('gigs').select('id').eq('status', 'inquiry')
         ]);
 
         setAllGigs((allGigsData || []).length);
+        setInquiries({ count: (inquiryGigs || []).length });
 
         const unInvoicedGigs = (pastGigs || []).filter(g => !g.invoices?.some(inv => inv.status === 'sent' || inv.status === 'paid'));
         setUnInvoiced({
@@ -75,18 +121,24 @@ export default function Dashboard() {
         buildTrends(trendGigs, true);
 
       } else {
-        // ── MUSICIAN VIEW: Fetch ONLY gig dates (No invoices or fees) ──
+        // ── MUSICIAN VIEW ──
         const [
           { data: upcomingGigs }, 
           { data: trendGigs },
-          { data: allGigsData }
+          { data: allGigsData },
+          { data: inquiryGigs }
         ] = await Promise.all([
           supabase.from('gigs').select('id, gig_date').gte('gig_date', today).not('status', 'in', '("cancelled")'),
           supabase.from('gigs').select('id, gig_date').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('id')
+          supabase.from('gigs').select('id'),
+          supabase.from('gigs')
+            .select('id, gig_lineup!inner(profile_id)')
+            .eq('status', 'inquiry')
+            .eq('gig_lineup.profile_id', profile?.id)
         ]);
 
         setAllGigs((allGigsData || []).length);
+        setInquiries({ count: (inquiryGigs || []).length });
         setUpcoming({ count: (upcomingGigs || []).length, value: null });
 
         const thisMonthGigs = (trendGigs || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today);
@@ -98,50 +150,8 @@ export default function Dashboard() {
       setLoading(false);
     }
 
-    function buildTrends(trendGigs, includeRevenue) {
-      const monthMap = {};
-      const now = new Date();
-      let endYear = now.getFullYear();
-      let endMonth = now.getMonth(); 
-
-      (trendGigs || []).forEach(g => {
-        const year = parseInt(g.gig_date.slice(0, 4), 10);
-        const month = parseInt(g.gig_date.slice(5, 7), 10) - 1; 
-        if (year > endYear || (year === endYear && month > endMonth)) {
-          endYear = year;
-          endMonth = month;
-        }
-      });
-
-      const d = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-
-      while (true) {
-        const y = d.getFullYear();
-        const m = d.getMonth();
-        const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        
-        monthMap[key] = { month: label, gigs: 0, revenue: 0 };
-        
-        if (y === endYear && m === endMonth) break;
-        d.setMonth(m + 1);
-      }
-
-      (trendGigs || []).forEach(g => {
-        const key = g.gig_date.slice(0, 7);
-        if (monthMap[key]) {
-          monthMap[key].gigs += 1;
-          if (includeRevenue) {
-            monthMap[key].revenue += Math.round(Number(g.fee_amount) || 0);
-          }
-        }
-      });
-      
-      setTrends(Object.values(monthMap));
-    }
-
     load();
-  }, [isAdmin]);
+  }, [isAdmin, profile]);
 
   if (loading) return <p className="state-message">Loading dashboard…</p>;
 
@@ -151,6 +161,8 @@ export default function Dashboard() {
 
       <div className="kpi-row">
         <KPICard label="All gigs" count={allGigs + ' gigs'} colour="#71717a" />
+        <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" />
+        
         {isAdmin && (
           <>
             <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" />
@@ -178,7 +190,6 @@ export default function Dashboard() {
             <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c7" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
             
-            {/* Only render revenue axis for admins */}
             {isAdmin && (
               <YAxis yAxisId="rev" orientation="right" tick={{ fontSize: 11 }}
                 tickFormatter={v => '£' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v)} />
@@ -191,7 +202,6 @@ export default function Dashboard() {
             />
             <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
             
-            {/* Only render revenue area for admins */}
             {isAdmin && (
               <Area yAxisId="rev" type="monotone" dataKey="revenue" stroke="#c8862e" fill="url(#revGrad)" strokeWidth={2} name="revenue" />
             )}
