@@ -134,6 +134,10 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
 
   @media print {
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
     html, body { margin: 0; }
     .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }
   }
