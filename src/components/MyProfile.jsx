@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import NotificationSetup from './NotificationSetup.jsx';
+import ProfilePaymentDetails from './ProfilePaymentDetails';
 
 export default function MyProfile() {
   const [loading, setLoading] = useState(true);
@@ -99,66 +100,70 @@ export default function MyProfile() {
   if (loading) return <p className="state-message">Loading profile…</p>;
 
   return (
-    <form className="entity-form" onSubmit={handleSave}>
-      <h2 className="section-header__title">My profile</h2>
+    <>
+      <form className="entity-form" onSubmit={handleSave}>
+        <h2 className="section-header__title">My profile</h2>
 
-      <label className="field">
-        <span className="field__label">Email</span>
-        <input value={email} disabled />
-        <span className="field__hint">Login email — changing it needs its own confirmation step.</span>
-      </label>
+        <label className="field">
+          <span className="field__label">Email</span>
+          <input value={email} disabled />
+          <span className="field__hint">Login email — changing it needs its own confirmation step.</span>
+        </label>
 
-      <label className="field">
-        <span className="field__label">Name</span>
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-      </label>
+        <label className="field">
+          <span className="field__label">Name</span>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+        </label>
 
-      <label className="field">
-        <span className="field__label">Phone</span>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-      </label>
+        <label className="field">
+          <span className="field__label">Phone</span>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
 
-      <label className="field">
-        <span className="field__label">Home address (used for travel cost calculations)</span>
-        <AddressAutocomplete
-          value={homeAddress}
-          onChange={(text) => {
-            setHomeAddress(text);
-            setHomeLat(null);
-            setHomeLon(null);
-          }}
-          onCoordinatesChange={(lat, lon) => {
-            setHomeLat(lat);
-            setHomeLon(lon);
-          }}
-          placeholder="Start typing your home address…"
-        />
-        {homeLat != null && <span className="field__hint">Location set ✓</span>}
-        {homeLat == null && homeAddress && (
-          <span className="field__hint" style={{ color: 'var(--rust)' }}>
-            Pick a suggestion from the dropdown to set the map pin — needed for distance calculation.
-          </span>
-        )}
-      </label>
+        <label className="field">
+          <span className="field__label">Home address (used for travel cost calculations)</span>
+          <AddressAutocomplete
+            value={homeAddress}
+            onChange={(text) => {
+              setHomeAddress(text);
+              setHomeLat(null);
+              setHomeLon(null);
+            }}
+            onCoordinatesChange={(lat, lon) => {
+              setHomeLat(lat);
+              setHomeLon(lon);
+            }}
+            placeholder="Start typing your home address…"
+          />
+          {homeLat != null && <span className="field__hint">Location set ✓</span>}
+          {homeLat == null && homeAddress && (
+            <span className="field__hint" style={{ color: 'var(--rust)' }}>
+              Pick a suggestion from the dropdown to set the map pin — needed for distance calculation.
+            </span>
+          )}
+        </label>
 
-      <label className="field">
-        <span className="field__label">Instruments</span>
-        <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
-      </label>
+        <label className="field">
+          <span className="field__label">Instruments</span>
+          <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
+        </label>
 
-      <div className="field">
-        <span className="field__label">Notifications</span>
-        <NotificationSetup />
-      </div>
+        <div className="field">
+          <span className="field__label">Notifications</span>
+          <NotificationSetup />
+        </div>
 
-      {error && <p className="form-error">{error}</p>}
-      {saved && <p className="form-success">Saved.</p>}
+        {error && <p className="form-error">{error}</p>}
+        {saved && <p className="form-success">Saved.</p>}
 
-      <div className="form-actions">
-        <button type="submit" className="btn btn--primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save profile'}
-        </button>
-      </div>
-    </form>
+        <div className="form-actions">
+          <button type="submit" className="btn btn--primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Save profile'}
+          </button>
+        </div>
+      </form>
+
+      {userId && <ProfilePaymentDetails profileId={userId} />}
+    </>
   );
 }

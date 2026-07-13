@@ -239,45 +239,26 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-
+  
     const [
       { data: claimData },
       { data: lineupData },
       { data: gigData },
       { data: profileData },
+      { data: { user: authUser } },
     ] = await Promise.all([
-      supabase
-        .from('musician_claims')
-        .select('*')
-        .eq('gig_id', gigId)
-        .eq('profile_id', myProfileId)
-        .maybeSingle(),
-      supabase
-        .from('gig_lineup')
-        .select('travel_cost_pence, instrument_id, instruments(name)')
-        .eq('gig_id', gigId)
-        .eq('profile_id', myProfileId)
-        .maybeSingle(),
-      supabase
-        .from('gigs')
-        // Adjust the select to match your gigs → bands relationship field name
-        .select('gig_date, start_time, end_time, band_id, venues(name, address)')
-        .eq('id', gigId)
-        .maybeSingle(),
-      supabase
-        .from('profiles')
-        // Adjust fields to whatever your profiles table exposes for musicians
-        .select('full_name, name, email, bank_name, bank_account_name, bank_sort_code, bank_account_number')
-        .eq('id', myProfileId)
-        .maybeSingle(),
+      supabase.from('musician_claims').select('*').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
+      supabase.from('gig_lineup').select('travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
+      supabase.from('gigs').select('gig_date, start_time, end_time, band_id, venues(name, address)').eq('id', gigId).maybeSingle(),
+      supabase.from('profiles').select('full_name, display_name, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
+      supabase.auth.getUser(),
     ]);
-
+  
     setClaim(claimData);
     setMyLineup(lineupData);
     setGig(gigData);
-    setProfile(profileData);
-
-    // Fetch band separately once we have the band_id from the gig
+    setProfile({ ...profileData, email: authUser?.email || '' }); // ← here, instead of setProfile(profileData)
+  
     if (gigData?.band_id) {
       const { data: bandData } = await supabase
         .from('bands')
@@ -286,7 +267,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
         .maybeSingle();
       setBand(bandData);
     }
-
+  
     setLoading(false);
   }, [gigId, myProfileId]);
 
