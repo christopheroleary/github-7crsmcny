@@ -349,6 +349,16 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
   );
 }
 
+function cleanArtist(artist) {
+  return artist
+    .replace(/^the\s+/i, '')
+    .replace(/\s+feat\.?.*/i, '')
+    .replace(/\s+ft\.?.*/i, '')
+    .replace(/\s+featuring.*/i, '')
+    .replace(/\s*\(.*?\)\s*/g, '')
+    .trim();
+}
+
 function SongEditFields({ song, onSaved, onCancel }) {
   const [title, setTitle] = useState(song.title || '');
   const [artist, setArtist] = useState(song.artist || '');
@@ -361,7 +371,17 @@ function SongEditFields({ song, onSaved, onCancel }) {
   const lyricsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
   const chordsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
   const youtubeSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' youtube');
-  
+
+  const spotifySearchUrl = artist
+    ? `https://open.spotify.com/search/track:${encodeURIComponent(title)}%20artist:${encodeURIComponent(cleanArtist(artist))}`
+    : `https://open.spotify.com/search/track:${encodeURIComponent(title)}`;
+
+  function handleAutoFillSpotify() {
+    if (!referenceUrl) {
+      setReferenceUrl(spotifySearchUrl);
+    }
+  }
+
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
@@ -405,10 +425,31 @@ function SongEditFields({ song, onSaved, onCancel }) {
         <span className="field__label">
           YouTube or Spotify link{' '}
           <a href={youtubeSearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
-              Find youtube ↗
+            Find on YouTube ↗
           </a>
+          {' · '}
+          <a href={spotifySearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
+            Find on Spotify ↗
+          </a>
+          {!referenceUrl && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="link-button"
+                style={{ display: 'inline' }}
+                onClick={handleAutoFillSpotify}
+              >
+                Auto-fill Spotify search URL
+              </button>
+            </>
+          )}
         </span>
-        <input value={referenceUrl} onChange={(e) => setReferenceUrl(e.target.value)} placeholder="Paste a YouTube or Spotify track URL" />
+        <input
+          value={referenceUrl}
+          onChange={(e) => setReferenceUrl(e.target.value)}
+          placeholder="Paste a YouTube or Spotify track URL"
+        />
       </label>
 
       <label className="field">
