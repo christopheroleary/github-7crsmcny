@@ -23,6 +23,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
+  overflow-x: hidden; /* ADDED: Completely disables page-level horizontal scroll */
 }
 
 button,
@@ -346,25 +347,28 @@ input {
 /* ---------- Tabs ---------- */
 .tab-nav {
   display: flex;
+  flex-wrap: wrap; /* Allows tabs to drop to a new line when they run out of space */
   gap: 4px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--line);
 }
+
 .tab {
   background: none;
   border: none;
-  padding: 10px 14px;
+  padding: 8px 8px;
   font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
+  flex-shrink: 0; /* Prevents the text inside the tab from squishing */
 }
+
 .tab--active {
   color: var(--ink);
   border-bottom-color: var(--amber);
 }
-
 /* ---------- Section header ---------- */
 .section-header {
   display: flex;

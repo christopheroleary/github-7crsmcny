@@ -18,6 +18,8 @@ export default function Dashboard() {
   const [outstanding, setOutstanding] = useState({ count: 0, value: 0 });
   const [upcoming, setUpcoming] = useState({ count: 0, value: 0 });
   const [thisMonth, setThisMonth] = useState({ count: 0, value: 0 });
+  const [allGigs, setAllGigs] = useState(0);
+  const [unInvoiced, setUnInvoiced] = useState({ count: 0, value: 0 });
   const [trends, setTrends] = useState([]);
 
   useEffect(() => {
@@ -26,7 +28,13 @@ export default function Dashboard() {
       const monthStart = today.slice(0, 7) + '-01';
       const twelveAgo = twelveMonthsAgoStr();
 
-      const [{ data: completedGigs }, { data: upcomingGigs }, { data: trendGigs }] = await Promise.all([
+      const [
+        { data: completedGigs }, 
+        { data: upcomingGigs }, 
+        { data: trendGigs },
+        { data: allGigsData },
+        { data: pastGigs }
+      ] = await Promise.all([
         supabase.from('gigs')
           .select('id, fee_amount, invoices(status)')
           .eq('status', 'completed'),
@@ -38,7 +46,25 @@ export default function Dashboard() {
           .select('gig_date, fee_amount, status')
           .gte('gig_date', twelveAgo)
           .not('status', 'in', '("cancelled")'),
+        supabase.from('gigs')
+          .select('id'),
+        supabase.from('gigs')
+          .select('id, fee_amount, gig_date, invoices(status)')
+          .lt('gig_date', today)
+          .not('status', 'in', '("cancelled")')
       ]);
+
+      // All Gigs Count
+      setAllGigs((allGigsData || []).length);
+
+      // Un-invoiced past gigs (No invoices, or only draft/cancelled ones)
+      const unInvoicedGigs = (pastGigs || []).filter(g => 
+        !g.invoices?.some(inv => inv.status === 'sent' || inv.status === 'paid')
+      );
+      setUnInvoiced({
+        count: unInvoicedGigs.length,
+        value: unInvoicedGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
+      });
 
       // Outstanding: completed with no paid invoice
       const outstandingGigs = (completedGigs || []).filter(g =>
@@ -66,9 +92,8 @@ export default function Dashboard() {
       const monthMap = {};
       const now = new Date();
       let endYear = now.getFullYear();
-      let endMonth = now.getMonth(); // 0-indexed
+      let endMonth = now.getMonth(); 
 
-      // 1. Find the furthest future gig date
       (trendGigs || []).forEach(g => {
         const year = parseInt(g.gig_date.slice(0, 4), 10);
         const month = parseInt(g.gig_date.slice(5, 7), 10) - 1; 
@@ -78,10 +103,8 @@ export default function Dashboard() {
         }
       });
 
-      // 2. Start from 11 months ago
       const d = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-      // 3. Generate monthMap keys sequentially up to the end date
       while (true) {
         const y = d.getFullYear();
         const m = d.getMonth();
@@ -94,7 +117,6 @@ export default function Dashboard() {
         d.setMonth(m + 1);
       }
 
-      // 4. Populate the map with gig data
       (trendGigs || []).forEach(g => {
         const key = g.gig_date.slice(0, 7);
         if (monthMap[key]) {
@@ -116,13 +138,14 @@ export default function Dashboard() {
       <h2 className="section-header__title" style={{ marginBottom: 16 }}>Dashboard</h2>
 
       <div className="kpi-row">
+        <KPICard label="All gigs" count={allGigs + ' gigs'} colour="#71717a" />
+        <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" />
         <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" />
         <KPICard label="Upcoming gigs" count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" />
         <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" />
       </div>
 
       <div className="dashboard-chart">
-        {/* Changed the title to reflect future dates being included */}
         <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={trends} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
