@@ -71,6 +71,7 @@ export default function App() {
   ];
 
   const memberTabs = [
+    ['dashboard', 'Dashboard'],
     ['gigs', 'My gigs'],
   ];
 
@@ -122,7 +123,7 @@ export default function App() {
       </nav>
 
       <main>
-        {view === 'dashboard' && isAdmin && <Dashboard />}
+        {view === 'dashboard' && <Dashboard />}
         {view === 'gigs' && <GigsList />}
         {view === 'enquiries' && isAdmin && <EnquiriesList />}
         {view === 'venues' && isAdmin && <VenuesList />}
