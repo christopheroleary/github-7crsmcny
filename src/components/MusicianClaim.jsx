@@ -245,20 +245,22 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       { data: lineupData },
       { data: gigData },
       { data: profileData },
-      { data: { user: authUser } },
+      authResult,                        // ← don't destructure deeply here
     ] = await Promise.all([
       supabase.from('musician_claims').select('*').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gig_lineup').select('travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gigs').select('gig_date, start_time, end_time, band_id, venues(name, address)').eq('id', gigId).maybeSingle(),
-      supabase.from('profiles').select('full_name, display_name, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
+      supabase.from('profiles').select('full_name, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
       supabase.auth.getUser(),
     ]);
-  
+    
+    const authEmail = authResult?.data?.user?.email || '';
+    
     setClaim(claimData);
     setMyLineup(lineupData);
     setGig(gigData);
-    setProfile({ ...profileData, email: authUser?.email || '' }); // ← here, instead of setProfile(profileData)
-  
+    setProfile({ ...profileData, email: authEmail });
+     
     if (gigData?.band_id) {
       const { data: bandData } = await supabase
         .from('bands')
