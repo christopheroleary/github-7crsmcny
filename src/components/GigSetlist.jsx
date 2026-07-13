@@ -368,17 +368,28 @@ function SongEditFields({ song, onSaved, onCancel }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const lyricsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
-  const chordsSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
-  const youtubeSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent((artist ? artist + ' ' : '') + title + ' youtube');
+  const cleanedArtist = artist ? cleanArtist(artist) : '';
+
+  const youtubeSearchUrl = 'https://www.youtube.com/results?search_query=' +
+    encodeURIComponent(
+      artist
+        ? `${title} "${cleanedArtist}" official audio`
+        : `${title} official audio`
+    );
 
   const spotifySearchUrl = artist
-    ? `https://open.spotify.com/search/track:${encodeURIComponent(title)}%20artist:${encodeURIComponent(cleanArtist(artist))}`
+    ? `https://open.spotify.com/search/track:${encodeURIComponent(title)}%20artist:${encodeURIComponent(cleanedArtist)}`
     : `https://open.spotify.com/search/track:${encodeURIComponent(title)}`;
 
-  function handleAutoFillSpotify() {
+  const lyricsSearchUrl = 'https://www.google.com/search?q=' +
+    encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
+
+  const chordsSearchUrl = 'https://www.google.com/search?q=' +
+    encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
+
+  function handleAutoFill() {
     if (!referenceUrl) {
-      setReferenceUrl(spotifySearchUrl);
+      setReferenceUrl(youtubeSearchUrl);
     }
   }
 
@@ -423,32 +434,30 @@ function SongEditFields({ song, onSaved, onCancel }) {
 
       <label className="field">
         <span className="field__label">
-          YouTube or Spotify link{' '}
+          Reference link{' '}
           <a href={youtubeSearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
             Find on YouTube ↗
-          </a>
-          {' · '}
-          <a href={spotifySearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
-            Find on Spotify ↗
           </a>
           {!referenceUrl && (
             <>
               {' · '}
-              <button
-                type="button"
-                className="link-button"
-                style={{ display: 'inline' }}
-                onClick={handleAutoFillSpotify}
-              >
-                Auto-fill Spotify search URL
+              <button type="button" className="link-button" style={{ display: 'inline' }} onClick={handleAutoFill}>
+                Auto-fill YouTube search
               </button>
             </>
           )}
+          {' · '}
+          <a href={spotifySearchUrl} target="_blank" rel="noopener noreferrer" className="link-button" style={{ display: 'inline' }}>
+            Find on Spotify ↗
+          </a>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
+            (30s preview only)
+          </span>
         </span>
         <input
           value={referenceUrl}
           onChange={(e) => setReferenceUrl(e.target.value)}
-          placeholder="Paste a YouTube or Spotify track URL"
+          placeholder="Paste a YouTube URL for full playback"
         />
       </label>
 
