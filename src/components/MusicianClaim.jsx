@@ -146,7 +146,6 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   <div class="header">
     <div>
       <h1 class="musician-name">${musicianName}</h1>
-      ${profile.full_name}
       ${musicianEmail ? `<p class="from-detail">${musicianEmail}</p>` : ''}
     </div>
     <div class="meta">
