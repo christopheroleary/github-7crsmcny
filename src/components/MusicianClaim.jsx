@@ -165,12 +165,14 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
         <span class="meta-label">Date submitted</span>
         <span class="meta-value">${formatDate(issuedDate)}</span>
       </div>
-      // <div class="meta-block">
-        // <span class="meta-label">Status</span>
-        // <span class="meta-value">${STATUS_LABELS[claim.status] || claim.status}</span>
-      // </div>
-      // ${isPaid ? `<div class="meta-block"><span class="meta-label">Paid date</span><span class="meta-value">${formatDate(paidDate)}</span></div>` : ''}
-    </div>
+      <!-- 
+      <div class="meta-block">
+        <span class="meta-label">Status</span>
+        <span class="meta-value">${STATUS_LABELS[claim.status] || claim.status}</span>
+      </div>
+      ${isPaid ? `<div class="meta-block"><span class="meta-label">Paid date</span><span class="meta-value">${formatDate(paidDate)}</span></div>` : ''}
+    -->
+      </div>
   </div>
 
   <div class="divider"></div>
