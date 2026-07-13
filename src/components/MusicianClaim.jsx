@@ -146,6 +146,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   <div class="header">
     <div>
       <h1 class="musician-name">${musicianName}</h1>
+      ${profile.full_name}
       ${musicianEmail ? `<p class="from-detail">${musicianEmail}</p>` : ''}
     </div>
     <div class="meta">
@@ -169,7 +170,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 
   <div class="parties">
     <div class="bill-to">
-      <p class="label">Payment from</p>
+      <p class="label">Invoice To</p>
       <p class="client-name">${band?.name || '—'}</p>
       ${band?.contact_email ? `<p class="detail">${band.contact_email}</p>` : ''}
       ${band?.contact_phone ? `<p class="detail">${band.contact_phone}</p>` : ''}
@@ -260,7 +261,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     setMyLineup(lineupData);
     setGig(gigData);
     setProfile({ ...profileData, email: authEmail });
-     
+
     if (gigData?.band_id) {
       const { data: bandData } = await supabase
         .from('bands')
