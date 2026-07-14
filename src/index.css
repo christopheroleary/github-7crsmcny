@@ -14,16 +14,20 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   overflow-x: hidden; /* ADDED: Completely disables page-level horizontal scroll */
+}
+
+/* Ensure all elements fit within their containers */
+* {
+  box-sizing: border-box;
 }
 
 button,
