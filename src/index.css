@@ -14,10 +14,6 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
-* {
-  outline: 1px solid red !important;
-}
-
 html, body {
   margin: 0;
   padding: 0;
@@ -26,7 +22,7 @@ html, body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
- /* overflow-x: hidden; /* ADDED: Completely disables page-level horizontal scroll */
+  overflow-x: hidden; /* ADDED: Completely disables page-level horizontal scroll */
 }
 
 /* Ensure all elements fit within their containers */
