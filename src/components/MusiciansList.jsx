@@ -386,7 +386,7 @@ function PlaceholdersSection() {
       <div className="section-header">
         <h2 className="section-header__title">Deps &amp; session musicians</h2>
         {!showAddForm && (
-          <button className="btn btn--ghost btn--small" onClick={() => { setShowAddForm(true); setAddError(null); }}>
+          <button className="btn btn--primary btn--small" onClick={() => { setShowAddForm(true); setAddError(null); }}>
             + Add new dep
           </button>
         )}
