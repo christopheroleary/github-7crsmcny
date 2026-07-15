@@ -175,7 +175,6 @@ function DepNameEditor({ ph, onSaved }) {
   function startEdit() {
     setValue(ph.name);
     setEditing(true);
-    // Focus after render
     setTimeout(() => inputRef.current?.select(), 0);
   }
 
@@ -272,6 +271,13 @@ function PlaceholdersSection() {
   const [loading, setLoading] = useState(true);
   const [mergeTargets, setMergeTargets] = useState({});
 
+  // Add new dep
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newDepName, setNewDepName] = useState('');
+  const [newDepInstrumentId, setNewDepInstrumentId] = useState('');
+  const [addingDep, setAddingDep] = useState(false);
+  const [addError, setAddError] = useState(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
@@ -296,6 +302,39 @@ function PlaceholdersSection() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleAddNewDep(e) {
+    e.preventDefault();
+    const name = newDepName.trim();
+    if (!name) return;
+    setAddingDep(true);
+    setAddError(null);
+
+    const existing = placeholders.find((p) => p.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setAddError('"' + existing.name + '" already exists in the deps list.');
+      setAddingDep(false);
+      return;
+    }
+
+    const { data: newPh, error: phErr } = await supabase
+      .from('placeholder_musicians')
+      .insert({ name })
+      .select()
+      .single();
+    if (phErr) { setAddError(phErr.message); setAddingDep(false); return; }
+
+    if (newDepInstrumentId) {
+      await supabase.from('placeholder_musician_instruments')
+        .insert({ placeholder_id: newPh.id, instrument_id: newDepInstrumentId });
+    }
+
+    setAddingDep(false);
+    setNewDepName('');
+    setNewDepInstrumentId('');
+    setShowAddForm(false);
+    load();
+  }
 
   async function handleAddInstrument(placeholderId, instrumentId) {
     if (!instrumentId) return;
@@ -346,7 +385,42 @@ function PlaceholdersSection() {
     <div style={{ marginTop: 32 }}>
       <div className="section-header">
         <h2 className="section-header__title">Deps &amp; session musicians</h2>
+        {!showAddForm && (
+          <button className="btn btn--ghost btn--small" onClick={() => { setShowAddForm(true); setAddError(null); }}>
+            + Add new dep
+          </button>
+        )}
       </div>
+
+      {showAddForm && (
+        <form onSubmit={handleAddNewDep} className="inline-subform" style={{ marginBottom: 16 }}>
+          <input
+            placeholder="Full name (e.g. Dave Smith)"
+            value={newDepName}
+            onChange={(e) => setNewDepName(e.target.value)}
+            required
+            autoFocus
+          />
+          <select
+            value={newDepInstrumentId}
+            onChange={(e) => setNewDepInstrumentId(e.target.value)}
+          >
+            <option value="">Instrument (optional)…</option>
+            {allInstruments.map((i) => (
+              <option key={i.id} value={i.id}>{i.name}</option>
+            ))}
+          </select>
+          {addError && <p className="form-error">{addError}</p>}
+          <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => { setShowAddForm(false); setAddError(null); }}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn--primary btn--small" disabled={addingDep}>
+              {addingDep ? 'Saving…' : 'Save dep'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Instrument filter for deps */}
       {active.length > 0 && (
@@ -373,7 +447,7 @@ function PlaceholdersSection() {
       </p>
 
       {active.length === 0 ? (
-        <p className="state-message">No deps in the system yet — add them from a gig's roster.</p>
+        <p className="state-message">No deps in the system yet — add them above or from a gig's roster.</p>
       ) : filteredActive.length === 0 ? (
         <p className="state-message">No deps play that instrument.</p>
       ) : (
@@ -382,7 +456,6 @@ function PlaceholdersSection() {
             <li className="simple-list__item" key={ph.id}>
               <div className="simple-list__row" style={{ alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                  {/* Editable name — double-click or click Rename */}
                   <DepNameEditor ph={ph} onSaved={load} />
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
