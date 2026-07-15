@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
@@ -164,6 +164,104 @@ export default function MusiciansList() {
   );
 }
 
+// ─── Inline editable dep name ─────────────────────────────────────────────────
+
+function DepNameEditor({ ph, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(ph.name);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
+
+  function startEdit() {
+    setValue(ph.name);
+    setEditing(true);
+    // Focus after render
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  async function commit() {
+    const trimmed = value.trim();
+    if (!trimmed) { setValue(ph.name); setEditing(false); return; }
+    if (trimmed === ph.name) { setEditing(false); return; }
+    setSaving(true);
+    const { error } = await supabase
+      .from('placeholder_musicians')
+      .update({ name: trimmed })
+      .eq('id', ph.id);
+    setSaving(false);
+    if (error) { alert("Couldn't rename: " + error.message); return; }
+    setEditing(false);
+    onSaved();
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { setValue(ph.name); setEditing(false); }
+  }
+
+  if (editing) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <input
+          ref={inputRef}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          style={{
+            fontSize: 'inherit',
+            fontWeight: 'inherit',
+            fontFamily: 'inherit',
+            padding: '2px 6px',
+            border: '1px solid var(--accent, #6366f1)',
+            borderRadius: 5,
+            background: 'var(--paper)',
+            color: 'var(--ink)',
+            outline: 'none',
+            minWidth: 140,
+          }}
+        />
+        <button
+          className="link-button"
+          onMouseDown={(e) => { e.preventDefault(); commit(); }}
+          disabled={saving}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          className="link-button"
+          onMouseDown={(e) => { e.preventDefault(); setValue(ph.name); setEditing(false); }}
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span
+        className="simple-list__title"
+        onDoubleClick={startEdit}
+        title="Double-click to rename"
+        style={{ cursor: 'text' }}
+      >
+        {ph.name}
+      </span>
+      <button
+        className="link-button"
+        onClick={startEdit}
+        style={{ fontSize: 12, opacity: 0.6 }}
+        title="Rename dep"
+      >
+        Rename
+      </button>
+    </span>
+  );
+}
+
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
 function PlaceholdersSection() {
@@ -284,7 +382,8 @@ function PlaceholdersSection() {
             <li className="simple-list__item" key={ph.id}>
               <div className="simple-list__row" style={{ alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                  <span className="simple-list__title">{ph.name}</span>
+                  {/* Editable name — double-click or click Rename */}
+                  <DepNameEditor ph={ph} onSaved={load} />
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                     {ph.instruments.map((inst) => (
