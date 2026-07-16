@@ -30,6 +30,8 @@ const STATUS_COLORS = {
   rejected: 'cancelled',
 };
 
+// ... (top of your file: imports and helper functions)
+
 // -------------------------------------------------------------------
 // Invoice HTML builder — musician issues this TO the band
 // -------------------------------------------------------------------
@@ -38,7 +40,6 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const isPaid = claim.status === 'paid';
   const total = claim.amount_pence;
 
-  // Use created_at as "issued date"; use updated_at as "paid date" if paid
   const issuedDate = claim.created_at ? claim.created_at.slice(0, 10) : null;
   const paidDate   = isPaid && claim.updated_at ? claim.updated_at.slice(0, 10) : null;
 
@@ -59,8 +60,6 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
       ${gig.start_time ? `<p class="detail">${gig.start_time.slice(0, 5)}${gig.end_time ? ' – ' + gig.end_time.slice(0, 5) : ''}</p>` : ''}
     </div>` : '';
 
-  // Payment details come from the musician's profile bank fields (if stored).
-  // Adjust field names below to match your `profiles` schema.
   const paymentHTML = (profile?.bank_account_name || profile?.bank_account_number) ? `
     <div class="payment-box">
       <p class="label">Payment details</p>
@@ -85,15 +84,34 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 <title>${invNumber}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
 <style>
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: white; font-family: 'Inter', sans-serif; color: #1a1a1a; font-size: 10pt; }
-  .page { width: 210mm; min-height: 297mm; padding: 18mm 16mm 28mm; margin: 0 auto; position: relative; overflow: hidden; }
+  
+  html, body { 
+    margin: 0; 
+    padding: 0; 
+    background: white; 
+    font-family: 'Inter', sans-serif; 
+    color: #1a1a1a; 
+    font-size: 10pt; 
+  }
+  
+  .page { 
+    width: 210mm; 
+    height: 297mm;          
+    max-height: 297mm;      
+    padding: 15mm 15mm 25mm; 
+    margin: 0 auto; 
+    position: relative; 
+    overflow: hidden;       
+    box-sizing: border-box;
+  }
 
   .stamp { position: absolute; top: 38mm; right: 14mm; font-family: 'Space Grotesk', sans-serif; font-size: 34pt; font-weight: 700; letter-spacing: 0.1em; transform: rotate(-22deg); opacity: 0.1; border: 6px solid; padding: 4px 12px; border-radius: 4px; pointer-events: none; }
   .stamp--paid { color: #1f3d3a; border-color: #1f3d3a; }
 
-  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 6mm; }
   .musician-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: #c8862e; margin: 0 0 5px; letter-spacing: -0.02em; }
   .from-detail { margin: 1px 0; font-size: 9pt; color: #555; line-height: 1.5; }
   .meta { text-align: right; flex-shrink: 0; }
@@ -101,9 +119,9 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   .meta-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #999; font-weight: 600; }
   .meta-value { font-family: 'IBM Plex Mono', monospace; font-size: 10pt; font-weight: 500; }
 
-  .divider { height: 3px; background: linear-gradient(90deg, #c8862e 0%, #e8a84e 60%, transparent 100%); border-radius: 2px; margin-bottom: 8mm; }
+  .divider { height: 3px; background: linear-gradient(90deg, #c8862e 0%, #e8a84e 60%, transparent 100%); border-radius: 2px; margin-bottom: 6mm; }
 
-  .parties { display: flex; gap: 12mm; margin-bottom: 8mm; }
+  .parties { display: flex; gap: 12mm; margin-bottom: 6mm; }
   .bill-to { flex: 1; }
   .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #999; font-weight: 600; margin: 0 0 4px; }
   .client-name { font-family: 'Space Grotesk', sans-serif; font-size: 14pt; font-weight: 700; margin: 0 0 3px; }
@@ -119,36 +137,48 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   td.desc { width: 55%; }
   tr.alt td { background: #faf8f5; }
 
-  .totals { display: flex; flex-direction: column; align-items: flex-end; border-top: 2px solid #1e1b16; padding-top: 8px; margin-bottom: 8mm; }
+  .totals { display: flex; flex-direction: column; align-items: flex-end; border-top: 2px solid #1e1b16; padding-top: 8px; margin-bottom: 6mm; }
   .totals-row { display: flex; gap: 32px; justify-content: flex-end; padding: 3px 10px; font-size: 9.5pt; color: #555; width: 100%; }
   .totals-row .amt { font-family: 'IBM Plex Mono', monospace; font-size: 9pt; min-width: 70px; text-align: right; }
   .totals-grand { background: #c8862e; border-radius: 4px; color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: 12pt; font-weight: 700; padding: 8px 10px; margin-top: 6px; }
   .totals-grand .amt { font-family: 'Space Grotesk', sans-serif; font-size: 12pt; }
 
-  .payment-box { background: #f5f2ec; border-radius: 6px; padding: 10px 14px; margin-bottom: 6mm; }
+  .payment-box { background: #f5f2ec; border-radius: 6px; padding: 10px 14px; margin-bottom: 4mm; }
   .payment-grid { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; font-size: 9.5pt; }
   .pl { color: #888; font-weight: 600; }
 
-  .footer-notes { border-top: 1px solid #eee; padding-top: 4mm; margin-bottom: 4mm; font-size: 8.5pt; color: #777; line-height: 1.6; }
+  .footer-notes { border-top: 1px solid #eee; padding-top: 3mm; margin-bottom: 3mm; font-size: 8.5pt; color: #777; line-height: 1.5; }
   .footer-notes p { margin: 0 0 4px; }
 
-  .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
+  .page-footer { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
 
   @media print {
     @page {
       size: A4 portrait;
-      margin: 0;
+      margin: 0mm; 
     }
     html, body { 
       margin: 0; 
+      padding: 0;
+      height: 297mm;
+      overflow: hidden;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }
+    .page { 
+      margin: 0 !important; 
+      width: 210mm !important; 
+      height: 297mm !important; 
+      max-height: 297mm !important;
+      page-break-inside: avoid;
+      page-break-after: always;
+      overflow: hidden;
+    }
   }
 </style>
 </head>
 <body>
+
 <div class="page">
   ${stampHTML}
 
