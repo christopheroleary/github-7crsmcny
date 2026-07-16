@@ -34,9 +34,8 @@ const STATUS_COLORS = {
 // 1. New Smart Email Button Component
 // -------------------------------------------------------------------
 function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNumber, poundsFromPence }) {
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [step, setStep] = useState(1);
   const [copied, setCopied] = useState(false);
-  const [tipMessage, setTipMessage] = useState('');
 
   const emailTo = band?.contact_email || '';
   const invNumber = claimInvoiceNumber(claim?.id?.slice(0, 12));
@@ -52,37 +51,11 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
     `Best regards,\n` +
     `${musicianName}`;
 
+  // We format a full string so mobile users can easily paste the "To" address as well
+  const fullClipboardText = `To: ${emailTo}\nSubject: ${subject}\n\n${body}`;
   const mailtoUrl = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-  const handleDownloadAndEmail = async () => {
-    setIsProcessing(true);
-    setTipMessage('');
-    try {
-      // Trigger the PDF print/download window
-      await onDownloadPdf();
-      
-      setTipMessage("Invoice ready! Please attach the PDF you just saved to this email draft.");
-      
-      // Launch the mail client immediately after the download triggers
-      window.location.href = mailtoUrl;
-    } catch (error) {
-      console.error("Failed to generate PDF or open email", error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCopyBody = async (e) => {
-    e.preventDefault();
-    try {
-      await navigator.clipboard.writeText(body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-    }
-  };
-
+  // Fallback if no email exists in the database
   if (!emailTo) {
     return (
       <button className="btn btn--ghost btn--small" onClick={onDownloadPdf}>
@@ -91,32 +64,79 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
     );
   }
 
+  const handleGeneratePdf = async () => {
+    // 1. Silently copy everything to clipboard first (Crucial for iOS Share Sheet users)
+    try {
+      await navigator.clipboard.writeText(fullClipboardText);
+    } catch (e) {
+      console.log("Clipboard write blocked, user will have to use the copy button.");
+    }
+
+    // 2. Trigger the PDF print/download window
+    await onDownloadPdf();
+    
+    // 3. Move to Step 2 so the UI updates when they return from the print dialog
+    setStep(2);
+  };
+
+  const handleOpenEmailDraft = () => {
+    // _blank ensures webmail (like Gmail) opens in a new tab, keeping the app open
+    window.open(mailtoUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyText = async (e) => {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(fullClipboardText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button 
-          onClick={handleDownloadAndEmail}
-          disabled={isProcessing}
-          className="btn btn--primary btn--small"
-        >
-          {isProcessing ? 'Generating...' : '📥 Save PDF & Email Band'}
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', padding: '16px', backgroundColor: '#f9f9f9', border: '1px solid #eee', borderRadius: '6px' }}>
+      
+      {step === 1 ? (
+        <>
+          <p style={{ margin: 0, fontWeight: 500 }}>Step 1: Save your invoice</p>
+          <button 
+            onClick={handleGeneratePdf}
+            className="btn btn--primary btn--small"
+            style={{ alignSelf: 'flex-start' }}
+          >
+            📥 Generate & Save PDF
+          </button>
+        </>
+      ) : (
+        <>
+          <p style={{ margin: 0, fontWeight: 500, color: '#2e7d32' }}>✓ PDF Generated!</p>
+          <p style={{ margin: 0, fontSize: '0.9em', color: '#555' }}>
+            <strong>Step 2: Email the band.</strong> Web browsers can't auto-attach files. Open a draft below and manually attach your saved PDF.
+          </p>
+          
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+            <button 
+              onClick={handleOpenEmailDraft}
+              className="btn btn--primary btn--small"
+            >
+              ✉️ Open Email Draft
+            </button>
 
-        <button 
-          type="button"
-          className="btn btn--ghost btn--small"
-          onClick={handleCopyBody}
-          title="Copy email body to clipboard"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-        >
-          {copied ? '✓ Copied text!' : '📋 Copy Email Text'}
-        </button>
-      </div>
-
-      {tipMessage && (
-        <p className="field__hint" style={{ marginTop: '4px', backgroundColor: '#f9f9f9', padding: '8px', borderRadius: '4px', maxWidth: '400px' }}>
-          💡 <strong>Tip:</strong> {tipMessage}
-        </p>
+            <button 
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={handleCopyText}
+            >
+              {copied ? '✓ Copied Details!' : '📋 Copy Email Details'}
+            </button>
+          </div>
+          
+          <p style={{ margin: 0, fontSize: '0.85em', color: '#888', fontStyle: 'italic' }}>
+            📱 <strong>iPhone users:</strong> If you used the "Share" menu to open Mail, just hit "Paste" — we already copied the To, Subject, and Body for you!
+          </p>
+        </>
       )}
     </div>
   );
@@ -395,18 +415,11 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     setProfile({ ...profileData, email: authEmail });
 
     if (gigData?.band_id) {
-      const { data: bandData, error: bandError } = await supabase
+      const { data: bandData } = await supabase
         .from('bands')
-        .select('*') // Switched to * temporarily to see all columns
+        .select('name, contact_email, contact_phone, address')
         .eq('id', gigData.band_id)
         .maybeSingle();
-        
-      console.log("=== DEBUG CHECK ===");
-      console.log("1. Claim Status:", claimData?.status);
-      console.log("2. Band Fetch Error:", bandError);
-      console.log("3. Band Data returned:", bandData);
-      console.log("===================");
-
       setBand(bandData);
     }
   
