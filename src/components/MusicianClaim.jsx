@@ -356,7 +356,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
   if (loading) return null;
 
-  const canDownloadInvoice = claim && (claim.status === 'approved' || claim.status === 'paid');
+  const canDownloadInvoice = claim && (claim.status === 'approved' || claim.status === 'paid' || claim.status === 'pending');
 
   return (
     <div className="day-sheet__section">
