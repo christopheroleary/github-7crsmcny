@@ -30,10 +30,100 @@ const STATUS_COLORS = {
   rejected: 'cancelled',
 };
 
-// ... (top of your file: imports and helper functions)
+// -------------------------------------------------------------------
+// 1. New Smart Email Button Component
+// -------------------------------------------------------------------
+function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNumber, poundsFromPence }) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [tipMessage, setTipMessage] = useState('');
+
+  const emailTo = band?.contact_email || '';
+  const invNumber = claimInvoiceNumber(claim?.id?.slice(0, 12));
+  const amount = poundsFromPence(claim?.amount_pence);
+  const musicianName = profile?.full_name || profile?.name || 'Musician';
+
+  const subject = `Invoice ${invNumber} - ${musicianName}`;
+  const body = `Hi ${band?.name || 'Team'},\n\n` +
+    `Please find my invoice PDF attached for the gig.\n\n` +
+    `• Invoice Ref: ${invNumber}\n` +
+    `• Total Claimed: £${amount}\n\n` +
+    `My payment details are listed on the attached document.\n\n` +
+    `Best regards,\n` +
+    `${musicianName}`;
+
+  const mailtoUrl = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  const handleDownloadAndEmail = async () => {
+    setIsProcessing(true);
+    setTipMessage('');
+    try {
+      // Trigger the PDF print/download window
+      await onDownloadPdf();
+      
+      setTipMessage("Invoice ready! Please attach the PDF you just saved to this email draft.");
+      
+      // Launch the mail client immediately after the download triggers
+      window.location.href = mailtoUrl;
+    } catch (error) {
+      console.error("Failed to generate PDF or open email", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCopyBody = async (e) => {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  if (!emailTo) {
+    return (
+      <button className="btn btn--ghost btn--small" onClick={onDownloadPdf}>
+        Download invoice
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button 
+          onClick={handleDownloadAndEmail}
+          disabled={isProcessing}
+          className="btn btn--primary btn--small"
+        >
+          {isProcessing ? 'Generating...' : '📥 Save PDF & Email Band'}
+        </button>
+
+        <button 
+          type="button"
+          className="btn btn--ghost btn--small"
+          onClick={handleCopyBody}
+          title="Copy email body to clipboard"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+        >
+          {copied ? '✓ Copied text!' : '📋 Copy Email Text'}
+        </button>
+      </div>
+
+      {tipMessage && (
+        <p className="field__hint" style={{ marginTop: '4px', backgroundColor: '#f9f9f9', padding: '8px', borderRadius: '4px', maxWidth: '400px' }}>
+          💡 <strong>Tip:</strong> {tipMessage}
+        </p>
+      )}
+    </div>
+  );
+}
 
 // -------------------------------------------------------------------
-// Invoice HTML builder — musician issues this TO the band
+// 2. Invoice HTML builder — musician issues this TO the band
 // -------------------------------------------------------------------
 function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const invNumber = claimInvoiceNumber(claim.id.slice(0, 12));
@@ -196,13 +286,6 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
         <span class="meta-label">Date submitted</span>
         <span class="meta-value">${formatDate(issuedDate)}</span>
       </div>
-      <!-- 
-      <div class="meta-block">
-        <span class="meta-label">Status</span>
-        <span class="meta-value">${STATUS_LABELS[claim.status] || claim.status}</span>
-      </div>
-      ${isPaid ? `<div class="meta-block"><span class="meta-label">Paid date</span><span class="meta-value">${formatDate(paidDate)}</span></div>` : ''}
-    -->
       </div>
   </div>
 
@@ -258,12 +341,20 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
     <span>${musicianEmail}</span>
   </div>
 </div>
+
+<!-- Auto-close script: Closes the popup as soon as the print dialog finishes -->
+<script>
+  window.addEventListener('afterprint', () => {
+    setTimeout(() => window.close(), 100);
+  });
+</script>
+
 </body>
 </html>`;
 }
 
 // -------------------------------------------------------------------
-// Main component
+// 3. Main component
 // -------------------------------------------------------------------
 export default function MusicianClaim({ gigId, myProfileId }) {
   const [claim, setClaim]       = useState(null);
@@ -287,7 +378,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       { data: lineupData },
       { data: gigData },
       { data: profileData },
-      authResult,                        // ← don't destructure deeply here
+      authResult,
     ] = await Promise.all([
       supabase.from('musician_claims').select('*').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gig_lineup').select('travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
@@ -441,6 +532,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
             {claim.status === 'pending' && (
               <button
                 className="link-button"
+                style={{ marginTop: '12px' }}
                 onClick={() => {
                   setDescription(claim.description);
                   setAmountPounds((claim.amount_pence / 100).toFixed(2));
@@ -452,13 +544,17 @@ export default function MusicianClaim({ gigId, myProfileId }) {
                 Edit claim
               </button>
             )}
+            
+            {/* The new button integration! */}
             {canDownloadInvoice && (
-              <button
-                className="btn btn--ghost btn--small"
-                onClick={handlePrintInvoice}
-              >
-                Download invoice
-              </button>
+              <ClaimEmailButton 
+                band={band}
+                claim={claim}
+                profile={profile}
+                onDownloadPdf={handlePrintInvoice}
+                claimInvoiceNumber={claimInvoiceNumber}
+                poundsFromPence={poundsFromPence}
+              />
             )}
           </div>
         </>
