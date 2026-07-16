@@ -34,7 +34,7 @@ const STATUS_COLORS = {
 // Invoice HTML builder — musician issues this TO the band
 // -------------------------------------------------------------------
 function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
-  const invNumber = claimInvoiceNumber(claim.id);
+  const invNumber = claimInvoiceNumber(claim.id.slice(0, 12));
   const isPaid = claim.status === 'paid';
   const total = claim.amount_pence;
 
