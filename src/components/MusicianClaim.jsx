@@ -43,6 +43,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const paidDate   = isPaid && claim.updated_at ? claim.updated_at.slice(0, 10) : null;
 
   const musicianName  = profile?.full_name || profile?.name || 'Musician';
+  const musicianPhone  = profile?.contact_phone || '';
   const musicianEmail = profile?.email || '';
 
   const stampHTML = isPaid
@@ -154,6 +155,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   <div class="header">
     <div>
       <h1 class="musician-name">${musicianName}</h1>
+      ${musicianPhone ? `<p class="from-detail">${musicianPhone}</p>` : ''}
       ${musicianEmail ? `<p class="from-detail">${musicianEmail}</p>` : ''}
     </div>
     <div class="meta">
@@ -181,6 +183,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
     <div class="bill-to">
       <p class="label">Invoice To</p>
       <p class="client-name">${band?.name || '—'}</p>
+      ${band?.address ? `<p class="detail">${band.address}</p>` : ''}
       ${band?.contact_email ? `<p class="detail">${band.contact_email}</p>` : ''}
       ${band?.contact_phone ? `<p class="detail">${band.contact_phone}</p>` : ''}
     </div>
