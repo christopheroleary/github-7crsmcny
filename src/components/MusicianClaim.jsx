@@ -43,7 +43,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const paidDate   = isPaid && claim.updated_at ? claim.updated_at.slice(0, 10) : null;
 
   const musicianName  = profile?.full_name || profile?.name || 'Musician';
-  const musicianPhone  = profile?.contact_phone || '';
+  const musicianPhone  = profile?.phone || '';
   const musicianEmail = profile?.email || '';
 
   const stampHTML = isPaid
