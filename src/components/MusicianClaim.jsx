@@ -155,24 +155,24 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   @media print {
     @page {
       size: A4 portrait;
-      margin: 0mm; 
-    }
-    html, body { 
       margin: 0; 
-      padding: 0;
-      height: 297mm;
-      overflow: hidden;
+    }
+
+    html, body {
+      height: 99% !important; 
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .page {
+      width: 210mm !important;
+      height: auto !important; 
+      max-height: 280mm !important; 
+      padding: 15mm 15mm 15mm !important; 
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-    }
-    .page { 
-      margin: 0 !important; 
-      width: 210mm !important; 
-      height: 297mm !important; 
-      max-height: 297mm !important;
-      page-break-inside: avoid;
-      page-break-after: always;
-      overflow: hidden;
     }
   }
 </style>
