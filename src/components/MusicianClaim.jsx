@@ -159,10 +159,9 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
     }
 
     html, body {
-      height: 100% !important; 
+      height: 99% !important; 
       margin: 0 !important;
       padding: 0 !important;
-      overflow: hidden;
     }
 
     .page {
