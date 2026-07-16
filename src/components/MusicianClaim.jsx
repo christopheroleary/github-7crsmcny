@@ -395,11 +395,18 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     setProfile({ ...profileData, email: authEmail });
 
     if (gigData?.band_id) {
-      const { data: bandData } = await supabase
+      const { data: bandData, error: bandError } = await supabase
         .from('bands')
-        .select('name, contact_email, contact_phone, address')
+        .select('*') // Switched to * temporarily to see all columns
         .eq('id', gigData.band_id)
         .maybeSingle();
+        
+      console.log("=== DEBUG CHECK ===");
+      console.log("1. Claim Status:", claimData?.status);
+      console.log("2. Band Fetch Error:", bandError);
+      console.log("3. Band Data returned:", bandData);
+      console.log("===================");
+
       setBand(bandData);
     }
   
