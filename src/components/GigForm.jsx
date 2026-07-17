@@ -284,7 +284,12 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
       <label className="field">
         <span className="field__label">Notes</span>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+        <textarea 
+          placeholder="e.g. dress code, greenroom, food and refreshments, bride and groom names or birthday number, favourite songs and don't play songs, stage size and style, power, load-in ground/stairs or gravel? noise limiter? wet weather plan? other acts? dj playlist? mic's for speeches/cake cutting? approx guest count, emergency day contact number? suppliers social handles?..." 
+          value={notes} 
+          onChange={(e) => setNotes(e.target.value)} 
+          rows={3} 
+        />
       </label>
 
       <div className="field">

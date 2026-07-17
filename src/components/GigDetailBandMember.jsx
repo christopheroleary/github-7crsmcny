@@ -240,7 +240,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
               <strong>Client:</strong> {gig.clients.name}
             </p>
           )}
-          {gig.notes && <p className="day-sheet__text">{gig.notes}</p>}
+          {gig.notes && <p className="day-sheet__text u-pre-line">{gig.notes}</p>}
         </div>
       )}
 

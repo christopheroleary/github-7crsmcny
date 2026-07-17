@@ -1938,3 +1938,8 @@ input {
 }
 .offline-dot--cached   { background-color: #4caf50; } /* green  = available */
 .offline-dot--missing  { background-color: #9e9e9e; } /* grey   = not cached */
+
+/* make notes text allow line returns for text boxes */
+.u-pre-line {
+  white-space: pre-line;
+}
