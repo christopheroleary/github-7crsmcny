@@ -382,10 +382,10 @@ function SongEditFields({ song, onSaved, onCancel }) {
     : `https://open.spotify.com/search/track:${encodeURIComponent(title)}`;
 
   const lyricsSearchUrl = 'https://www.google.com/search?q=' +
-    encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics');
+    encodeURIComponent((artist ? artist + ' ' : '') + title + ' lyrics genius');
 
   const chordsSearchUrl = 'https://www.google.com/search?q=' +
-    encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords');
+    encodeURIComponent((artist ? artist + ' ' : '') + title + ' chords and lyrics');
 
   function handleAutoFill() {
     if (!referenceUrl) {
