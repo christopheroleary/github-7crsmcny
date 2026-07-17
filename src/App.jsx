@@ -36,6 +36,17 @@ export default function App() {
     return <EnquiryForm />;
   }
 
+  if (window.location.pathname.startsWith('/invoice/')) {
+    const token = window.location.pathname.split('/')[2];
+    return (
+      <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+        <h1>✅ The Route Works!</h1>
+        <p>If you see this instead of the login screen, the bypass was successful.</p>
+      </div>
+    );
+  }
+
+
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const { isAdmin, loading: profileLoading } = useCurrentProfile();
