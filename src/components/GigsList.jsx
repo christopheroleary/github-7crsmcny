@@ -24,10 +24,12 @@ export default function GigsList() {
 
   const [showHistoric, setShowHistoric] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showNeedsInvoicing, setShowNeedsInvoicing] = useState(false);   // admin
+  const [showUnclaimedGigs, setShowUnclaimedGigs] = useState(false);     // band member
 
   // ── Offline-aware gig list (replaces the old loadGigs / useState(gigs)) ──────
   const {
-    gigs,
+    gigs: rawGigs,
     isOffline,
     syncing,
     syncedAt,
@@ -37,8 +39,29 @@ export default function GigsList() {
   } = useOfflineGigList({
     isAdmin,
     profileId: me?.id,
-    showHistoric,
+    // both filters target past gigs, so force historic on when either is active
+    showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs,
   });
+
+  // ── Client-side filters ───────────────────────────────────────────────────────
+  // Admin: past gigs whose band invoice hasn't been sent or paid.
+  //   Assumes gig objects expose `invoice_status` (joined from the invoices table).
+  // Band member: past gigs where the user's musician claim isn't approved or paid.
+  //   claim_status is merged onto each gig by fetchGigList in useOfflineGigList.
+  //   null = no claim submitted yet, 'pending'/'rejected' = not yet settled.
+  const gigs = (() => {
+    if (showNeedsInvoicing) {
+      return rawGigs.filter(
+        (g) => g.gig_date < today() && !['sent', 'paid'].includes(g.invoice_status)
+      );
+    }
+    if (showUnclaimedGigs) {
+      return rawGigs.filter(
+        (g) => g.gig_date < today() && !['approved', 'paid'].includes(g.claim_status)
+      );
+    }
+    return rawGigs;
+  })();
 
   // ── Keep sessionStorage navigation working (notification clicks etc.) ────────
   useEffect(() => {
@@ -104,6 +127,22 @@ export default function GigsList() {
           </button>
           {isAdmin && (
             <button
+              className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => setShowNeedsInvoicing((v) => !v)}
+            >
+              {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
+            </button>
+          )}
+          {!isAdmin && (
+            <button
+              className={`btn btn--small ${showUnclaimedGigs ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => setShowUnclaimedGigs((v) => !v)}
+            >
+              {showUnclaimedGigs ? 'Unpaid claims ✕' : 'Unpaid claims'}
+            </button>
+          )}
+          {isAdmin && (
+            <button
               className="btn btn--primary btn--small"
               onClick={() => setShowAddForm((v) => !v)}
             >
@@ -154,7 +193,11 @@ export default function GigsList() {
         </p>
       ) : gigs.length === 0 ? (
         <p className="state-message">
-          {showHistoric
+          {showNeedsInvoicing
+            ? 'No past gigs with outstanding invoices.'
+            : showUnclaimedGigs
+            ? 'No past gigs with unpaid claims — you\'re all up to date.'
+            : showHistoric
             ? 'No gigs found.'
             : isAdmin
             ? 'No upcoming gigs.'

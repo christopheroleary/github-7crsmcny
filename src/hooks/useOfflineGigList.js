@@ -60,7 +60,9 @@ const in30Days = () =>
 /**
  * Fetches the gig list.
  * - isAdmin: uses admin select fields (fee_amount, clients) and sees all gigs
- * - band_member: uses member fields, filtered to their lineup only
+ * - band_member: uses member fields, filtered to their lineup only.
+ *   Also fetches musician_claims and merges `claim_status` onto each gig so
+ *   GigsList can filter for unclaimed past gigs without a separate query.
  * - showHistoric: when true, removes the date floor (matches GigsList behaviour)
  */
 async function fetchGigList({ isAdmin, profileId, showHistoric }) {
@@ -105,7 +107,28 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data || [];
+
+  const fetchedGigIds = (data || []).map((g) => g.id);
+  if (fetchedGigIds.length === 0) return [];
+
+  // ── Merge musician claim status onto each gig ──────────────────────────────
+  // Fetched separately because claim rows live in musician_claims, not gigs.
+  // null claim_status = no claim submitted yet; 'pending' / 'rejected' = not
+  // yet settled. GigsList filters on 'approved' | 'paid' to hide settled gigs.
+  const { data: claims } = await supabase
+    .from('musician_claims')
+    .select('gig_id, status')
+    .eq('profile_id', profileId)
+    .in('gig_id', fetchedGigIds);
+
+  const claimMap = Object.fromEntries(
+    (claims || []).map((c) => [c.gig_id, c.status])
+  );
+
+  return (data || []).map((g) => ({
+    ...g,
+    claim_status: claimMap[g.id] ?? null,
+  }));
 }
 
 /** Full detail fetch for a single gig — used for background pre-caching. */
@@ -164,6 +187,7 @@ async function fetchGigData(gigId) {
  * - When online: fetches fresh list then quietly pre-caches every gig's full
  *   detail in the background (300ms stagger, skips recently cached gigs)
  * - Exposes cachedGigIds so the UI can dim/disable uncached rows when offline
+ * - For band members, merges `claim_status` from musician_claims onto each gig
  *
  * Usage:
  *   const {
