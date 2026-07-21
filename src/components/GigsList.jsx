@@ -10,6 +10,34 @@ import CalendarFeed from './CalendarFeed.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// ── Claim status display maps (mirrors MusicianClaim.jsx) ─────────────────────
+const CLAIM_CARD_LABELS = {
+  pending:  'Claim pending',
+  approved: 'Claim approved',
+  paid:     'Claim paid',
+  rejected: 'Claim rejected',
+};
+const CLAIM_CARD_COLORS = {
+  pending:  'inquiry',
+  approved: 'confirmed',
+  paid:     'completed',
+  rejected: 'cancelled',
+};
+
+// ── Invoice status display maps ───────────────────────────────────────────────
+const INVOICE_CARD_LABELS = {
+  draft:   'Invoice draft',
+  sent:    'Invoice sent',
+  paid:    'Invoice paid',
+  overdue: 'Invoice overdue',
+};
+const INVOICE_CARD_COLORS = {
+  draft:   'inquiry',
+  sent:    'confirmed',
+  paid:    'completed',
+  overdue: 'cancelled',
+};
+
 export default function GigsList() {
   const { profile: me, isAdmin } = useCurrentProfile();
 
@@ -152,6 +180,15 @@ export default function GigsList() {
         </div>
       </div>
 
+      {/* ── Active filter hint ───────────────────────────────────────────────── */}
+      {(showNeedsInvoicing || showUnclaimedGigs) && (
+        <p className="filter-hint">
+          {showNeedsInvoicing
+            ? 'Showing past gigs with unsettled invoices.'
+            : 'Showing past gigs with outstanding or missing claims.'}
+        </p>
+      )}
+
       {/* ── Offline / sync status bar ────────────────────────────────────────── */}
       {isOffline && (
         <div className="sync-bar sync-bar--offline">
@@ -243,6 +280,26 @@ export default function GigsList() {
                   </div>
                   <div className="gig-card__main">
                     <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
+                    {/* Invoice status — admin only, past gigs only */}
+                    {isAdmin && isPast && (
+                      <span
+                        className={`status-tag status-tag--${
+                          INVOICE_CARD_COLORS[gig.invoice_status] ?? 'muted'
+                        }`}
+                      >
+                        {INVOICE_CARD_LABELS[gig.invoice_status] ?? 'No invoice'}
+                      </span>
+                    )}
+                    {/* Claim status — band members only, past gigs only */}
+                    {!isAdmin && isPast && (
+                      <span
+                        className={`status-tag status-tag--${
+                          CLAIM_CARD_COLORS[gig.claim_status] ?? 'muted'
+                        }`}
+                      >
+                        {CLAIM_CARD_LABELS[gig.claim_status] ?? 'No claim'}
+                      </span>
+                    )}
                     <h2 className="gig-card__venue">{gig.venues?.name ?? 'No venue set'}</h2>
                     {gig.bands?.name && (
                       <p className="gig-card__client">{gig.bands.name}</p>

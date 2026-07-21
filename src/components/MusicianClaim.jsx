@@ -51,11 +51,9 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
     `Best regards,\n` +
     `${musicianName}`;
 
-  // We format a full string so mobile users can easily paste the "To" address as well
   const fullClipboardText = `To: ${emailTo}\nSubject: ${subject}\n\n${body}`;
   const mailtoUrl = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-  // Fallback if no email exists in the database
   if (!emailTo) {
     return (
       <button className="btn btn--ghost btn--small" onClick={onDownloadPdf}>
@@ -80,7 +78,6 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
   };
 
   const handleOpenEmailDraft = () => {
-    // _blank ensures webmail (like Gmail) opens in a new tab, keeping the app open
     window.open(mailtoUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -97,11 +94,10 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', padding: '16px', backgroundColor: '#f9f9f9', border: '1px solid #eee', borderRadius: '6px' }}>
-      
       {step === 1 ? (
         <>
           <p style={{ margin: 0, fontWeight: 500 }}>Step 1: Save your invoice</p>
-          <button 
+          <button
             onClick={handleGeneratePdf}
             className="btn btn--primary btn--small"
             style={{ alignSelf: 'flex-start' }}
@@ -115,24 +111,14 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
           <p style={{ margin: 0, fontSize: '0.9em', color: '#555' }}>
             <strong>Step 2: Email the band.</strong> Web browsers can't auto-attach files. Open a draft below and manually attach your saved PDF.
           </p>
-          
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-            <button 
-              onClick={handleOpenEmailDraft}
-              className="btn btn--primary btn--small"
-            >
+            <button onClick={handleOpenEmailDraft} className="btn btn--primary btn--small">
               ✉️ Open Email Draft
             </button>
-
-            <button 
-              type="button"
-              className="btn btn--ghost btn--small"
-              onClick={handleCopyText}
-            >
+            <button type="button" className="btn btn--ghost btn--small" onClick={handleCopyText}>
               {copied ? '✓ Copied Details!' : '📋 Copy Email Details'}
             </button>
           </div>
-          
           <p style={{ margin: 0, fontSize: '0.85em', color: '#888', fontStyle: 'italic' }}>
             📱 <strong>iPhone users:</strong> If you used the "Share" menu to open Mail, just hit "Paste" — we already copied the To, Subject, and Body for you!
           </p>
@@ -287,7 +273,6 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 </style>
 </head>
 <body>
-
 <div class="page">
   ${stampHTML}
 
@@ -361,14 +346,12 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
     <span>${musicianEmail}</span>
   </div>
 </div>
-
 <!-- Auto-close script: Closes the popup as soon as the print dialog finishes -->
 <script>
   window.addEventListener('afterprint', () => {
     setTimeout(() => window.close(), 100);
   });
 </script>
-
 </body>
 </html>`;
 }
@@ -392,7 +375,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-  
+
     const [
       { data: claimData },
       { data: lineupData },
@@ -406,9 +389,9 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       supabase.from('profiles').select('full_name, phone, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
       supabase.auth.getUser(),
     ]);
-    
+
     const authEmail = authResult?.data?.user?.email || '';
-    
+
     setClaim(claimData);
     setMyLineup(lineupData);
     setGig(gigData);
@@ -422,7 +405,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
         .maybeSingle();
       setBand(bandData);
     }
-  
+
     setLoading(false);
   }, [gigId, myProfileId]);
 
@@ -493,8 +476,13 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       setError(saveError.message);
       return;
     }
+
     setEditing(false);
     load();
+
+    // Notify the gig list so it re-fetches claim_status for this gig,
+    // keeping the "Unpaid claims" filter in sync without a manual reload.
+    window.dispatchEvent(new CustomEvent('claim-updated', { detail: { gig_id: gigId } }));
   }
 
   if (loading) return null;
@@ -564,10 +552,8 @@ export default function MusicianClaim({ gigId, myProfileId }) {
                 Edit claim
               </button>
             )}
-            
-            {/* The new button integration! */}
             {canDownloadInvoice && (
-              <ClaimEmailButton 
+              <ClaimEmailButton
                 band={band}
                 claim={claim}
                 profile={profile}

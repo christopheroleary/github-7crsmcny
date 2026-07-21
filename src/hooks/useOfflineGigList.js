@@ -52,9 +52,6 @@ function getKnownCachedIds() {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-const in30Days = () =>
-  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
 // ─── Network fetchers ─────────────────────────────────────────────────────────
 
 /**
@@ -81,7 +78,33 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return data || [];
+
+    const fetchedGigIds = (data || []).map((g) => g.id);
+    if (fetchedGigIds.length === 0) return [];
+
+    // ── Merge invoice status onto each gig ──────────────────────────────────
+    // Fetched separately since invoices live in their own table.
+    // null invoice_status = no invoice created yet; 'draft'/'overdue' = unsettled.
+    // GigsList filters on 'sent' | 'paid' to hide settled gigs.
+    // If a gig ever has multiple invoices, the most advanced status wins.
+    const { data: invoices } = await supabase
+      .from('invoices')
+      .select('gig_id, status')
+      .in('gig_id', fetchedGigIds);
+
+    const STATUS_PRIORITY = { paid: 4, sent: 3, overdue: 2, draft: 1 };
+    const invoiceMap = {};
+    for (const inv of (invoices || [])) {
+      const existing = invoiceMap[inv.gig_id];
+      if (!existing || (STATUS_PRIORITY[inv.status] ?? 0) > (STATUS_PRIORITY[existing] ?? 0)) {
+        invoiceMap[inv.gig_id] = inv.status;
+      }
+    }
+
+    return (data || []).map((g) => ({
+      ...g,
+      invoice_status: invoiceMap[g.id] ?? null,
+    }));
   }
 
   // band_member — find their lineup gig IDs first
@@ -270,6 +293,19 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
       if (activeRef.current) setSyncing(false);
     }
   }, [isAdmin, profileId, showHistoric, cacheKey, preCacheGigs]);
+
+  // ── Claim-updated listener ──────────────────────────────────────────────────
+  // MusicianClaim dispatches 'claim-updated' after a successful save so the list
+  // cache (which holds claim_status per gig) is refreshed immediately, keeping
+  // the "Unpaid claims" filter in sync without a manual page reload.
+  // Must be declared after `refresh` to avoid a temporal dead zone error.
+  useEffect(() => {
+    function handleClaimUpdated() {
+      if (navigator.onLine) refresh();
+    }
+    window.addEventListener('claim-updated', handleClaimUpdated);
+    return () => window.removeEventListener('claim-updated', handleClaimUpdated);
+  }, [refresh]);
 
   // ── Re-fetch when showHistoric or role changes (mirrors GigsList's useEffect) ─
   useEffect(() => {
