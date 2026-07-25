@@ -63,12 +63,17 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   }, [load]);
 
   async function handleCreate() {
+    const issuedDate = new Date();
+    const dueDate = new Date(issuedDate);
+    dueDate.setDate(dueDate.getDate() + 7);
+
     const { data: newInvoice, error } = await supabase
       .from('invoices')
       .insert({
         gig_id: gigId,
         status: 'draft',
-        issued_date: new Date().toISOString().slice(0, 10),
+        issued_date: issuedDate.toISOString().slice(0, 10),
+        due_date: dueDate.toISOString().slice(0, 10),
       })
       .select()
       .single();
