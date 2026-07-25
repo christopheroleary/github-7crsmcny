@@ -11,25 +11,41 @@ webpush.setVapidDetails('mailto:' + VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-async function getAdminSubscriptions() {
+async function getAdminIds() {
   const { data: admins } = await supabase
     .from('profiles')
     .select('id')
     .eq('role', 'admin');
+  return (admins || []).map((a) => a.id);
+}
 
-  if (!admins?.length) return [];
-
-  const adminIds = admins.map((a) => a.id);
+async function getSubscriptionsFor(profileIds: string[]) {
+  if (!profileIds.length) return [];
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth_key')
-    .in('profile_id', adminIds);
-
+    .in('profile_id', profileIds);
   return subs || [];
 }
 
-async function pushToAdmins(payload: { title: string; body: string; tag: string; url?: string }) {
-  const subscriptions = await getAdminSubscriptions();
+async function pushToAdmins(payload: { title: string; body: string; tag: string; url?: string; gig_id?: string }) {
+  const adminIds = await getAdminIds();
+  if (!adminIds.length) return;
+
+  // Save an in-app notification for every admin
+  await supabase.from('notifications').insert(
+    adminIds.map((profileId) => ({
+      profile_id: profileId,
+      title: payload.title,
+      body: payload.body,
+      url: payload.url || '/',
+      gig_id: payload.gig_id || null,
+      read: false,
+    }))
+  );
+
+  // Send push notification to all their subscribed devices
+  const subscriptions = await getSubscriptionsFor(adminIds);
   const stale: string[] = [];
 
   await Promise.allSettled(
@@ -84,6 +100,7 @@ Deno.serve(async (req) => {
           body: `${musicianName} has ${action} their place on the ${gigDate} gig at ${venueName}.`,
           tag: 'lineup-' + record.id,
           url: '/',
+          gig_id: record.gig_id,
         });
       }
     }
@@ -111,6 +128,7 @@ Deno.serve(async (req) => {
           body: `${musicianName} submitted a ${amount} claim for ${venueName} — ${record.description}.`,
           tag: 'claim-' + record.id,
           url: '/',
+          gig_id: record.gig_id,
         });
       }
     }
