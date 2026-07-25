@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import ClientForm from './ClientForm.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function ClientsList() {
   const [clients, setClients] = useState([]);
@@ -9,6 +11,8 @@ export default function ClientsList() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+
+  const { query, setQuery, results: filteredClients } = useFuzzySearch(clients, ['name', 'email']);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -50,15 +54,27 @@ export default function ClientsList() {
 
       {showAddForm && <ClientForm onSaved={handleSaved} onCancel={() => setShowAddForm(false)} />}
 
+      {!loading && !error && clients.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search clients…"
+          resultCount={filteredClients.length}
+          totalCount={clients.length}
+        />
+      )}
+
       {loading ? (
         <p className="state-message">Loading clients…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load clients: {error}</p>
       ) : clients.length === 0 ? (
         <p className="state-message">No clients yet.</p>
+      ) : filteredClients.length === 0 ? (
+        <p className="state-message">No clients match "{query}".</p>
       ) : (
         <ul className="simple-list">
-          {clients.map((c) => (
+          {filteredClients.map((c) => (
             <li className="simple-list__item" key={c.id}>
               {editingId === c.id ? (
                 <ClientForm client={c} onSaved={handleSaved} onCancel={() => setEditingId(null)} />

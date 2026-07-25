@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatShortDate } from '../utils/formatDate.js';
 import GigForm from './GigForm.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 const STATUS_COLOURS = {
   new: 'inquiry', contacted: 'inquiry', converted: 'confirmed', declined: 'cancelled',
@@ -24,6 +26,11 @@ export default function EnquiriesList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const { query, setQuery, results: filteredEnquiries } = useFuzzySearch(
+    enquiries,
+    ['client_name', 'venue_name', 'client_email', 'requirements']
+  );
 
   async function updateStatus(id, status) {
     await supabase.from('enquiries').update({ status }).eq('id', id);
@@ -103,8 +110,19 @@ export default function EnquiriesList() {
             </button>
           </div>
 
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            placeholder="Search enquiries…"
+            resultCount={filteredEnquiries.length}
+            totalCount={enquiries.length}
+          />
+
+          {filteredEnquiries.length === 0 ? (
+            <p className="state-message">No enquiries match "{query}".</p>
+          ) : (
           <ul className="simple-list">
-            {enquiries.map(enq => (
+            {filteredEnquiries.map(enq => (
               <li className="simple-list__item" key={enq.id}>
                 <div className="simple-list__row">
                   <div>
@@ -180,6 +198,7 @@ export default function EnquiriesList() {
               </li>
             ))}
           </ul>
+          )}
         </>
       )}
     </div>

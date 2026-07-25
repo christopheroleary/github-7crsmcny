@@ -7,6 +7,8 @@ import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate } from '../utils/formatDate.js';
 import CalendarFeed from './CalendarFeed.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -90,6 +92,14 @@ export default function GigsList() {
     }
     return rawGigs;
   })();
+
+  const { query, setQuery, results: searchedGigs } = useFuzzySearch(gigs, [
+    'venues.name',
+    'bands.name',
+    'clients.name',
+    'status',
+    'notes',
+  ]);
 
   // ── Keep sessionStorage navigation working (notification clicks etc.) ────────
   useEffect(() => {
@@ -221,6 +231,16 @@ export default function GigsList() {
         />
       )}
 
+      {gigs.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search gigs by venue, band, client…"
+          resultCount={searchedGigs.length}
+          totalCount={gigs.length}
+        />
+      )}
+
       {/* ── States ───────────────────────────────────────────────────────────── */}
       {syncing && gigs.length === 0 ? (
         <p className="state-message">Loading gigs…</p>
@@ -240,10 +260,12 @@ export default function GigsList() {
             ? 'No upcoming gigs.'
             : "No upcoming gigs — you haven't been added to any yet."}
         </p>
+      ) : searchedGigs.length === 0 ? (
+        <p className="state-message">No gigs match "{query}".</p>
       ) : (
         <>
           <ul className="gig-list">
-            {gigs.map((gig) => {
+            {searchedGigs.map((gig) => {
               const isPast = gig.gig_date < today();
               const isAvailableOffline = cachedGigIds.includes(gig.id);
               // Dim and block tap only when offline AND not cached

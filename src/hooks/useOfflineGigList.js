@@ -63,8 +63,8 @@ const today = () => new Date().toISOString().slice(0, 10);
  * - showHistoric: when true, removes the date floor (matches GigsList behaviour)
  */
 async function fetchGigList({ isAdmin, profileId, showHistoric }) {
-  const adminFields = 'id, gig_date, start_time, status, fee_amount, venues(name), clients(name), bands(name)';
-  const memberFields = 'id, gig_date, start_time, status, venues(name), bands(name)';
+  const adminFields = 'id, gig_date, start_time, status, fee_amount, notes, venues(name), clients(name), bands(name)';
+  const memberFields = 'id, gig_date, start_time, status, notes, venues(name), bands(name)';
 
   if (isAdmin) {
     let query = supabase

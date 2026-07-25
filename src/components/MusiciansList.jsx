@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin } = useCurrentProfile();
@@ -64,9 +66,14 @@ export default function MusiciansList() {
   }
 
   // Filter musicians by instrument
-  const filtered = filterInstrumentId
+  const byInstrument = filterInstrumentId
     ? musicians.filter((m) => m.instruments.some((i) => i.id === filterInstrumentId))
     : musicians;
+
+  const { query, setQuery, results: filtered } = useFuzzySearch(byInstrument, [
+    'full_name',
+    'instruments.name',
+  ]);
 
   return (
     <div>
@@ -99,13 +106,25 @@ export default function MusiciansList() {
         New band members join by creating their own account from the login screen.
       </p>
 
+      {musicians.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search musicians…"
+          resultCount={filtered.length}
+          totalCount={byInstrument.length}
+        />
+      )}
+
       {loading ? (
         <p className="state-message">Loading musicians…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load musicians: {error}</p>
       ) : filtered.length === 0 ? (
         <p className="state-message">
-          {filterInstrumentId ? 'No musicians play that instrument yet.' : 'No musicians yet.'}
+          {query
+            ? `No musicians match "${query}".`
+            : filterInstrumentId ? 'No musicians play that instrument yet.' : 'No musicians yet.'}
         </p>
       ) : (
         <ul className="simple-list">
@@ -372,14 +391,19 @@ function PlaceholdersSection() {
     load();
   }
 
-  if (loading) return null;
-
   const active = placeholders.filter((p) => !p.merged_into);
   const merged = placeholders.filter((p) => p.merged_into);
 
-  const filteredActive = filterInstrumentId
+  const byInstrument = filterInstrumentId
     ? active.filter((p) => p.instruments.some((i) => i.id === filterInstrumentId))
     : active;
+
+  const { query, setQuery, results: filteredActive } = useFuzzySearch(byInstrument, [
+    'name',
+    'instruments.name',
+  ]);
+
+  if (loading) return null;
 
   return (
     <div style={{ marginTop: 32 }}>
@@ -446,10 +470,20 @@ function PlaceholdersSection() {
         Deps are created automatically when added to a gig roster. Instruments added to a gig are saved here automatically.
       </p>
 
+      {active.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search deps…"
+          resultCount={filteredActive.length}
+          totalCount={byInstrument.length}
+        />
+      )}
+
       {active.length === 0 ? (
         <p className="state-message">No deps in the system yet — add them above or from a gig's roster.</p>
       ) : filteredActive.length === 0 ? (
-        <p className="state-message">No deps play that instrument.</p>
+        <p className="state-message">{query ? `No deps match "${query}".` : 'No deps play that instrument.'}</p>
       ) : (
         <ul className="simple-list">
           {filteredActive.map((ph) => (

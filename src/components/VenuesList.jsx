@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import VenueForm from './VenueForm.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function VenuesList() {
   const [venues, setVenues] = useState([]);
@@ -9,6 +11,8 @@ export default function VenuesList() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+
+  const { query, setQuery, results: filteredVenues } = useFuzzySearch(venues, ['name', 'address', 'contact_name']);
 
   const loadVenues = useCallback(async () => {
     setLoading(true);
@@ -50,15 +54,27 @@ export default function VenuesList() {
 
       {showAddForm && <VenueForm onSaved={handleSaved} onCancel={() => setShowAddForm(false)} />}
 
+      {!loading && !error && venues.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search venues…"
+          resultCount={filteredVenues.length}
+          totalCount={venues.length}
+        />
+      )}
+
       {loading ? (
         <p className="state-message">Loading venues…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load venues: {error}</p>
       ) : venues.length === 0 ? (
         <p className="state-message">No venues yet.</p>
+      ) : filteredVenues.length === 0 ? (
+        <p className="state-message">No venues match "{query}".</p>
       ) : (
         <ul className="simple-list">
-          {venues.map((v) => (
+          {filteredVenues.map((v) => (
             <li className="simple-list__item" key={v.id}>
               {editingId === v.id ? (
                 <VenueForm venue={v} onSaved={handleSaved} onCancel={() => setEditingId(null)} />

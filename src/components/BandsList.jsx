@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import BandForm from './BandForm.jsx';
 import BandMembers from './BandMembers.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function BandsList() {
   const { isAdmin } = useCurrentProfile();
@@ -12,6 +14,8 @@ export default function BandsList() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+
+  const { query, setQuery, results: filteredBands } = useFuzzySearch(bands, ['name', 'notes']);
 
   const loadBands = useCallback(async () => {
     setLoading(true);
@@ -55,15 +59,27 @@ export default function BandsList() {
 
       {showAddForm && <BandForm onSaved={handleSaved} onCancel={() => setShowAddForm(false)} />}
 
+      {!loading && !error && bands.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search bands…"
+          resultCount={filteredBands.length}
+          totalCount={bands.length}
+        />
+      )}
+
       {loading ? (
         <p className="state-message">Loading bands…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load bands: {error}</p>
       ) : bands.length === 0 ? (
         <p className="state-message">No bands yet.</p>
+      ) : filteredBands.length === 0 ? (
+        <p className="state-message">No bands match "{query}".</p>
       ) : (
         <ul className="simple-list">
-          {bands.map((b) => (
+          {filteredBands.map((b) => (
             <li className="simple-list__item" key={b.id}>
               {editingId === b.id ? (
                 <BandForm band={b} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
