@@ -302,8 +302,9 @@ export default function GigsList() {
                   </div>
                   <div className="gig-card__main">
                     <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
-                    {/* Invoice status — admin only, past gigs only */}
-                    {isAdmin && isPast && (
+                    {/* Invoice status — admin only. Shown on upcoming gigs too, since
+                        unlike musician claims, band invoices can be sent before the gig. */}
+                    {isAdmin && (
                       <span
                         className={`status-tag status-tag--${
                           INVOICE_CARD_COLORS[gig.invoice_status] ?? 'muted'
