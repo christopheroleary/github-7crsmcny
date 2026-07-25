@@ -9,6 +9,12 @@ const VOCAL_OPTIONS = [
   { value: 'backing', label: 'Backing vocals' },
 ];
 
+// The vocal_role dropdown ("Lead vocals" / "Backing vocals") is redundant once
+// the chosen instrument already IS "Lead Vocals" or "Backing Vocals".
+function isVocalInstrument(list, instrumentId) {
+  return /vocal/i.test(list.find((i) => i.id === instrumentId)?.name || '');
+}
+
 function VocalBadge({ role }) {
   if (!role || role === 'none') return null;
   const label = role === 'lead' ? 'Lead vocals' : 'Backing vocals';
@@ -396,7 +402,7 @@ export default function GigRoster({ gigId }) {
             </select>
             <select
               value={newInstrumentId}
-              onChange={(e) => setNewInstrumentId(e.target.value)}
+              onChange={(e) => { setNewInstrumentId(e.target.value); setNewVocalRole(''); }}
               required
               disabled={!newMusicianId}
             >
@@ -406,13 +412,15 @@ export default function GigRoster({ gigId }) {
             {newMusicianId && pickedMusicianInstruments.length === 0 && (
               <p className="field__hint">No instruments on profile — showing all.</p>
             )}
-            <select
-              value={newVocalRole}
-              onChange={(e) => setNewVocalRole(e.target.value)}
-              disabled={!newMusicianId}
-            >
-              {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            {!isVocalInstrument(availableForMusician, newInstrumentId) && (
+              <select
+                value={newVocalRole}
+                onChange={(e) => setNewVocalRole(e.target.value)}
+                disabled={!newMusicianId}
+              >
+                {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            )}
             <button type="submit" className="btn btn--primary btn--small" disabled={adding}>
               {adding ? 'Adding…' : '+ Add to roster'}
             </button>
@@ -471,7 +479,7 @@ export default function GigRoster({ gigId }) {
                         <>
                           <select
                             value={placeholderInstrumentId}
-                            onChange={(e) => setPlaceholderInstrumentId(e.target.value)}
+                            onChange={(e) => { setPlaceholderInstrumentId(e.target.value); setPlaceholderVocalRole(''); }}
                             required
                           >
                             <option value="">Choose instrument for this gig…</option>
@@ -480,12 +488,14 @@ export default function GigRoster({ gigId }) {
                           {selectedDepData?.knownInstruments?.length === 0 && (
                             <p className="field__hint">No instruments saved for this dep yet — your selection will be saved to their profile.</p>
                           )}
-                          <select
-                            value={placeholderVocalRole}
-                            onChange={(e) => setPlaceholderVocalRole(e.target.value)}
-                          >
-                            {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
+                          {!isVocalInstrument(availableForDep, placeholderInstrumentId) && (
+                            <select
+                              value={placeholderVocalRole}
+                              onChange={(e) => setPlaceholderVocalRole(e.target.value)}
+                            >
+                              {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          )}
                         </>
                       )}
 
@@ -508,18 +518,20 @@ export default function GigRoster({ gigId }) {
                   />
                   <select
                     value={newDepInstrumentId}
-                    onChange={(e) => setNewDepInstrumentId(e.target.value)}
+                    onChange={(e) => { setNewDepInstrumentId(e.target.value); setNewDepVocalRole(''); }}
                     required
                   >
                     <option value="">Choose instrument…</option>
                     {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
-                  <select
-                    value={newDepVocalRole}
-                    onChange={(e) => setNewDepVocalRole(e.target.value)}
-                  >
-                    {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  {!isVocalInstrument(instruments, newDepInstrumentId) && (
+                    <select
+                      value={newDepVocalRole}
+                      onChange={(e) => setNewDepVocalRole(e.target.value)}
+                    >
+                      {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  )}
                   <p className="field__hint">Their instrument will be saved so you can reuse them on future gigs.</p>
                   <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
                     <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
