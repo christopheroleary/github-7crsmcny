@@ -180,13 +180,13 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
 
       <MusicianClaimsAdmin gigId={gigId} />
 
-      <GigSetlist gigId={gigId} bandId={gig.band_id} />
-
       <GigInvoice
         gigId={gigId}
         gigFeeAmount={gig.fee_amount}
         mileageRatePence={gig.mileage_rate_pence}
       />
+
+      <GigSetlist gigId={gigId} bandId={gig.band_id} />
 
       <div className="form-actions">
         {!isOffline && (
