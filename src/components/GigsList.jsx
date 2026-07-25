@@ -99,6 +99,7 @@ export default function GigsList() {
     'clients.name',
     'status',
     'notes',
+    { name: 'dateLabel', getFn: (gig) => formatShortDate(gig.gig_date) },
   ]);
 
   // ── Keep sessionStorage navigation working (notification clicks etc.) ────────
@@ -235,7 +236,7 @@ export default function GigsList() {
         <SearchBox
           value={query}
           onChange={setQuery}
-          placeholder="Search gigs by venue, band, client…"
+          placeholder="Search gigs by venue, band, client, date…"
           resultCount={searchedGigs.length}
           totalCount={gigs.length}
         />
