@@ -467,7 +467,12 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     const { error: saveError } = claim
       ? await supabase
           .from('musician_claims')
-          .update({ amount_pence: amountPence, description, notes: notes || null })
+          .update({
+            amount_pence: amountPence,
+            description,
+            notes: notes || null,
+            created_at: new Date().toISOString(),
+          })
           .eq('id', claim.id)
       : await supabase.from('musician_claims').insert(payload);
 
