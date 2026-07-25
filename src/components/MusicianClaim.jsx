@@ -587,7 +587,10 @@ export default function MusicianClaim({ gigId, myProfileId }) {
               type="number"
               step="0.01"
               value={amountPounds}
-              onChange={(e) => setAmountPounds(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setAmountPounds(v);
+              }}
               placeholder="e.g. 150.00"
               required
             />
