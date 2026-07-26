@@ -178,7 +178,7 @@ export default function MusiciansList() {
         </ul>
       )}
 
-      {isAdmin && <PlaceholdersSection />}
+      {isAdmin && <PlaceholdersSection filterInstrumentId={filterInstrumentId} />}
     </div>
   );
 }
@@ -282,11 +282,10 @@ function DepNameEditor({ ph, onSaved }) {
 
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
-function PlaceholdersSection() {
+function PlaceholdersSection({ filterInstrumentId }) {
   const [placeholders, setPlaceholders] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
-  const [filterInstrumentId, setFilterInstrumentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [mergeTargets, setMergeTargets] = useState({});
 
@@ -444,26 +443,6 @@ function PlaceholdersSection() {
             </button>
           </div>
         </form>
-      )}
-
-      {/* Instrument filter for deps */}
-      {active.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
-          <label className="field__label" style={{ margin: 0, flexShrink: 0 }}>Filter by instrument:</label>
-          <select
-            value={filterInstrumentId}
-            onChange={(e) => setFilterInstrumentId(e.target.value)}
-            style={{ padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, background: 'var(--paper)', color: 'var(--ink)', maxWidth: 220 }}
-          >
-            <option value="">All instruments</option>
-            {allInstruments.map((i) => (
-              <option key={i.id} value={i.id}>{i.name}</option>
-            ))}
-          </select>
-          {filterInstrumentId && (
-            <button className="link-button" onClick={() => setFilterInstrumentId('')}>Clear</button>
-          )}
-        </div>
       )}
 
       <p className="field__hint" style={{ marginBottom: 16 }}>
