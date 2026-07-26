@@ -138,7 +138,7 @@ export default function GigsList() {
       return (
         <GigDetail
           gigId={selectedGigId}
-          onBack={() => selectGig(null)}
+          onBack={() => { selectGig(null); loadGigs(); }}
           onDeleted={() => { selectGig(null); loadGigs(); }}
         />
       );
@@ -147,7 +147,7 @@ export default function GigsList() {
       <GigDetailBandMember
         gigId={selectedGigId}
         myProfileId={me?.id}
-        onBack={() => selectGig(null)}
+        onBack={() => { selectGig(null); loadGigs(); }}
       />
     );
   }
