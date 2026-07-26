@@ -244,7 +244,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   .pl { color: #888; font-weight: 600; }
 
   .footer-notes { border-top: 1px solid #eee; padding-top: 3mm; margin-bottom: 3mm; font-size: 8.5pt; color: #777; line-height: 1.5; }
-  .footer-notes p { margin: 0 0 4px; }
+  .footer-notes p { margin: 0 0 4px; white-space: pre-line; }
 
   .page-footer { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
 

@@ -1259,6 +1259,7 @@ input {
   
   .invoice-footer-notes p {
     margin: 0 0 4px;
+    white-space: pre-line;
   }
   
   /* ---- Page footer ---- */
