@@ -32,7 +32,18 @@ export default function MusicianClaimsAdmin({ gigId }) {
   }, [load]);
 
   async function updateStatus(claim, status) {
-    const { error } = await supabase.from('musician_claims').update({ status }).eq('id', claim.id);
+    const payload = { status };
+
+    if (status === 'rejected') {
+      const reason = window.prompt(
+        'Reason for rejecting this claim (optional, shown to the musician):',
+        claim.notes || ''
+      );
+      if (reason === null) return; // cancelled
+      payload.notes = reason || null;
+    }
+
+    const { error } = await supabase.from('musician_claims').update(payload).eq('id', claim.id);
     if (error) {
       alert("Couldn't update: " + error.message);
       return;
