@@ -34,6 +34,23 @@ export default function MusicianClaimsAdmin({ gigId }) {
   async function updateStatus(claim, status) {
     const payload = { status };
 
+    // Guard rail: warn if approving/paying a claim for someone no longer
+    // on this gig's roster (e.g. removed after they submitted the claim).
+    if (status === 'approved' || status === 'paid') {
+      const { data: onRoster } = await supabase
+        .from('gig_lineup')
+        .select('id')
+        .eq('gig_id', gigId)
+        .eq('profile_id', claim.profile_id)
+        .maybeSingle();
+      if (!onRoster) {
+        const name = claim.profiles?.full_name || 'This musician';
+        const action = status === 'paid' ? 'mark it paid' : 'approve it';
+        const ok = window.confirm(name + ' is no longer on this gig\'s roster. Still ' + action + '?');
+        if (!ok) return;
+      }
+    }
+
     if (status === 'rejected') {
       const reason = window.prompt(
         'Reason for rejecting this claim (optional, shown to the musician):',
