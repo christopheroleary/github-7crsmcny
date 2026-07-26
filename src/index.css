@@ -280,6 +280,13 @@ input {
   line-height: 1;
 }
 
+.gig-card__weekday {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
 .gig-card__month {
   font-family: var(--font-mono);
   font-size: 12px;

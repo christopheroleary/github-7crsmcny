@@ -5,7 +5,7 @@ import { useOfflineGigList } from '../hooks/useOfflineGigList.js';
 import GigForm from './GigForm.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
-import { formatShortDate } from '../utils/formatDate.js';
+import { formatShortDate, formatTicketStub } from '../utils/formatDate.js';
 import CalendarFeed from './CalendarFeed.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -271,6 +271,7 @@ export default function GigsList() {
               const isAvailableOffline = cachedGigIds.includes(gig.id);
               // Dim and block tap only when offline AND not cached
               const isDisabled = isOffline && !isAvailableOffline;
+              const stub = formatTicketStub(gig.gig_date);
 
               return (
                 <li
@@ -286,7 +287,9 @@ export default function GigsList() {
                   style={{ cursor: isDisabled ? 'default' : 'pointer' }}
                 >
                   <div className="gig-card__stub">
-                    <span className="gig-card__date">{formatShortDate(gig.gig_date)}</span>
+                    <span className="gig-card__weekday">{stub.weekday}</span>
+                    <span className="gig-card__day">{stub.day}</span>
+                    <span className="gig-card__month">{stub.month}</span>
                     {gig.start_time && (
                       <span className="gig-card__time">{gig.start_time.slice(0, 5)}</span>
                     )}
