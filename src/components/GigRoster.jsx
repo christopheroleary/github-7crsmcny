@@ -413,7 +413,14 @@ export default function GigRoster({ gigId }) {
             </span>
             <select
               value={newMusicianId}
-              onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); setNewVocalRole(''); }}
+              onChange={(e) => {
+                const id = e.target.value;
+                setNewMusicianId(id);
+                // Pre-select their instrument when they only play one.
+                const theirInstruments = musicianInstruments[id] || [];
+                setNewInstrumentId(theirInstruments.length === 1 ? theirInstruments[0].id : '');
+                setNewVocalRole('');
+              }}
               required
             >
               <option value="">Choose musician…</option>
