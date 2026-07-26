@@ -24,7 +24,7 @@ export function formatFullDate(dateStr) {
     const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
     const year = d.getFullYear();
     const showYear = year !== new Date().getFullYear();
-    return { day: d.getDate(), weekday, month: showYear ? `${month} '${String(year).slice(2)}` : month };
+    return { day: d.getDate(), weekday, month: showYear ? `${month} ${year}` : month };
   }
 
   export function todayStr() {
