@@ -264,7 +264,7 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
         <p className="state-message" style={{ padding: '4px 0', textAlign: 'left' }}>No songs added yet.</p>
       ) : (
         <ol className="setlist-block__songs">
-          {setlist.setlist_items.map((item) => {
+          {setlist.setlist_items.map((item, idx) => {
             const song = item.songs;
             const isEditing = editingItemId === item.id;
             return (
@@ -278,6 +278,7 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
               >
                 <div className="setlist-song__row">
                   <span className="setlist-song__handle" title="Drag to reorder">⠿</span>
+                  <span className="setlist-song__number">{idx + 1}</span>
                   <span className="setlist-song__title">
                     {song?.title}
                     {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
