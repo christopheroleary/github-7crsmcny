@@ -21,6 +21,7 @@ function formatDate(dateStr) {
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
     const invNumber = invoiceNumber(invoice.created_at);
+    const bandDisplayName = band?.invoice_name || band?.name;
   
     const stampHTML = (isPaid || isOverdue)
       ? '<div class="stamp stamp--' + invoice.status + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
@@ -161,7 +162,7 @@ function formatDate(dateStr) {
   
     <div class="header">
       <div>
-        <h1 class="band-name">${band?.name || 'Band Name'}</h1>
+        <h1 class="band-name">${bandDisplayName || 'Band Name'}</h1>
         ${band?.address ? '<p class="from-detail">' + band.address.split('\n').join(', ') + '</p>' : ''}
         ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
         ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
@@ -224,7 +225,7 @@ function formatDate(dateStr) {
     ${footerNotesHTML}
   
     <div class="page-footer">
-      <span>${band?.name || ''}</span>
+      <span>${bandDisplayName || ''}</span>
       <span>${invNumber}</span>
       <span>${band?.contact_email || ''}</span>
     </div>
@@ -238,6 +239,7 @@ function formatDate(dateStr) {
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
     const invNumber = invoiceNumber(invoice.created_at);
+    const bandDisplayName = band?.invoice_name || band?.name;
   
     const mailtoSubject = encodeURIComponent('Invoice ' + invNumber + ' — ' + (gig?.venues?.name || 'Event'));
     const mailtoBody = encodeURIComponent(
@@ -295,7 +297,7 @@ function formatDate(dateStr) {
   
           <div className="invoice-header">
             <div className="invoice-header__from">
-              <h1 className="invoice-header__band">{band?.name || 'Band Name'}</h1>
+              <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
               {band?.address && <p className="invoice-header__address">{band.address.split('\n').join(', ')}</p>}
               {band?.contact_email && <p className="invoice-header__contact">{band.contact_email}</p>}
               {band?.contact_phone && <p className="invoice-header__contact">{band.contact_phone}</p>}
@@ -408,7 +410,7 @@ function formatDate(dateStr) {
           )}
   
           <div className="invoice-footer">
-            <span>{band?.name || ''}</span>
+            <span>{bandDisplayName || ''}</span>
             <span>{invNumber}</span>
             <span>{band?.contact_email || ''}</span>
           </div>

@@ -302,7 +302,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   <div class="parties">
     <div class="bill-to">
       <p class="label">Invoice To</p>
-      <p class="client-name">${band?.name || '—'}</p>
+      <p class="client-name">${band?.invoice_name || band?.name || '—'}</p>
       ${band?.address ? `<p class="detail">${band.address}</p>` : ''}
       ${band?.contact_email ? `<p class="detail">${band.contact_email}</p>` : ''}
       ${band?.contact_phone ? `<p class="detail">${band.contact_phone}</p>` : ''}
@@ -403,7 +403,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     if (gigData?.band_id) {
       const { data: bandData } = await supabase
         .from('bands')
-        .select('name, contact_email, contact_phone, address')
+        .select('name, invoice_name, contact_email, contact_phone, address')
         .eq('id', gigData.band_id)
         .maybeSingle();
       setBand(bandData);

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 export default function BandForm({ band, onSaved, onCancel }) {
   const isEdit = Boolean(band);
   const [name, setName] = useState(band?.name || '');
+  const [invoiceName, setInvoiceName] = useState(band?.invoice_name || '');
   const [notes, setNotes] = useState(band?.notes || '');
   const [contactEmail, setContactEmail] = useState(band?.contact_email || '');
   const [contactPhone, setContactPhone] = useState(band?.contact_phone || '');
@@ -24,6 +25,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
     const payload = {
       name,
+      invoice_name: invoiceName || null,
       notes: notes || null,
       contact_email: contactEmail || null,
       contact_phone: contactPhone || null,
@@ -53,6 +55,16 @@ export default function BandForm({ band, onSaved, onCancel }) {
       <label className="field">
         <span className="field__label">Band / agency name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} required />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Official invoice name (optional)</span>
+        <input
+          value={invoiceName}
+          onChange={(e) => setInvoiceName(e.target.value)}
+          placeholder="e.g. Chip Shop Boys Entertainment Ltd"
+        />
+        <span className="field__hint">Used on invoices and musician claims instead of the band name above, if set.</span>
       </label>
 
       <label className="field">
