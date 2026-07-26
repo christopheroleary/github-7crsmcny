@@ -194,17 +194,25 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
               </div>
             </div>
 
+            {invoice.status === 'paid' && (
+              <p className="field__hint">Invoice is marked paid and locked from edits or deletion.</p>
+            )}
+
             <div className="form-actions">
-              <button className="btn btn--ghost" onClick={async () => {
-                const ok = window.confirm('Delete this invoice? This cannot be undone.');
-                if (!ok) return;
-                await supabase.from('invoices').delete().eq('id', invoice.id);
-                setInvoice(null);
-                setItems([]);
-              }}>
-                Delete invoice
-              </button>
-              <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>
+              {invoice.status !== 'paid' && (
+                <>
+                  <button className="btn btn--ghost" onClick={async () => {
+                    const ok = window.confirm('Delete this invoice? This cannot be undone.');
+                    if (!ok) return;
+                    await supabase.from('invoices').delete().eq('id', invoice.id);
+                    setInvoice(null);
+                    setItems([]);
+                  }}>
+                    Delete invoice
+                  </button>
+                  <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>
+                </>
+              )}
               <button className="btn btn--primary" onClick={() => setShowPrint(true)}>
                 Export PDF
               </button>
