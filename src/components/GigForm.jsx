@@ -238,7 +238,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
             <option value="inquiry">Inquiry</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            {isEdit && <option value="cancelled">Cancelled</option>}
           </select>
         </label>
       </div>
