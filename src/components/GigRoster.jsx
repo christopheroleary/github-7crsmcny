@@ -264,7 +264,28 @@ export default function GigRoster({ gigId }) {
 
   async function handleRemove(entry) {
     const name = entry.profiles?.full_name || entry.placeholder_musicians?.name || 'this musician';
-    const ok = window.confirm('Remove ' + name + " from this gig's lineup?");
+    let confirmMessage = 'Remove ' + name + " from this gig's lineup?";
+
+    // Guard rail: warn if this musician has an approved/paid claim for this gig,
+    // since removing them from the roster doesn't touch that claim.
+    if (entry.profile_id) {
+      const { data: claims } = await supabase
+        .from('musician_claims')
+        .select('status, amount_pence')
+        .eq('gig_id', gigId)
+        .eq('profile_id', entry.profile_id)
+        .in('status', ['approved', 'paid']);
+
+      if (claims?.length) {
+        const claim = claims[0];
+        confirmMessage =
+          name + ' has a ' + claim.status + ' claim of £' + (claim.amount_pence / 100).toFixed(2) +
+          " for this gig. Removing them from the roster will NOT change that claim — you'll need to " +
+          'handle it separately. Remove anyway?';
+      }
+    }
+
+    const ok = window.confirm(confirmMessage);
     if (!ok) return;
     const { error } = await supabase.from('gig_lineup').delete().eq('id', entry.id);
     if (error) { alert("Couldn't remove: " + error.message); return; }
