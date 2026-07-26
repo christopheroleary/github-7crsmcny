@@ -472,6 +472,8 @@ export default function MusicianClaim({ gigId, myProfileId }) {
             description,
             notes: notes || null,
             created_at: new Date().toISOString(),
+            // Resubmitting a rejected claim puts it back in the admin's queue.
+            status: 'pending',
           })
           .eq('id', claim.id)
       : await supabase.from('musician_claims').insert(payload);
@@ -542,7 +544,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            {claim.status === 'pending' && (
+            {(claim.status === 'pending' || claim.status === 'rejected') && (
               <button
                 className="link-button"
                 style={{ marginTop: '12px' }}
@@ -554,7 +556,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
                   setError(null);
                 }}
               >
-                Edit claim
+                {claim.status === 'rejected' ? 'Amend & resubmit' : 'Edit claim'}
               </button>
             )}
             {canDownloadInvoice && (
