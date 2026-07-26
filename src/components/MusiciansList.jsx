@@ -402,7 +402,10 @@ function PlaceholdersSection({ filterInstrumentId }) {
     'instruments.name',
   ]);
 
-  if (loading) return null;
+  // Only blank out on the true initial load — re-fetches after add/remove/
+  // rename actions keep showing the existing list instead of unmounting the
+  // whole section, which was resetting scroll position back to the top.
+  if (loading && placeholders.length === 0) return null;
 
   return (
     <div style={{ marginTop: 32 }}>
