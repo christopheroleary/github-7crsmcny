@@ -131,6 +131,33 @@ Deno.serve(async (req) => {
           gig_id: record.gig_id,
         });
       }
+
+      // A rejected claim was amended and resubmitted — put it back on the admin's radar.
+      if (type === 'UPDATE' && old_record?.status === 'rejected' && record.status === 'pending') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', record.profile_id)
+          .single();
+
+        const { data: gig } = await supabase
+          .from('gigs')
+          .select('gig_date, venues(name)')
+          .eq('id', record.gig_id)
+          .single();
+
+        const musicianName = profile?.full_name || 'A musician';
+        const amount = '£' + (record.amount_pence / 100).toFixed(2);
+        const venueName = (gig as any)?.venues?.name || 'a gig';
+
+        await pushToAdmins({
+          title: `${musicianName} resubmitted their claim`,
+          body: `${musicianName} amended and resubmitted a ${amount} claim for ${venueName} — ${record.description}.`,
+          tag: 'claim-' + record.id,
+          url: '/',
+          gig_id: record.gig_id,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {
