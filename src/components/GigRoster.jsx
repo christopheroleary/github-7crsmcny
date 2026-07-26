@@ -144,6 +144,20 @@ export default function GigRoster({ gigId }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Warns (doesn't block) when adding another musician on an instrument that's
+  // already filled to its requested quantity — e.g. a 2nd bass player when
+  // only 1 was asked for.
+  function confirmIfOverfilled(instrumentId) {
+    const req = requirements.find((r) => r.instrument_id === instrumentId);
+    if (!req) return true;
+    const currentCount = lineup.filter((l) => l.instrument_id === instrumentId).length;
+    if (currentCount < req.quantity) return true;
+    const instName = req.instruments?.name || 'this instrument';
+    return window.confirm(
+      instName + ' already has ' + currentCount + ' of ' + req.quantity + ' requested filled. Add another anyway?'
+    );
+  }
+
   // ── Add registered musician ──────────────────────────────────────────────
   async function handleAdd(e) {
     e.preventDefault();
@@ -153,6 +167,11 @@ export default function GigRoster({ gigId }) {
 
     if (lineup.some((l) => l.profile_id === newMusicianId)) {
       setError('This musician is already on the roster.');
+      setAdding(false);
+      return;
+    }
+
+    if (!confirmIfOverfilled(newInstrumentId)) {
       setAdding(false);
       return;
     }
@@ -182,6 +201,11 @@ export default function GigRoster({ gigId }) {
 
     if (lineup.some((l) => l.placeholder_id === selectedPlaceholderId)) {
       setError('This dep is already on the roster.');
+      setAddingPlaceholder(false);
+      return;
+    }
+
+    if (!confirmIfOverfilled(placeholderInstrumentId)) {
       setAddingPlaceholder(false);
       return;
     }
@@ -235,6 +259,11 @@ export default function GigRoster({ gigId }) {
 
     if (lineup.some((l) => l.placeholder_id === phId)) {
       setError((existingPh ? existingPh.name : newDepName) + ' is already on the roster.');
+      setAddingPlaceholder(false);
+      return;
+    }
+
+    if (!confirmIfOverfilled(newDepInstrumentId)) {
       setAddingPlaceholder(false);
       return;
     }
