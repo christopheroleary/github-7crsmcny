@@ -8,8 +8,10 @@ export default function BandMembers({ bandId, isAdmin }) {
   const [instruments, setInstruments] = useState([]);
   const [musicianInstruments, setMusicianInstruments] = useState({});
   const [addMode, setAddMode] = useState('musician');
+  const [depMode, setDepMode] = useState('existing');
   const [newMusicianId, setNewMusicianId] = useState('');
   const [newInstrumentId, setNewInstrumentId] = useState('');
+  const [newDepName, setNewDepName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -94,6 +96,51 @@ export default function BandMembers({ bandId, isAdmin }) {
     });
     if (error) { setError(error.message); return; }
     setNewMusicianId('');
+    setNewInstrumentId('');
+    load();
+  }
+
+  async function handleAddNewDep(e) {
+    e.preventDefault();
+    if (!newDepName.trim() || !newInstrumentId) return;
+    setError(null);
+
+    const existingPh = allPlaceholders.find(
+      (p) => p.name.trim().toLowerCase() === newDepName.trim().toLowerCase()
+    );
+
+    let phId;
+    if (existingPh) {
+      phId = existingPh.id;
+    } else {
+      const { data: newPh, error: phErr } = await supabase
+        .from('placeholder_musicians')
+        .insert({ name: newDepName.trim() })
+        .select()
+        .single();
+      if (phErr) { setError(phErr.message); return; }
+      phId = newPh.id;
+    }
+
+    if (members.some((m) => m.placeholder_id === phId)) {
+      setError((existingPh ? existingPh.name : newDepName) + ' is already in this band.');
+      return;
+    }
+
+    await supabase.from('placeholder_musician_instruments')
+      .upsert(
+        { placeholder_id: phId, instrument_id: newInstrumentId },
+        { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
+      );
+
+    const { error } = await supabase.from('band_members').insert({
+      band_id: bandId,
+      profile_id: null,
+      placeholder_id: phId,
+      instrument_id: newInstrumentId,
+    });
+    if (error) { setError(error.message); return; }
+    setNewDepName('');
     setNewInstrumentId('');
     load();
   }
@@ -209,52 +256,97 @@ export default function BandMembers({ bandId, isAdmin }) {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleAddDep} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allPlaceholders.length === 0 ? (
-                <p className="field__hint">
-                  No deps in the system yet — add them from a gig's roster first.
-                </p>
+            <>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <button
+                  type="button"
+                  className={depMode === 'existing' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+                  onClick={() => { setDepMode('existing'); setNewMusicianId(''); setNewInstrumentId(''); setNewDepName(''); }}
+                >
+                  Existing dep
+                </button>
+                <button
+                  type="button"
+                  className={depMode === 'new' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+                  onClick={() => { setDepMode('new'); setNewMusicianId(''); setNewInstrumentId(''); setNewDepName(''); }}
+                >
+                  New dep
+                </button>
+              </div>
+
+              {depMode === 'existing' ? (
+                <form onSubmit={handleAddDep} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {allPlaceholders.length === 0 ? (
+                    <p className="field__hint">
+                      No deps in the system yet — use "New dep" to add one.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={newMusicianId}
+                        onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); }}
+                        required
+                      >
+                        <option value="">Choose dep…</option>
+                        {allPlaceholders.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      {newMusicianId && (
+                        <select
+                          value={newInstrumentId}
+                          onChange={(e) => setNewInstrumentId(e.target.value)}
+                          required
+                        >
+                          <option value="">Choose instrument…</option>
+                          {pickedInstruments.length > 0
+                            ? pickedInstruments.map((i) => (
+                                <option key={i.id} value={i.id}>{i.name}</option>
+                              ))
+                            : instruments.map((i) => (
+                                <option key={i.id} value={i.id}>{i.name}</option>
+                              ))
+                          }
+                        </select>
+                      )}
+                      {newMusicianId && pickedInstruments.length === 0 && (
+                        <p className="field__hint">
+                          No instruments set for this dep yet — go to Musicians tab to add them.
+                        </p>
+                      )}
+                      {error && <p className="form-error">{error}</p>}
+                      <button type="submit" className="btn btn--primary btn--small">
+                        + Add dep to band
+                      </button>
+                    </>
+                  )}
+                </form>
               ) : (
-                <>
+                <form onSubmit={handleAddNewDep} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    placeholder="Full name (e.g. Dave Smith)"
+                    value={newDepName}
+                    onChange={(e) => setNewDepName(e.target.value)}
+                    required
+                  />
                   <select
-                    value={newMusicianId}
-                    onChange={(e) => { setNewMusicianId(e.target.value); setNewInstrumentId(''); }}
+                    value={newInstrumentId}
+                    onChange={(e) => setNewInstrumentId(e.target.value)}
                     required
                   >
-                    <option value="">Choose dep…</option>
-                    {allPlaceholders.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    <option value="">Choose instrument…</option>
+                    {instruments.map((i) => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
                     ))}
                   </select>
-                  {newMusicianId && (
-                    <select
-                      value={newInstrumentId}
-                      onChange={(e) => setNewInstrumentId(e.target.value)}
-                      required
-                    >
-                      <option value="">Choose instrument…</option>
-                      {pickedInstruments.length > 0
-                        ? pickedInstruments.map((i) => (
-                            <option key={i.id} value={i.id}>{i.name}</option>
-                          ))
-                        : instruments.map((i) => (
-                            <option key={i.id} value={i.id}>{i.name}</option>
-                          ))
-                      }
-                    </select>
-                  )}
-                  {newMusicianId && pickedInstruments.length === 0 && (
-                    <p className="field__hint">
-                      No instruments set for this dep yet — go to Musicians tab to add them.
-                    </p>
-                  )}
+                  <p className="field__hint">Their instrument will be saved so you can reuse them on future gigs.</p>
                   {error && <p className="form-error">{error}</p>}
                   <button type="submit" className="btn btn--primary btn--small">
-                    + Add dep to band
+                    + Add new dep to band
                   </button>
-                </>
+                </form>
               )}
-            </form>
+            </>
           )}
         </div>
       )}
