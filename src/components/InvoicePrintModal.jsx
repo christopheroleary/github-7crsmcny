@@ -8,16 +8,19 @@ function formatDate(dateStr) {
     return (pence / 100).toFixed(2);
   }
   
-  function invoiceNumber(shareToken) {
-    if (!shareToken) return 'INV-000000';
-    return 'INV-' + shareToken.replace(/-/g, '').slice(0, 8).toUpperCase();
+  function invoiceNumber(createdAt) {
+    if (!createdAt) return 'INV-00000000-000000';
+    const d = new Date(createdAt);
+    const pad = (n) => String(n).padStart(2, '0');
+    return 'INV-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+      '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
   }
   
   function buildPrintHTML({ invoice, items, gig, band, client }) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
-    const invNumber = invoiceNumber(invoice.share_token);
+    const invNumber = invoiceNumber(invoice.created_at);
   
     const stampHTML = (isPaid || isOverdue)
       ? '<div class="stamp stamp--' + invoice.status + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
@@ -234,7 +237,7 @@ function formatDate(dateStr) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
-    const invNumber = invoiceNumber(invoice.share_token);
+    const invNumber = invoiceNumber(invoice.created_at);
   
     const mailtoSubject = encodeURIComponent('Invoice ' + invNumber + ' — ' + (gig?.venues?.name || 'Event'));
     const mailtoBody = encodeURIComponent(

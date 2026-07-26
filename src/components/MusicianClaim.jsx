@@ -11,9 +11,12 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function claimInvoiceNumber(claimId) {
-  if (!claimId) return 'CLAIM-000000';
-  return 'CLAIM-' + String(claimId).padStart(6, '0');
+function claimInvoiceNumber(createdAt) {
+  if (!createdAt) return 'CLAIM-00000000-000000';
+  const d = new Date(createdAt);
+  const pad = (n) => String(n).padStart(2, '0');
+  return 'CLAIM-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+    '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
 }
 
 const STATUS_LABELS = {
@@ -38,7 +41,7 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
   const [copied, setCopied] = useState(false);
 
   const emailTo = band?.contact_email || '';
-  const invNumber = claimInvoiceNumber(claim?.id?.slice(0, 12));
+  const invNumber = claimInvoiceNumber(claim?.created_at);
   const amount = poundsFromPence(claim?.amount_pence);
   const musicianName = profile?.full_name || profile?.name || 'Musician';
 
@@ -132,7 +135,7 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
 // 2. Invoice HTML builder — musician issues this TO the band
 // -------------------------------------------------------------------
 function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
-  const invNumber = claimInvoiceNumber(claim.id.slice(0, 12));
+  const invNumber = claimInvoiceNumber(claim.created_at);
   const isPaid = claim.status === 'paid';
   const total = claim.amount_pence;
 
