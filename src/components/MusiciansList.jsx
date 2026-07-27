@@ -280,6 +280,62 @@ function DepNameEditor({ ph, onSaved }) {
   );
 }
 
+// ─── Dep contact details + invite ─────────────────────────────────────────────
+
+function DepDetailsEditor({ ph, onSaved }) {
+  const [phone, setPhone] = useState(ph.phone || '');
+  const [email, setEmail] = useState(ph.email || '');
+  const [address, setAddress] = useState(ph.address || '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from('placeholder_musicians')
+      .update({ phone: phone || null, email: email || null, address: address || null })
+      .eq('id', ph.id);
+    setSaving(false);
+    if (error) { alert("Couldn't save details: " + error.message); return; }
+    onSaved();
+  }
+
+  function handleInvite() {
+    const signupUrl = window.location.origin + '/?invite=1&name=' + encodeURIComponent(ph.name);
+    const subject = 'Join us on Gig Manager';
+    const body =
+      'Hi ' + ph.name + ',\n\n' +
+      "We'd like to invite you to create your own account on Gig Manager so we can book you directly for future gigs.\n\n" +
+      'Sign up here: ' + signupUrl + '\n\n' +
+      "Once you've signed up, let us know and we'll link your gig history to your new account.\n\nThanks!";
+    window.location.href =
+      'mailto:' + encodeURIComponent(email) +
+      '?subject=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  return (
+    <div style={{ marginTop: 8, padding: 10, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--paper-raised)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320 }}>
+        <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+        <button className="btn btn--primary btn--small" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save details'}
+        </button>
+        <button
+          className="btn btn--ghost btn--small"
+          onClick={handleInvite}
+          title={email ? '' : 'No email saved yet — you can still fill one in when your mail app opens'}
+        >
+          ✉ Invite to sign up
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
 function PlaceholdersSection({ filterInstrumentId }) {
@@ -288,6 +344,7 @@ function PlaceholdersSection({ filterInstrumentId }) {
   const [allInstruments, setAllInstruments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mergeTargets, setMergeTargets] = useState({});
+  const [expandedDepId, setExpandedDepId] = useState(null);
 
   // Add new dep
   const [showAddForm, setShowAddForm] = useState(false);
@@ -299,7 +356,7 @@ function PlaceholdersSection({ filterInstrumentId }) {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
-      supabase.from('placeholder_musicians').select('id, name, merged_into').order('name'),
+      supabase.from('placeholder_musicians').select('id, name, phone, email, address, merged_into').order('name'),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),
@@ -498,6 +555,15 @@ function PlaceholdersSection({ filterInstrumentId }) {
                         .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                     </select>
                   </div>
+
+                  <button
+                    className="link-button"
+                    style={{ fontSize: 12, marginTop: 6 }}
+                    onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}
+                  >
+                    {expandedDepId === ph.id ? 'Hide details' : (ph.phone || ph.email || ph.address ? 'View details' : '+ Add contact details')}
+                  </button>
+                  {expandedDepId === ph.id && <DepDetailsEditor ph={ph} onSaved={load} />}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>

@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 export default function Login() {
-  const [mode, setMode] = useState('signIn');
-  const [fullName, setFullName] = useState('');
+  const inviteParams = new URLSearchParams(window.location.search);
+  const invitedName = inviteParams.get('invite') ? inviteParams.get('name') || '' : '';
+
+  const [mode, setMode] = useState(inviteParams.get('invite') ? 'signUp' : 'signIn');
+  const [fullName, setFullName] = useState(invitedName);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
