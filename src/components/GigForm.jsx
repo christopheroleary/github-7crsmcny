@@ -45,6 +45,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [originalRequirementIds, setOriginalRequirementIds] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [sameDayGigs, setSameDayGigs] = useState([]);
 
   // for convert enquiries form entry to gig inquiry
   const [newClientName, setNewClientName] = useState(gig?._clientHint || '');
@@ -67,6 +68,23 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       });
     }
   }, [isEdit, gig?.id]);
+
+  // Warn if another gig already exists on the same date (doesn't block —
+  // agencies with multiple bands can genuinely have two gigs on one day).
+  useEffect(() => {
+    if (!gigDate) { setSameDayGigs([]); return; }
+    let cancelled = false;
+    supabase
+      .from('gigs')
+      .select('id, venues(name), bands(name)')
+      .eq('gig_date', gigDate)
+      .neq('status', 'cancelled')
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSameDayGigs((data || []).filter((g) => g.id !== gig?.id));
+      });
+    return () => { cancelled = true; };
+  }, [gigDate, gig?.id]);
 
   function addRequirementRow() { setRequirements([...requirements, { id: null, instrument_id: '', quantity: 1 }]); }
   function updateRequirementRow(i, field, value) { setRequirements(requirements.map((r, idx) => idx === i ? { ...r, [field]: value } : r)); }
@@ -231,6 +249,11 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         <label className="field">
           <span className="field__label">Date</span>
           <input type="date" value={gigDate} onChange={(e) => setGigDate(e.target.value)} required />
+          {sameDayGigs.length > 0 && (
+            <span className="field__hint" style={{ color: 'var(--rust)' }}>
+              ⚠ Already {sameDayGigs.length} gig{sameDayGigs.length > 1 ? 's' : ''} booked this date: {sameDayGigs.map((g) => g.venues?.name || g.bands?.name || 'Unknown venue').join(', ')}
+            </span>
+          )}
         </label>
         <label className="field">
           <span className="field__label">Status</span>
