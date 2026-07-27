@@ -42,6 +42,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [guestCount, setGuestCount] = useState(gig?.guest_count != null ? gig.guest_count : '');
   const [eventType, setEventType] = useState(gig?.event_type || '');
   const [performanceType, setPerformanceType] = useState(gig?.performance_type || '');
+  const [mileageRatePence, setMileageRatePence] = useState(gig?.mileage_rate_pence != null ? gig.mileage_rate_pence : 35);
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
   const [requirements, setRequirements] = useState([]);
@@ -147,6 +148,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       guest_count: guestCount === '' ? null : Math.round(Number(guestCount)),
       event_type: eventType || null,
       performance_type: performanceType || null,
+      mileage_rate_pence: mileageRatePence === '' ? 35 : Math.round(Number(mileageRatePence)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
     };
@@ -303,6 +305,18 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           value={feeAmount}
           onChange={(e) => setFeeAmount(e.target.value)}
           placeholder="e.g. 650"
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Mileage rate (pence per mile)</span>
+        <input
+          type="number"
+          step="1"
+          min="0"
+          value={mileageRatePence}
+          onChange={(e) => setMileageRatePence(e.target.value)}
+          placeholder="e.g. 35"
         />
       </label>
 
