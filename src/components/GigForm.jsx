@@ -39,6 +39,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [soundcheckTime, setSoundcheckTime] = useState(gig?.soundcheck_time?.slice(0, 5) || '');
   const [status, setStatus] = useState(gig?.status || 'inquiry');
   const [feeAmount, setFeeAmount] = useState(gig?.fee_amount != null ? Math.round(Number(gig.fee_amount)) : '');
+  const [guestCount, setGuestCount] = useState(gig?.guest_count != null ? gig.guest_count : '');
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
   const [requirements, setRequirements] = useState([]);
@@ -141,6 +142,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       soundcheck_time: soundcheckTime || null,
       status,
       fee_amount: feeAmount === '' ? null : Math.round(Number(feeAmount)),
+      guest_count: guestCount === '' ? null : Math.round(Number(guestCount)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
     };
@@ -297,6 +299,18 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           value={feeAmount}
           onChange={(e) => setFeeAmount(e.target.value)}
           placeholder="e.g. 650"
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Guest count (optional)</span>
+        <input
+          type="number"
+          step="1"
+          min="0"
+          value={guestCount}
+          onChange={(e) => setGuestCount(e.target.value)}
+          placeholder="e.g. 120"
         />
       </label>
 

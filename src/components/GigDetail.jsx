@@ -120,6 +120,8 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         </dd>
         <dt>Fee</dt>
         <dd>{gig.fee_amount != null ? '£' + Number(gig.fee_amount).toFixed(2) : '—'}</dd>
+        <dt>Guest count</dt>
+        <dd>{gig.guest_count != null ? gig.guest_count : '—'}</dd>
         <dt>Mileage rate</dt>
         <dd>{gig.mileage_rate_pence ?? 35}p per mile</dd>
         <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
