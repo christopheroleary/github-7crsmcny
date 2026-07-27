@@ -55,6 +55,7 @@ export default function EnquiriesList() {
       gig_date: enq.event_date || '',
       status: 'inquiry',
       fee_amount: enq.estimated_budget ?? '',
+      event_type: enq.event_type || '',
       notes: [
         enq.requirements,
         enq.admin_notes,

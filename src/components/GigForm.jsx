@@ -40,6 +40,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [status, setStatus] = useState(gig?.status || 'inquiry');
   const [feeAmount, setFeeAmount] = useState(gig?.fee_amount != null ? Math.round(Number(gig.fee_amount)) : '');
   const [guestCount, setGuestCount] = useState(gig?.guest_count != null ? gig.guest_count : '');
+  const [eventType, setEventType] = useState(gig?.event_type || '');
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
   const [requirements, setRequirements] = useState([]);
@@ -143,6 +144,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       status,
       fee_amount: feeAmount === '' ? null : Math.round(Number(feeAmount)),
       guest_count: guestCount === '' ? null : Math.round(Number(guestCount)),
+      event_type: eventType || null,
       parking_notes: parkingNotes || null,
       notes: notes || null,
     };
@@ -312,6 +314,20 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           onChange={(e) => setGuestCount(e.target.value)}
           placeholder="e.g. 120"
         />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Event type (optional)</span>
+        <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+          <option value="">Please select…</option>
+          <option>Wedding</option>
+          <option>Corporate event</option>
+          <option>Birthday party</option>
+          <option>Anniversary</option>
+          <option>Festival / outdoor</option>
+          <option>Private party</option>
+          <option>Other</option>
+        </select>
       </label>
 
       <label className="field">
