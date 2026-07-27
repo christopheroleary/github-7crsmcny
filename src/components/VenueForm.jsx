@@ -9,6 +9,7 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
   const [latitude, setLatitude] = useState(venue?.latitude ?? null);
   const [longitude, setLongitude] = useState(venue?.longitude ?? null);
   const [contactName, setContactName] = useState(venue?.contact_name || '');
+  const [contactTitle, setContactTitle] = useState(venue?.contact_title || '');
   const [phone, setPhone] = useState(venue?.phone || '');
   const [email, setEmail] = useState(venue?.email || '');
   const [loadInNotes, setLoadInNotes] = useState(venue?.load_in_notes || '');
@@ -26,6 +27,7 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
       latitude,
       longitude,
       contact_name: contactName || null,
+      contact_title: contactTitle || null,
       phone: phone || null,
       email: email || null,
       load_in_notes: loadInNotes || null,
@@ -74,15 +76,21 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
           <input value={contactName} onChange={(e) => setContactName(e.target.value)} />
         </label>
         <label className="field">
-          <span className="field__label">Phone</span>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <span className="field__label">Contact job title</span>
+          <input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="e.g. Events Manager" />
         </label>
       </div>
 
-      <label className="field">
-        <span className="field__label">Email</span>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Phone</span>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
+        <label className="field">
+          <span className="field__label">Email</span>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+      </div>
 
       <label className="field">
         <span className="field__label">Load-in notes</span>

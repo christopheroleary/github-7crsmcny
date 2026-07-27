@@ -95,7 +95,8 @@ export default function VenuesList() {
                   </div>
                   {expandedId === v.id && (
                     <dl className="detail-list">
-                      <dt>Contact</dt><dd>{v.contact_name || '—'}</dd>
+                      <dt>Contact</dt>
+                      <dd>{v.contact_name ? v.contact_name + (v.contact_title ? ' (' + v.contact_title + ')' : '') : '—'}</dd>
                       <dt>Phone</dt><dd>{v.phone || '—'}</dd>
                       <dt>Email</dt><dd>{v.email || '—'}</dd>
                       <dt>Load-in notes</dt><dd>{v.load_in_notes || '—'}</dd>
