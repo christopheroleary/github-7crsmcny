@@ -26,7 +26,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     setLoading(true);
     const { data } = await supabase
       .from('gig_lineup')
-      .select('id, travel_miles, travel_cost_pence, profiles(full_name, home_latitude, home_longitude, home_address)')
+      .select('id, travel_miles, travel_cost_pence, lift_share, profiles(full_name, home_latitude, home_longitude, home_address)')
       .eq('gig_id', gigId);
     setLineup(data || []);
     setLoading(false);
@@ -44,7 +44,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
     const needsCalc = lineup.filter((l) => {
       const p = l.profiles;
-      return p?.home_latitude != null && p?.home_longitude != null;
+      return !l.lift_share && p?.home_latitude != null && p?.home_longitude != null;
     });
 
     if (needsCalc.length === 0) {
@@ -75,6 +75,15 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     load();
   }
 
+  async function toggleLiftShare(entry) {
+    const nextLiftShare = !entry.lift_share;
+    await supabase
+      .from('gig_lineup')
+      .update(nextLiftShare ? { lift_share: true, travel_cost_pence: 0 } : { lift_share: false })
+      .eq('id', entry.id);
+    load();
+  }
+
   const totalTravelPence = lineup.reduce((sum, l) => sum + (l.travel_cost_pence || 0), 0);
   const hasAnyMissing = lineup.some((l) => !l.profiles?.home_latitude);
 
@@ -93,6 +102,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
             <th>Musician</th>
             <th>Round trip</th>
             <th>Cost @ {rate}p/mile</th>
+            <th>Fuel</th>
           </tr>
         </thead>
         <tbody>
@@ -110,9 +120,16 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
                     : <span className="field__hint">Not calculated yet</span>}
                 </td>
                 <td>
-                  {entry.travel_cost_pence != null
+                  {entry.lift_share
+                    ? <span className="field__hint">Lift share</span>
+                    : entry.travel_cost_pence != null
                     ? '£' + (entry.travel_cost_pence / 100).toFixed(2)
                     : '—'}
+                </td>
+                <td>
+                  <button type="button" className="link-button" onClick={() => toggleLiftShare(entry)}>
+                    {entry.lift_share ? 'Charging fuel' : 'Lift share (no fuel)'}
+                  </button>
                 </td>
               </tr>
             );
@@ -121,7 +138,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
         {totalTravelPence > 0 && (
           <tfoot>
             <tr>
-              <td colSpan={2}><strong>Total travel</strong></td>
+              <td colSpan={3}><strong>Total travel</strong></td>
               <td><strong>£{(totalTravelPence / 100).toFixed(2)}</strong></td>
             </tr>
           </tfoot>
