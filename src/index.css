@@ -533,9 +533,12 @@ input {
   gap: 2px;
 }
 .simple-list__title {
+  display: block;
   font-weight: 600;
 }
 .simple-list__subtitle {
+  display: block;
+  margin-top: 2px;
   font-size: 13px;
   color: var(--text-muted);
 }
