@@ -41,6 +41,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [feeAmount, setFeeAmount] = useState(gig?.fee_amount != null ? Math.round(Number(gig.fee_amount)) : '');
   const [guestCount, setGuestCount] = useState(gig?.guest_count != null ? gig.guest_count : '');
   const [eventType, setEventType] = useState(gig?.event_type || '');
+  const [performanceType, setPerformanceType] = useState(gig?.performance_type || '');
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
   const [requirements, setRequirements] = useState([]);
@@ -145,6 +146,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       fee_amount: feeAmount === '' ? null : Math.round(Number(feeAmount)),
       guest_count: guestCount === '' ? null : Math.round(Number(guestCount)),
       event_type: eventType || null,
+      performance_type: performanceType || null,
       parking_notes: parkingNotes || null,
       notes: notes || null,
     };
@@ -326,6 +328,20 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           <option>Anniversary</option>
           <option>Festival / outdoor</option>
           <option>Private party</option>
+          <option>Other</option>
+        </select>
+      </label>
+
+      <label className="field">
+        <span className="field__label">Performance type (optional)</span>
+        <select value={performanceType} onChange={(e) => setPerformanceType(e.target.value)}>
+          <option value="">Please select…</option>
+          <option>Function band (on stage)</option>
+          <option>Acoustic / unplugged</option>
+          <option>Roaming / walkabout</option>
+          <option>DJ</option>
+          <option>Duo / trio</option>
+          <option>Solo</option>
           <option>Other</option>
         </select>
       </label>

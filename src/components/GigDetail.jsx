@@ -124,6 +124,8 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         <dd>{gig.guest_count != null ? gig.guest_count : '—'}</dd>
         <dt>Event type</dt>
         <dd>{gig.event_type || '—'}</dd>
+        <dt>Performance type</dt>
+        <dd>{gig.performance_type || '—'}</dd>
         <dt>Mileage rate</dt>
         <dd>{gig.mileage_rate_pence ?? 35}p per mile</dd>
         <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
