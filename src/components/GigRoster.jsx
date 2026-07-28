@@ -29,6 +29,18 @@ function VocalBadge({ role }) {
   );
 }
 
+function CaptainBadge() {
+  return (
+    <span
+      className="status-tag"
+      style={{ marginLeft: 6, background: 'var(--rust)22', color: 'var(--rust)', border: '1px solid var(--rust)44' }}
+      title="Band captain (MD) for this gig"
+    >
+      ★ Captain
+    </span>
+  );
+}
+
 export default function GigRoster({ gigId }) {
   const { profile: me, isAdmin } = useCurrentProfile();
   const [requirements, setRequirements] = useState([]);
@@ -111,7 +123,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -333,6 +345,17 @@ export default function GigRoster({ gigId }) {
     load();
   }
 
+  // Only one captain per gig — setting a new one clears any previous one.
+  async function handleToggleCaptain(entry) {
+    const makingCaptain = !entry.is_captain;
+    if (makingCaptain) {
+      await supabase.from('gig_lineup').update({ is_captain: false }).eq('gig_id', gigId).eq('is_captain', true);
+    }
+    const { error } = await supabase.from('gig_lineup').update({ is_captain: makingCaptain }).eq('id', entry.id);
+    if (error) { alert("Couldn't update captain: " + error.message); return; }
+    load();
+  }
+
   if (loading) return <p className="state-message">Loading roster…</p>;
 
   const filledCounts = {};
@@ -388,6 +411,7 @@ export default function GigRoster({ gigId }) {
                       </span>
                     )}
                     <VocalBadge role={entry.vocal_role} />
+                    {entry.is_captain && <CaptainBadge />}
                   </span>
                   <span className="simple-list__subtitle">{entry.instruments?.name || '—'}</span>
                   {isAdmin && (
@@ -398,6 +422,16 @@ export default function GigRoster({ gigId }) {
                     >
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
+                  )}
+                  {isAdmin && !isPlaceholder && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      style={{ fontSize: 12, marginTop: 4, display: 'block' }}
+                      onClick={() => handleToggleCaptain(entry)}
+                    >
+                      {entry.is_captain ? 'Remove as captain' : 'Make captain'}
+                    </button>
                   )}
                 </div>
                 <div className="simple-list__actions">

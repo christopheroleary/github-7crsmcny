@@ -141,6 +141,23 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
                 </span>
               ))}
         </dd>
+        {(gig.dj_song_rules || gig.first_dance_mode) && (
+          <>
+            <dt>DJ — do/don't play</dt><dd>{gig.dj_song_rules || '—'}</dd>
+            <dt>First dance</dt>
+            <dd>
+              {gig.first_dance_mode === 'live' ? 'Live band' : gig.first_dance_mode === 'dj' ? 'DJ / playlist' : '—'}
+              {gig.songs?.title && ' — ' + gig.songs.title + (gig.songs.artist ? ' (' + gig.songs.artist + ')' : '')}
+            </dd>
+          </>
+        )}
+        {(gig.roadie_stage_layout || gig.roadie_van_parking || gig.roadie_contact) && (
+          <>
+            <dt>Roadie — stage layout</dt><dd>{gig.roadie_stage_layout || '—'}</dd>
+            <dt>Roadie — van parking</dt><dd>{gig.roadie_van_parking || '—'}</dd>
+            <dt>Roadie — on-site contact</dt><dd>{gig.roadie_contact || '—'}</dd>
+          </>
+        )}
       </dl>
 
       {hasPin && !isOffline && (

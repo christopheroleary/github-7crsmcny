@@ -37,7 +37,7 @@ async function fetchGigData(gigId) {
     supabase
       .from('gigs')
       .select(
-        '*, venues(name, address, latitude, longitude), clients(name), bands(name)'
+        '*, venues(name, address, latitude, longitude), clients(name), bands(name), songs:first_dance_song_id(title, artist)'
       )
       .eq('id', gigId)
       .single(),

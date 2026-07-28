@@ -9,6 +9,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [venues, setVenues] = useState([]);
   const [clients, setClients] = useState([]);
   const [instruments, setInstruments] = useState([]);
+  const [songs, setSongs] = useState([]);
 
   // Band
   const [bandId, setBandId] = useState(gig?.band_id || '');
@@ -45,6 +46,17 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [mileageRatePence, setMileageRatePence] = useState(gig?.mileage_rate_pence != null ? gig.mileage_rate_pence : 35);
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
+
+  // DJ details
+  const [djSongRules, setDjSongRules] = useState(gig?.dj_song_rules || '');
+  const [firstDanceMode, setFirstDanceMode] = useState(gig?.first_dance_mode || '');
+  const [firstDanceSongId, setFirstDanceSongId] = useState(gig?.first_dance_song_id || '');
+  const [firstDanceSongTitle, setFirstDanceSongTitle] = useState('');
+
+  // Roadie details
+  const [roadieStageLayout, setRoadieStageLayout] = useState(gig?.roadie_stage_layout || '');
+  const [roadieVanParking, setRoadieVanParking] = useState(gig?.roadie_van_parking || '');
+  const [roadieContact, setRoadieContact] = useState(gig?.roadie_contact || '');
   const [requirements, setRequirements] = useState([]);
   const [originalRequirementIds, setOriginalRequirementIds] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +76,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
+    supabase.from('songs').select('id, title, artist').order('title').then(({ data }) => setSongs(data || []));
     if (isEdit) {
       supabase.from('gig_requirements').select('id, instrument_id, quantity').eq('gig_id', gig.id).then(({ data }) => {
         const rows = (data || []).map((r) => ({ id: r.id, instrument_id: r.instrument_id, quantity: r.quantity }));
@@ -134,6 +147,18 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       finalClientId = nc.id;
     }
 
+    // Quick-create first dance song if a new title was typed instead of picked
+    let finalFirstDanceSongId = firstDanceSongId || null;
+    if (!finalFirstDanceSongId && firstDanceSongTitle.trim()) {
+      const { data: ns, error: se } = await supabase
+        .from('songs')
+        .insert({ title: firstDanceSongTitle.trim() })
+        .select()
+        .single();
+      if (se) { setError(se.message); setSubmitting(false); return; }
+      finalFirstDanceSongId = ns.id;
+    }
+
     const payload = {
       band_id: finalBandId,
       venue_id: finalVenueId,
@@ -151,6 +176,12 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       mileage_rate_pence: mileageRatePence === '' ? 35 : Math.round(Number(mileageRatePence)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
+      dj_song_rules: djSongRules || null,
+      first_dance_mode: firstDanceMode || null,
+      first_dance_song_id: finalFirstDanceSongId,
+      roadie_stage_layout: roadieStageLayout || null,
+      roadie_van_parking: roadieVanParking || null,
+      roadie_contact: roadieContact || null,
     };
 
     let gigId = gig?.id;
@@ -389,6 +420,69 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         ))}
         <button type="button" className="link-button" onClick={addRequirementRow}>+ Add instrument requirement</button>
       </div>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>DJ details (optional)</p>
+
+      <label className="field">
+        <span className="field__label">Do / don't play songs</span>
+        <textarea
+          value={djSongRules}
+          onChange={(e) => setDjSongRules(e.target.value)}
+          rows={2}
+          placeholder="e.g. Don't play: Come On Eileen. Must play: Mr Brightside."
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">First dance</span>
+        <select value={firstDanceMode} onChange={(e) => setFirstDanceMode(e.target.value)}>
+          <option value="">Not applicable</option>
+          <option value="live">Live band</option>
+          <option value="dj">DJ / playlist</option>
+        </select>
+      </label>
+
+      {firstDanceMode && (
+        <label className="field">
+          <span className="field__label">First dance song</span>
+          <select
+            value={firstDanceSongId}
+            onChange={(e) => { setFirstDanceSongId(e.target.value); setFirstDanceSongTitle(''); }}
+          >
+            <option value="">Pick an existing song…</option>
+            {songs.map((s) => (
+              <option key={s.id} value={s.id}>{s.title}{s.artist ? ' — ' + s.artist : ''}</option>
+            ))}
+          </select>
+          <span className="field__hint">or</span>
+          <input
+            placeholder="Type a new song title"
+            value={firstDanceSongTitle}
+            onChange={(e) => { setFirstDanceSongTitle(e.target.value); setFirstDanceSongId(''); }}
+          />
+        </label>
+      )}
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Roadie details (optional)</p>
+
+      <label className="field">
+        <span className="field__label">Stage layout</span>
+        <textarea value={roadieStageLayout} onChange={(e) => setRoadieStageLayout(e.target.value)} rows={2} />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Van parking</span>
+        <textarea value={roadieVanParking} onChange={(e) => setRoadieVanParking(e.target.value)} rows={2} />
+      </label>
+
+      <label className="field">
+        <span className="field__label">First point of contact on site</span>
+        <input
+          value={roadieContact}
+          onChange={(e) => setRoadieContact(e.target.value)}
+          placeholder="e.g. Dave, venue duty manager, 07700 900123"
+        />
+      </label>
 
       {error && <p className="form-error">{error}</p>}
       <div className="form-actions">
