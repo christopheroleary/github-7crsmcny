@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import TimeInput from './TimeInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
+import { calculateFeeSplit } from '../utils/feeSplit.js';
+
+function poundsFromPence(pence) {
+  return (pence / 100).toFixed(2);
+}
 
 export default function GigForm({ gig, onSaved, onCancel }) {
   const isEdit = Boolean(gig) && !gig._isConvert;
@@ -65,6 +70,14 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [error, setError] = useState(null);
   const [sameDayGigs, setSameDayGigs] = useState([]);
 
+  // Budgeting — projects profit/loss before a roster exists
+  const [plannedHeadcount, setPlannedHeadcount] = useState(gig?.planned_headcount ?? '');
+  const [plannedHasCaptain, setPlannedHasCaptain] = useState(gig?.planned_has_captain || false);
+  const [plannedHasSinger, setPlannedHasSinger] = useState(gig?.planned_has_singer || false);
+  const [estimatedTravelPounds, setEstimatedTravelPounds] = useState(
+    gig?.estimated_travel_pence != null ? poundsFromPence(gig.estimated_travel_pence) : ''
+  );
+
   // for convert enquiries form entry to gig inquiry
   const [newClientName, setNewClientName] = useState(gig?._clientHint || '');
   const [newClientEmail, setNewClientEmail] = useState(gig?._clientEmail || '');
@@ -74,7 +87,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [showNewVenue, setShowNewVenue] = useState(Boolean(gig?._venueHint)); // ← auto-open if hint
 
   useEffect(() => {
-    supabase.from('bands').select('id, name').order('name').then(({ data }) => setBands(data || []));
+    supabase.from('bands').select('id, name, fee_split_musician_base_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').order('name').then(({ data }) => setBands(data || []));
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
@@ -186,6 +199,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       roadie_stage_layout: roadieStageLayout || null,
       roadie_van_parking: roadieVanParking || null,
       roadie_contact: roadieContact || null,
+      planned_headcount: plannedHeadcount === '' ? null : Math.round(Number(plannedHeadcount)),
+      planned_has_captain: plannedHasCaptain,
+      planned_has_singer: plannedHasSinger,
+      estimated_travel_pence: estimatedTravelPounds === '' ? null : Math.round(Number(estimatedTravelPounds) * 100),
     };
 
     let gigId = gig?.id;
@@ -216,6 +233,30 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     setSubmitting(false);
     onSaved?.(gigId);
   }
+
+  const selectedBand = bands.find((b) => b.id === bandId);
+  const hasTemplate = selectedBand && [
+    selectedBand.fee_split_musician_base_pct,
+    selectedBand.fee_split_singer_bonus_pct,
+    selectedBand.fee_split_captain_bonus_pct,
+    selectedBand.fee_split_dj_pct,
+    selectedBand.fee_split_roadie_pct,
+  ].some((v) => v != null);
+  const previewTotalFeePence = feeAmount === '' ? 0 : Math.round(Number(feeAmount)) * 100;
+  const previewHeadcount = plannedHeadcount === '' ? 0 : Math.round(Number(plannedHeadcount));
+  const previewFuelPence = estimatedTravelPounds === '' ? 0 : Math.round(Number(estimatedTravelPounds) * 100);
+  const budgetPreview = (hasTemplate && previewTotalFeePence > 0 && previewHeadcount > 0)
+    ? calculateFeeSplit({
+        totalFeePence: previewTotalFeePence,
+        regularCount: previewHeadcount,
+        hasSinger: plannedHasSinger,
+        hasCaptain: plannedHasCaptain,
+        djCount: needsDj ? 1 : 0,
+        roadieCount: needsRoadie ? 1 : 0,
+        fuelPence: previewFuelPence,
+        template: selectedBand,
+      })
+    : null;
 
   return (
     <form className="entity-form" onSubmit={handleSubmit}>
@@ -424,6 +465,71 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         ))}
         <button type="button" className="link-button" onClick={addRequirementRow}>+ Add instrument requirement</button>
       </div>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Budgeting</p>
+      <p className="field__hint" style={{ marginBottom: 8 }}>
+        Project the profit/loss for this gig before anyone's actually booked, using the band's fee split defaults.
+      </p>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Planned headcount (regular musicians)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={plannedHeadcount}
+            onChange={(e) => setPlannedHeadcount(e.target.value)}
+            placeholder="e.g. 4"
+          />
+        </label>
+        <label className="field">
+          <span className="field__label">Estimated fuel / travel (£)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={estimatedTravelPounds}
+            onChange={(e) => setEstimatedTravelPounds(e.target.value)}
+            placeholder="e.g. 80"
+          />
+        </label>
+      </div>
+
+      <label className="field field--checkbox">
+        <input type="checkbox" checked={plannedHasCaptain} onChange={(e) => setPlannedHasCaptain(e.target.checked)} /> Will have a band captain
+      </label>
+      <label className="field field--checkbox">
+        <input type="checkbox" checked={plannedHasSinger} onChange={(e) => setPlannedHasSinger(e.target.checked)} /> Will have a dedicated lead singer
+      </label>
+
+      {!selectedBand && (
+        <p className="field__hint">Pick a band above to see a profit/loss projection.</p>
+      )}
+      {selectedBand && !hasTemplate && (
+        <p className="field__hint">This band has no fee split defaults set — add them on the band's edit page to see a projection here.</p>
+      )}
+      {selectedBand && hasTemplate && !budgetPreview && (
+        <p className="field__hint">Enter a fee and planned headcount above to see a projection.</p>
+      )}
+      {budgetPreview && (
+        <div className="detail-list" style={{ marginTop: 8, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
+          <dt>Per musician</dt><dd>£{poundsFromPence(budgetPreview.perMusicianBasePence)} × {previewHeadcount}</dd>
+          {plannedHasSinger && <><dt>Singer bonus</dt><dd>+£{poundsFromPence(budgetPreview.singerBonusPence)}</dd></>}
+          {plannedHasCaptain && <><dt>Captain bonus</dt><dd>+£{poundsFromPence(budgetPreview.captainBonusPence)}</dd></>}
+          {needsDj && <><dt>DJ</dt><dd>£{poundsFromPence(budgetPreview.djFeePence)}</dd></>}
+          {needsRoadie && <><dt>Roadie</dt><dd>£{poundsFromPence(budgetPreview.roadieFeePence)}</dd></>}
+          <dt>Allocated to musicians</dt><dd>£{poundsFromPence(budgetPreview.allocatedPence)}</dd>
+          <dt>Estimated fuel</dt><dd>£{poundsFromPence(previewFuelPence)}</dd>
+          <dt>{plannedHasCaptain ? "Captain's remainder" : 'Unallocated margin'}</dt>
+          <dd>
+            <strong style={{ color: budgetPreview.remainderPence < 0 ? 'var(--rust)' : 'inherit' }}>
+              £{poundsFromPence(budgetPreview.remainderPence)}
+            </strong>
+            {budgetPreview.remainderPence < 0 && ' — this gig loses money at this fee'}
+          </dd>
+        </div>
+      )}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>DJ details (optional)</p>
 

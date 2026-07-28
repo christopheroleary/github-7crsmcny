@@ -15,6 +15,11 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [bankAccountNumber, setBankAccountNumber] = useState(band?.bank_account_number || '');
   const [vatNumber, setVatNumber] = useState(band?.vat_number || '');
   const [invoiceNotes, setInvoiceNotes] = useState(band?.invoice_notes || '');
+  const [musicianBasePct, setMusicianBasePct] = useState(band?.fee_split_musician_base_pct ?? '');
+  const [singerBonusPct, setSingerBonusPct] = useState(band?.fee_split_singer_bonus_pct ?? '');
+  const [captainBonusPct, setCaptainBonusPct] = useState(band?.fee_split_captain_bonus_pct ?? '');
+  const [djPct, setDjPct] = useState(band?.fee_split_dj_pct ?? '');
+  const [roadiePct, setRoadiePct] = useState(band?.fee_split_roadie_pct ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -36,6 +41,11 @@ export default function BandForm({ band, onSaved, onCancel }) {
       bank_account_number: bankAccountNumber || null,
       vat_number: vatNumber || null,
       invoice_notes: invoiceNotes || null,
+      fee_split_musician_base_pct: musicianBasePct === '' ? null : Number(musicianBasePct),
+      fee_split_singer_bonus_pct: singerBonusPct === '' ? null : Number(singerBonusPct),
+      fee_split_captain_bonus_pct: captainBonusPct === '' ? null : Number(captainBonusPct),
+      fee_split_dj_pct: djPct === '' ? null : Number(djPct),
+      fee_split_roadie_pct: roadiePct === '' ? null : Number(roadiePct),
     };
 
     const { error } = isEdit
@@ -128,6 +138,39 @@ export default function BandForm({ band, onSaved, onCancel }) {
           placeholder="e.g. Payment is due within 14 days of the invoice date. Thank you for your booking."
         />
       </label>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Fee split defaults (optional)</p>
+      <p className="field__hint" style={{ marginBottom: 8 }}>
+        Each role's cut as a % of the total gig fee — used to suggest a per-musician split when budgeting a gig for this band.
+        Leave any of these blank if the band doesn't use that role. Whoever is band captain receives whatever's left over after
+        everyone else and travel costs are paid, so their bonus below is added on top of that remainder, not instead of it.
+      </p>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Musician base (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={musicianBasePct} onChange={(e) => setMusicianBasePct(e.target.value)} placeholder="e.g. 12.8" />
+        </label>
+        <label className="field">
+          <span className="field__label">Singer bonus (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+        </label>
+      </div>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Captain bonus (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+        </label>
+        <label className="field">
+          <span className="field__label">DJ (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />
+        </label>
+        <label className="field">
+          <span className="field__label">Roadie (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={roadiePct} onChange={(e) => setRoadiePct(e.target.value)} placeholder="e.g. 7.5" />
+        </label>
+      </div>
 
       {error && <p className="form-error">{error}</p>}
 

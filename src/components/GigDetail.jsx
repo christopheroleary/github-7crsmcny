@@ -5,6 +5,7 @@ import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigSetlist from './GigSetlist.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
+import GigFeeSplit from './GigFeeSplit.jsx';
 import GigInvoice from './GigInvoice.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
@@ -205,6 +206,13 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         venueLat={venue?.latitude}
         venueLon={venue?.longitude}
         mileageRatePence={gig.mileage_rate_pence}
+      />
+
+      <GigFeeSplit
+        gigId={gigId}
+        feeAmount={gig.fee_amount}
+        bandId={gig.band_id}
+        estimatedTravelPence={gig.estimated_travel_pence}
       />
 
       <MusicianClaimsAdmin gigId={gigId} />

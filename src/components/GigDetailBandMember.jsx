@@ -148,6 +148,12 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
               {isOffline && <span className="field__hint">Connect to confirm.</span>}
             </div>
           )}
+          {myEntry.fee_pence != null && (
+            <p style={{ margin: '8px 0 0' }}>
+              <strong>Your fee: £{(myEntry.fee_pence / 100).toFixed(2)}</strong>
+              {myEntry.travel_cost_pence != null && ' + £' + (myEntry.travel_cost_pence / 100).toFixed(2) + ' travel'}
+            </p>
+          )}
         </div>
       )}
 
