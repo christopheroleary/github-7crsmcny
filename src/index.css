@@ -1830,6 +1830,11 @@ input {
 .gig-card--historic:hover {
   opacity: 0.85;
 }
+.gig-card--needs-confirmation {
+  background: rgba(200, 134, 46, 0.08);
+  border-color: var(--amber-dark);
+  box-shadow: inset 3px 0 0 var(--amber-dark);
+}
 .notif-bell__btn--active {
   background: rgba(200, 134, 46, 0.15);
   color: var(--amber-dark);

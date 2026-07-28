@@ -101,22 +101,66 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
       }
     }
 
+    // ── Merge "has a pending musician claim" onto each gig ──────────────────
+    // pending = submitted but admin hasn't approved, paid, or rejected it yet.
+    const { data: claims } = await supabase
+      .from('musician_claims')
+      .select('gig_id, status')
+      .in('gig_id', fetchedGigIds)
+      .eq('status', 'pending');
+    const pendingClaimGigIds = new Set((claims || []).map((c) => c.gig_id));
+
+    // ── Merge "roster incomplete" onto each gig ─────────────────────────────
+    // Incomplete = nobody booked at all, or a required instrument is short.
+    const [{ data: requirements }, { data: lineup }] = await Promise.all([
+      supabase.from('gig_requirements').select('gig_id, instrument_id, quantity').in('gig_id', fetchedGigIds),
+      supabase.from('gig_lineup').select('gig_id, instrument_id').in('gig_id', fetchedGigIds),
+    ]);
+
+    const lineupCountByGig = {};
+    const filledByGigInstrument = {};
+    for (const l of (lineup || [])) {
+      lineupCountByGig[l.gig_id] = (lineupCountByGig[l.gig_id] || 0) + 1;
+      const key = l.gig_id + '|' + l.instrument_id;
+      filledByGigInstrument[key] = (filledByGigInstrument[key] || 0) + 1;
+    }
+    const requirementsByGig = {};
+    for (const r of (requirements || [])) {
+      (requirementsByGig[r.gig_id] ||= []).push(r);
+    }
+    const incompleteRosterGigIds = new Set();
+    for (const gigId of fetchedGigIds) {
+      if (!lineupCountByGig[gigId]) {
+        incompleteRosterGigIds.add(gigId);
+        continue;
+      }
+      const reqs = requirementsByGig[gigId] || [];
+      const short = reqs.some((r) => (filledByGigInstrument[gigId + '|' + r.instrument_id] || 0) < r.quantity);
+      if (short) incompleteRosterGigIds.add(gigId);
+    }
+
     return (data || []).map((g) => ({
       ...g,
       invoice_status: invoiceMap[g.id] ?? null,
+      has_pending_claim: pendingClaimGigIds.has(g.id),
+      roster_incomplete: incompleteRosterGigIds.has(g.id),
     }));
   }
 
   // band_member — find their lineup gig IDs first
   const { data: lineupRows, error: lineupError } = await supabase
     .from('gig_lineup')
-    .select('gig_id')
+    .select('gig_id, confirmed')
     .eq('profile_id', profileId);
 
   if (lineupError) throw new Error(lineupError.message);
 
   const gigIds = (lineupRows || []).map((r) => r.gig_id);
   if (gigIds.length === 0) return [];
+
+  const confirmedMap = Object.fromEntries(
+    (lineupRows || []).map((r) => [r.gig_id, r.confirmed])
+  );
 
   let query = supabase
     .from('gigs')
@@ -151,6 +195,7 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
   return (data || []).map((g) => ({
     ...g,
     claim_status: claimMap[g.id] ?? null,
+    my_confirmed: confirmedMap[g.id] ?? false,
   }));
 }
 

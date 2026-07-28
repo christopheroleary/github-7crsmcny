@@ -56,6 +56,8 @@ export default function GigsList() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNeedsInvoicing, setShowNeedsInvoicing] = useState(false);   // admin
   const [showUnclaimedGigs, setShowUnclaimedGigs] = useState(false);     // band member
+  const [showPendingClaims, setShowPendingClaims] = useState(false);     // admin
+  const [showIncompleteRoster, setShowIncompleteRoster] = useState(false); // admin
 
   // ── Offline-aware gig list (replaces the old loadGigs / useState(gigs)) ──────
   const {
@@ -69,8 +71,9 @@ export default function GigsList() {
   } = useOfflineGigList({
     isAdmin,
     profileId: me?.id,
-    // both filters target past gigs, so force historic on when either is active
-    showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs,
+    // these filters target past gigs, so force historic on when any is active.
+    // showIncompleteRoster is deliberately excluded — it's an upcoming-gigs concern.
+    showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs || showPendingClaims,
   });
 
   // ── Client-side filters ───────────────────────────────────────────────────────
@@ -89,6 +92,12 @@ export default function GigsList() {
       return rawGigs.filter(
         (g) => g.gig_date < today() && !['approved', 'paid'].includes(g.claim_status)
       );
+    }
+    if (showPendingClaims) {
+      return rawGigs.filter((g) => g.has_pending_claim);
+    }
+    if (showIncompleteRoster) {
+      return rawGigs.filter((g) => g.status !== 'cancelled' && g.roster_incomplete);
     }
     return rawGigs;
   })();
@@ -167,9 +176,37 @@ export default function GigsList() {
           {isAdmin && (
             <button
               className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
-              onClick={() => setShowNeedsInvoicing((v) => !v)}
+              onClick={() => {
+                setShowNeedsInvoicing((v) => !v);
+                setShowPendingClaims(false);
+                setShowIncompleteRoster(false);
+              }}
             >
               {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              className={`btn btn--small ${showPendingClaims ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => {
+                setShowPendingClaims((v) => !v);
+                setShowNeedsInvoicing(false);
+                setShowIncompleteRoster(false);
+              }}
+            >
+              {showPendingClaims ? 'Pending claims ✕' : 'Pending claims'}
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              className={`btn btn--small ${showIncompleteRoster ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => {
+                setShowIncompleteRoster((v) => !v);
+                setShowNeedsInvoicing(false);
+                setShowPendingClaims(false);
+              }}
+            >
+              {showIncompleteRoster ? 'Roster incomplete ✕' : 'Roster incomplete'}
             </button>
           )}
           {!isAdmin && (
@@ -192,11 +229,12 @@ export default function GigsList() {
       </div>
 
       {/* ── Active filter hint ───────────────────────────────────────────────── */}
-      {(showNeedsInvoicing || showUnclaimedGigs) && (
+      {(showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || showIncompleteRoster) && (
         <p className="filter-hint">
-          {showNeedsInvoicing
-            ? 'Showing past gigs with unsettled invoices.'
-            : 'Showing past gigs with outstanding or missing claims.'}
+          {showNeedsInvoicing && 'Showing past gigs with unsettled invoices.'}
+          {showUnclaimedGigs && 'Showing past gigs with outstanding or missing claims.'}
+          {showPendingClaims && 'Showing gigs with a musician claim awaiting your review.'}
+          {showIncompleteRoster && "Showing gigs whose roster isn't fully booked yet."}
         </p>
       )}
 
@@ -255,6 +293,10 @@ export default function GigsList() {
             ? 'No past gigs with outstanding invoices.'
             : showUnclaimedGigs
             ? 'No past gigs with unpaid claims — you\'re all up to date.'
+            : showPendingClaims
+            ? 'No claims waiting for review — you\'re all up to date.'
+            : showIncompleteRoster
+            ? 'Every roster is fully booked.'
             : showHistoric
             ? 'No gigs found.'
             : isAdmin
@@ -272,6 +314,8 @@ export default function GigsList() {
               // Dim and block tap only when offline AND not cached
               const isDisabled = isOffline && !isAvailableOffline;
               const stub = formatTicketStub(gig.gig_date);
+              // Musician hasn't confirmed their availability for this booking yet.
+              const needsConfirmation = !isAdmin && !isPast && gig.status !== 'cancelled' && !gig.my_confirmed;
 
               return (
                 <li
@@ -280,6 +324,7 @@ export default function GigsList() {
                     'gig-card',
                     isPast ? 'gig-card--historic' : '',
                     isDisabled ? 'gig-card--offline-unavailable' : '',
+                    needsConfirmation ? 'gig-card--needs-confirmation' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
