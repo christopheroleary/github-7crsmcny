@@ -18,7 +18,15 @@ function feeForRow(row, split) {
   return fee;
 }
 
-export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelPence }) {
+// Captain always leads the list; a pure DJ/roadie (no instrument, so not
+// actually performing) sinks to the bottom. Everyone else keeps roster order.
+function rosterSortKey(entry) {
+  if (entry.is_captain) return 0;
+  if (!entry.instrument_id && (entry.is_dj || entry.is_roadie)) return 2;
+  return 1;
+}
+
+export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelPence, plannedHeadcount }) {
   const [lineup, setLineup] = useState([]);
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +52,12 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
   const totalFeePence = feeAmount != null ? Math.round(Number(feeAmount) * 100) : 0;
   const regularCount = lineup.filter((l) => l.instrument_id).length;
+  // Until the roster is fully booked, split against the intended final
+  // headcount rather than however many are on it so far — otherwise the
+  // first few musicians booked see an inflated per-person share that then
+  // drops once the rest are added and it's recalculated.
+  const usingPlannedHeadcount = plannedHeadcount && plannedHeadcount > regularCount;
+  const effectiveRegularCount = usingPlannedHeadcount ? plannedHeadcount : regularCount;
   const hasSinger = lineup.some((l) => l.vocal_role === 'lead');
   const hasCaptain = lineup.some((l) => l.is_captain);
   const djCount = lineup.filter((l) => l.is_dj).length;
@@ -72,8 +86,8 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     template.fee_split_roadie_pct,
   ].some((v) => v != null);
 
-  const split = (hasTemplate && totalFeePence > 0 && regularCount > 0)
-    ? calculateFeeSplit({ totalFeePence, regularCount, hasSinger, hasCaptain, djCount, roadieCount, fuelPence, template })
+  const split = (hasTemplate && totalFeePence > 0 && effectiveRegularCount > 0)
+    ? calculateFeeSplit({ totalFeePence, regularCount: effectiveRegularCount, hasSinger, hasCaptain, djCount, roadieCount, fuelPence, template })
     : null;
 
   async function handleCalculate() {
@@ -98,6 +112,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
   const allocatedPence = lineup.reduce((sum, l) => sum + (l.fee_pence || 0), 0);
   const remainingPence = totalFeePence - allocatedPence - fuelPence;
+  const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
 
   return (
     <div className="roster-section">
@@ -109,13 +124,19 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
       {hasTemplate && totalFeePence <= 0 && (
         <p className="field__hint">Set a fee on this gig to calculate a split.</p>
       )}
+      {usingPlannedHeadcount && (
+        <p className="field__hint">
+          Only {regularCount} of the planned {plannedHeadcount} musicians are booked so far — splitting against the planned
+          headcount so early fees don't overstate what's left once everyone's added.
+        </p>
+      )}
 
       <table className="travel-table" style={{ marginTop: 8 }}>
         <thead>
           <tr><th>Musician</th><th>Role</th><th>Fee</th></tr>
         </thead>
         <tbody>
-          {lineup.map((l) => {
+          {sortedLineup.map((l) => {
             const name = l.profiles?.full_name || l.placeholder_musicians?.name || 'Unknown';
             const role = [l.instruments?.name, l.vocal_role === 'lead' && 'Singer', l.is_dj && 'DJ', l.is_roadie && 'Roadie', l.is_captain && 'Captain'].filter(Boolean).join(' + ') || '—';
             return (

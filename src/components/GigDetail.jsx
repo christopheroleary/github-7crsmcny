@@ -11,7 +11,7 @@ import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted }) {
-  const { gig, requirements, isOffline, syncing, syncedAt, error, refresh } =
+  const { gig, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
 
   const [editing, setEditing] = useState(false);
@@ -132,22 +132,6 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
-        <dt>Instruments needed</dt>
-        <dd>
-          {requirements.length === 0 && !gig.needs_dj && !gig.needs_roadie
-            ? '—'
-            : (
-              <>
-                {requirements.map((r, i) => (
-                  <span key={i} className="tag" style={{ marginRight: 6 }}>
-                    {r.instruments?.name} × {r.quantity}
-                  </span>
-                ))}
-                {gig.needs_dj && <span className="tag" style={{ marginRight: 6 }}>DJ</span>}
-                {gig.needs_roadie && <span className="tag" style={{ marginRight: 6 }}>Roadie</span>}
-              </>
-            )}
-        </dd>
         {(gig.dj_song_rules || gig.first_dance_mode) && (
           <>
             <dt>DJ — do/don't play</dt><dd>{gig.dj_song_rules || '—'}</dd>
@@ -213,6 +197,7 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         feeAmount={gig.fee_amount}
         bandId={gig.band_id}
         estimatedTravelPence={gig.estimated_travel_pence}
+        plannedHeadcount={gig.planned_headcount}
       />
 
       <MusicianClaimsAdmin gigId={gigId} />

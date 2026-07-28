@@ -455,6 +455,15 @@ export default function GigRoster({ gigId }) {
   const rosteredProfileIds = lineup.filter((l) => l.profile_id).map((l) => l.profile_id);
   const rosteredPlaceholderIds = lineup.filter((l) => l.placeholder_id).map((l) => l.placeholder_id);
 
+  // Captain always leads the list; a pure DJ/roadie (no instrument, so not
+  // actually performing) sinks to the bottom. Everyone else keeps roster order.
+  function rosterSortKey(entry) {
+    if (entry.is_captain) return 0;
+    if (!entry.instrument_id && (entry.is_dj || entry.is_roadie)) return 2;
+    return 1;
+  }
+  const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
+
   return (
     <div className="roster-section">
       <h3 className="roster-section__title">Roster &amp; vacancies</h3>
@@ -494,7 +503,7 @@ export default function GigRoster({ gigId }) {
 
       <ul className="simple-list">
         {lineup.length === 0 && <li className="state-message">Nobody booked yet.</li>}
-        {lineup.map((entry) => {
+        {sortedLineup.map((entry) => {
           const isPlaceholder = !entry.profile_id;
           const isMe = entry.profile_id === me?.id;
           const displayName = entry.profiles?.full_name || entry.placeholder_musicians?.name || 'Unknown';

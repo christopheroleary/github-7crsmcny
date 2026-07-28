@@ -92,6 +92,15 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
   const myEntry = lineup.find((l) => l.profile_id === myProfileId) || null;
   const myTravel = myEntry?.travel_cost_pence;
 
+  // Captain always leads the list; a pure DJ/roadie (no instrument, so not
+  // actually performing) sinks to the bottom. Everyone else keeps roster order.
+  function rosterSortKey(entry) {
+    if (entry.is_captain) return 0;
+    if (!entry.instrument_id && (entry.is_dj || entry.is_roadie)) return 2;
+    return 1;
+  }
+  const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
+
   return (
     <div className="day-sheet">
       <button className="link-button" onClick={onBack}>← Back to my gigs</button>
@@ -256,7 +265,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       <div className="day-sheet__section">
         <h3 className="day-sheet__section-title">Who's on this gig</h3>
         <ul className="day-sheet__roster">
-        {lineup.map((l) => (
+        {sortedLineup.map((l) => (
           <li key={l.id} className="day-sheet__roster-row">
             <div>
               <span className="day-sheet__roster-name">
