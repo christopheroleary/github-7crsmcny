@@ -1,30 +1,80 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
-import { todayStr, twelveMonthsAgoStr } from '../utils/formatDate.js';
+import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDate.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
-function KPICard({ label, count, value, colour }) {
+function KPICard({ label, count, value, colour, onClick }) {
   return (
-    <div className="kpi-card" style={{ borderTopColor: colour }}>
+    <button type="button" className="kpi-card kpi-card--clickable" style={{ borderTopColor: colour }} onClick={onClick}>
       <p className="kpi-card__label">{label}</p>
       <p className="kpi-card__count">{count}</p>
       {value != null && <p className="kpi-card__value">£{Math.round(value).toLocaleString('en-GB')}</p>}
+    </button>
+  );
+}
+
+// Table of the gigs behind a KPI card. Admin sees client + fee + invoice
+// status; musicians only ever see gigs they're personally booked on, with
+// no fee/client info — matching what they can already see on their own
+// gigs list elsewhere in the app.
+function DrilldownModal({ title, gigs, isAdmin, onClose, onSelectGig }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="section-header">
+          <h3 className="section-header__title">{title}</h3>
+          <button type="button" className="link-button" onClick={onClose}>✕ Close</button>
+        </div>
+        {gigs.length === 0 ? (
+          <p className="state-message">No gigs in this list.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="travel-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Venue</th>
+                  <th>Band</th>
+                  {isAdmin && <th>Client</th>}
+                  <th>Status</th>
+                  {isAdmin && <th>Fee</th>}
+                  {isAdmin && <th>Invoice</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {gigs.map((g) => (
+                  <tr key={g.id} onClick={() => onSelectGig(g.id)} style={{ cursor: 'pointer' }}>
+                    <td>{formatShortDate(g.gig_date)}</td>
+                    <td>{g.venues?.name || '—'}</td>
+                    <td>{g.bands?.name || '—'}</td>
+                    {isAdmin && <td>{g.clients?.name || '—'}</td>}
+                    <td>{g.status}</td>
+                    {isAdmin && <td>{g.fee_amount != null ? '£' + Math.round(Number(g.fee_amount)).toLocaleString('en-GB') : '—'}</td>}
+                    {isAdmin && <td>{g.invoices?.some((i) => i.status === 'paid') ? 'Paid' : g.invoices?.some((i) => i.status === 'sent') ? 'Sent' : g.invoices?.length ? 'Draft' : 'None'}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const { isAdmin, profile } = useCurrentProfile();
-  
+
   const [loading, setLoading] = useState(true);
-  const [outstanding, setOutstanding] = useState({ count: 0, value: 0 });
-  const [upcoming, setUpcoming] = useState({ count: 0, value: null });
-  const [thisMonth, setThisMonth] = useState({ count: 0, value: null });
-  const [allGigs, setAllGigs] = useState(0);
-  const [unInvoiced, setUnInvoiced] = useState({ count: 0, value: 0 });
-  const [inquiries, setInquiries] = useState({ count: 0 });
+  const [outstanding, setOutstanding] = useState({ count: 0, value: 0, gigs: [] });
+  const [upcoming, setUpcoming] = useState({ count: 0, value: null, gigs: [] });
+  const [thisMonth, setThisMonth] = useState({ count: 0, value: null, gigs: [] });
+  const [allGigs, setAllGigs] = useState({ count: 0, gigs: [] });
+  const [unInvoiced, setUnInvoiced] = useState({ count: 0, value: 0, gigs: [] });
+  const [inquiries, setInquiries] = useState({ count: 0, gigs: [] });
   const [trends, setTrends] = useState([]);
+  const [activeDrilldown, setActiveDrilldown] = useState(null); // one of the state keys above, or null
 
   useEffect(() => {
     async function load() {
@@ -36,11 +86,11 @@ export default function Dashboard() {
         const monthMap = {};
         const now = new Date();
         let endYear = now.getFullYear();
-        let endMonth = now.getMonth(); 
+        let endMonth = now.getMonth();
 
         (trendGigs || []).forEach(g => {
           const year = parseInt(g.gig_date.slice(0, 4), 10);
-          const month = parseInt(g.gig_date.slice(5, 7), 10) - 1; 
+          const month = parseInt(g.gig_date.slice(5, 7), 10) - 1;
           if (year > endYear || (year === endYear && month > endMonth)) {
             endYear = year;
             endMonth = month;
@@ -54,9 +104,9 @@ export default function Dashboard() {
           const m = d.getMonth();
           const key = `${y}-${String(m + 1).padStart(2, '0')}`;
           const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-          
+
           monthMap[key] = { month: label, gigs: 0, revenue: 0 };
-          
+
           if (y === endYear && m === endMonth) break;
           d.setMonth(m + 1);
         }
@@ -70,83 +120,93 @@ export default function Dashboard() {
             }
           }
         });
-        
+
         setTrends(Object.values(monthMap));
       }
 
       if (isAdmin) {
-        // ── ADMIN VIEW ──
+        // ── ADMIN VIEW — full company-wide detail, as admin can already see
+        // everything via the Gigs tab. ──
+        const gigCols = 'id, fee_amount, gig_date, status, venues(name), bands(name), clients(name), invoices(status)';
         const [
-          { data: completedGigs }, 
-          { data: upcomingGigs }, 
+          { data: completedGigs },
+          { data: upcomingGigs },
           { data: trendGigs },
           { data: allGigsData },
           { data: pastGigs },
           { data: inquiryGigs }
         ] = await Promise.all([
-          supabase.from('gigs').select('id, fee_amount, invoices(status)').eq('status', 'completed'),
-          supabase.from('gigs').select('id, fee_amount, gig_date').gte('gig_date', today).not('status', 'in', '("cancelled")'),
+          supabase.from('gigs').select(gigCols).eq('status', 'completed'),
+          supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")'),
           supabase.from('gigs').select('gig_date, fee_amount, status').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('id'),
-          supabase.from('gigs').select('id, fee_amount, gig_date, invoices(status)').lt('gig_date', today).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('id').eq('status', 'inquiry')
+          supabase.from('gigs').select(gigCols),
+          supabase.from('gigs').select(gigCols).lt('gig_date', today).not('status', 'in', '("cancelled")'),
+          supabase.from('gigs').select(gigCols).eq('status', 'inquiry')
         ]);
 
-        setAllGigs((allGigsData || []).length);
-        setInquiries({ count: (inquiryGigs || []).length });
+        setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
+        setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
 
         const unInvoicedGigs = (pastGigs || []).filter(g => !g.invoices?.some(inv => inv.status === 'sent' || inv.status === 'paid'));
         setUnInvoiced({
           count: unInvoicedGigs.length,
           value: unInvoicedGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
+          gigs: unInvoicedGigs,
         });
 
         const outstandingGigs = (completedGigs || []).filter(g => !g.invoices?.some(inv => inv.status === 'paid'));
         setOutstanding({
           count: outstandingGigs.length,
           value: outstandingGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
+          gigs: outstandingGigs,
         });
 
         setUpcoming({
           count: (upcomingGigs || []).length,
           value: (upcomingGigs || []).reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
+          gigs: upcomingGigs || [],
         });
 
-        const thisMonthGigs = (trendGigs || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today);
+        // upcomingGigs (>= today) and pastGigs (< today) are mutually exclusive
+        // by date and both already exclude cancelled gigs, so together they
+        // cover every gig that could fall in the current month.
+        const thisMonthGigs = (upcomingGigs || []).concat(pastGigs || [])
+          .filter(g => g.gig_date >= monthStart && g.gig_date <= today);
         setThisMonth({
           count: thisMonthGigs.length,
           value: thisMonthGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
+          gigs: thisMonthGigs,
         });
 
         buildTrends(trendGigs, true);
 
       } else {
-        // ── MUSICIAN VIEW ──
+        // ── MUSICIAN VIEW — scoped to gigs they're personally booked on only,
+        // matching what they can already see on their own gigs list. No fee
+        // or client info, same as the rest of the app shows them. ──
+        const gigCols = 'id, gig_date, status, venues(name), bands(name), gig_lineup!inner(profile_id)';
         const [
-          { data: upcomingGigs }, 
+          { data: upcomingGigs },
           { data: trendGigs },
           { data: allGigsData },
           { data: inquiryGigs }
         ] = await Promise.all([
-          supabase.from('gigs').select('id, gig_date').gte('gig_date', today).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('id, gig_date').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('id'),
-          supabase.from('gigs')
-            .select('id, gig_lineup!inner(profile_id)')
-            .eq('status', 'inquiry')
-            .eq('gig_lineup.profile_id', profile?.id)
+          supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")').eq('gig_lineup.profile_id', profile?.id),
+          supabase.from('gigs').select('gig_date, gig_lineup!inner(profile_id)').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")').eq('gig_lineup.profile_id', profile?.id),
+          supabase.from('gigs').select(gigCols).eq('gig_lineup.profile_id', profile?.id),
+          supabase.from('gigs').select(gigCols).eq('status', 'inquiry').eq('gig_lineup.profile_id', profile?.id)
         ]);
 
-        setAllGigs((allGigsData || []).length);
-        setInquiries({ count: (inquiryGigs || []).length });
-        setUpcoming({ count: (upcomingGigs || []).length, value: null });
+        setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
+        setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
+        setUpcoming({ count: (upcomingGigs || []).length, value: null, gigs: upcomingGigs || [] });
 
-        const thisMonthGigs = (trendGigs || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today);
-        setThisMonth({ count: thisMonthGigs.length, value: null });
+        const thisMonthGigs = (allGigsData || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today);
+        setThisMonth({ count: thisMonthGigs.length, value: null, gigs: thisMonthGigs });
 
         buildTrends(trendGigs, false);
       }
-      
+
       setLoading(false);
     }
 
@@ -155,23 +215,47 @@ export default function Dashboard() {
 
   if (loading) return <p className="state-message">Loading dashboard…</p>;
 
+  function selectGig(gigId) {
+    setActiveDrilldown(null);
+    onNavigate?.({ url: '/gigs', gig_id: gigId });
+  }
+
+  const drilldowns = {
+    allGigs: { title: 'All gigs', data: allGigs },
+    inquiries: { title: 'Inquiries', data: inquiries },
+    unInvoiced: { title: 'Un-invoiced (past)', data: unInvoiced },
+    outstanding: { title: 'Outstanding (unpaid)', data: outstanding },
+    upcoming: { title: isAdmin ? 'Upcoming gigs' : 'My upcoming gigs', data: upcoming },
+    thisMonth: { title: 'This month', data: thisMonth },
+  };
+
   return (
     <div className="dashboard">
       <h2 className="section-header__title" style={{ marginBottom: 16 }}>Dashboard</h2>
 
       <div className="kpi-row">
-        <KPICard label="All gigs" count={allGigs + ' gigs'} colour="#71717a" />
-        <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" />
-        
+        <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
+        <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
+
         {isAdmin && (
           <>
-            <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" />
-            <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" />
+            <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" onClick={() => setActiveDrilldown('unInvoiced')} />
+            <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" onClick={() => setActiveDrilldown('outstanding')} />
           </>
         )}
-        <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" />
-        <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" />
+        <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" onClick={() => setActiveDrilldown('upcoming')} />
+        <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" onClick={() => setActiveDrilldown('thisMonth')} />
       </div>
+
+      {activeDrilldown && (
+        <DrilldownModal
+          title={drilldowns[activeDrilldown].title}
+          gigs={drilldowns[activeDrilldown].data.gigs}
+          isAdmin={isAdmin}
+          onClose={() => setActiveDrilldown(null)}
+          onSelectGig={selectGig}
+        />
+      )}
 
       <div className="dashboard-chart">
         <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
@@ -189,19 +273,19 @@ export default function Dashboard() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c7" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
-            
+
             {isAdmin && (
               <YAxis yAxisId="rev" orientation="right" tick={{ fontSize: 11 }}
                 tickFormatter={v => '£' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v)} />
             )}
-            
+
             <YAxis yAxisId="gig" orientation="left" tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip
               formatter={(value, name) => name === 'revenue' ? ['£' + value.toLocaleString('en-GB'), 'Revenue'] : [value, 'Gigs']}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--line)' }}
             />
             <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-            
+
             {isAdmin && (
               <Area yAxisId="rev" type="monotone" dataKey="revenue" stroke="#c8862e" fill="url(#revGrad)" strokeWidth={2} name="revenue" />
             )}

@@ -1856,6 +1856,43 @@ input {
   border-radius: 10px;
   padding: 16px;
 }
+.kpi-card--clickable {
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.kpi-card--clickable:hover {
+  box-shadow: 0 2px 8px rgba(30, 27, 22, 0.08);
+}
+.kpi-card--clickable:active {
+  transform: scale(0.99);
+}
+
+/* ---------- Generic drilldown modal ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 27, 22, 0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-panel {
+  background: var(--paper-raised);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(30, 27, 22, 0.2);
+}
+.modal-panel .travel-table tbody tr:hover {
+  background: var(--paper);
+}
 
 .kpi-card__label {
   font-size: 12px;

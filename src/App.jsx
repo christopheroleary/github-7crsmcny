@@ -57,6 +57,21 @@ export default function App() {
     setView(v);
   }
 
+  function handleNavigate({ url, gig_id }) {
+    const tab = url ? url.replace('/', '') : 'gigs';
+    if (tabs.some(([k]) => k === tab)) {
+      if (gig_id) {
+        sessionStorage.setItem('selected_gig_id', gig_id);
+      } else {
+        sessionStorage.removeItem('selected_gig_id');
+      }
+      updateView(tab);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: gig_id || null } }));
+      }, 50);
+    }
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -93,20 +108,7 @@ export default function App() {
       <header className="app-header">
         <span className="app-header__title">Gig Manager</span>
         <div className="app-header__right">
-        <NotificationBell onNavigate={({ url, gig_id }) => {
-          const tab = url ? url.replace('/', '') : 'gigs';
-          if (tabs.some(([k]) => k === tab)) {
-            if (gig_id) {
-              sessionStorage.setItem('selected_gig_id', gig_id);
-            } else {
-              sessionStorage.removeItem('selected_gig_id');
-            }
-            updateView(tab);
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: gig_id || null } }));
-            }, 50);
-          }
-        }} />
+        <NotificationBell onNavigate={handleNavigate} />
           <button
             className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
             onClick={() => updateView('profile')}
@@ -134,7 +136,7 @@ export default function App() {
       </nav>
 
       <main>
-        {view === 'dashboard' && <Dashboard />}
+        {view === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
         {view === 'gigs' && <GigsList />}
         {view === 'enquiries' && isAdmin && <EnquiriesList />}
         {view === 'venues' && isAdmin && <VenuesList />}
