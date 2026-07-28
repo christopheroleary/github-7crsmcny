@@ -117,7 +117,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         <tbody>
           {lineup.map((l) => {
             const name = l.profiles?.full_name || l.placeholder_musicians?.name || 'Unknown';
-            const role = [l.instruments?.name, l.is_dj && 'DJ', l.is_roadie && 'Roadie', l.is_captain && 'Captain'].filter(Boolean).join(' + ') || '—';
+            const role = [l.instruments?.name, l.vocal_role === 'lead' && 'Singer', l.is_dj && 'DJ', l.is_roadie && 'Roadie', l.is_captain && 'Captain'].filter(Boolean).join(' + ') || '—';
             return (
               <tr key={l.id}>
                 <td>{name}</td>

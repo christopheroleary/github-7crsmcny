@@ -11,6 +11,12 @@
 // a 7-piece and a 3-piece both get a sensible per-person share of the same
 // gig fee instead of a fixed % each that would blow the budget at higher
 // headcounts.
+const ROUND_STEP_PENCE = 1000; // nearest £10
+
+function roundUpToStep(pence) {
+  return Math.ceil(pence / ROUND_STEP_PENCE) * ROUND_STEP_PENCE;
+}
+
 export function calculateFeeSplit({
   totalFeePence,
   regularCount,
@@ -23,21 +29,35 @@ export function calculateFeeSplit({
 }) {
   const pct = (p) => (p ? (Number(p) / 100) * totalFeePence : 0);
 
-  const ownerProfitPence = Math.round(pct(template?.fee_split_owner_profit_pct));
+  const rawOwnerProfitPence = Math.round(pct(template?.fee_split_owner_profit_pct));
   const singerBonusPence = hasSinger ? Math.round(pct(template?.fee_split_singer_bonus_pct)) : 0;
   const captainBonusPence = hasCaptain ? Math.round(pct(template?.fee_split_captain_bonus_pct)) : 0;
-  const djFeePence = djCount > 0 ? Math.round(pct(template?.fee_split_dj_pct)) : 0;
-  const roadieFeePence = roadieCount > 0 ? Math.round(pct(template?.fee_split_roadie_pct)) : 0;
+  const rawDjFeePence = djCount > 0 ? Math.round(pct(template?.fee_split_dj_pct)) : 0;
+  const rawRoadieFeePence = roadieCount > 0 ? Math.round(pct(template?.fee_split_roadie_pct)) : 0;
 
-  const overheadPence =
-    ownerProfitPence +
+  const rawOverheadPence =
+    rawOwnerProfitPence +
     singerBonusPence +
     captainBonusPence +
-    djFeePence * djCount +
-    roadieFeePence * roadieCount +
+    rawDjFeePence * djCount +
+    rawRoadieFeePence * roadieCount +
     (fuelPence || 0);
-  const musicianPoolPence = totalFeePence - overheadPence;
-  const perMusicianBasePence = regularCount > 0 ? Math.round(musicianPoolPence / regularCount) : 0;
+  const rawMusicianPoolPence = totalFeePence - rawOverheadPence;
+  const rawPerMusicianBasePence = regularCount > 0 ? rawMusicianPoolPence / regularCount : 0;
+
+  // Round each standalone payout up to a clean £10 — nobody wants a fee of
+  // £299.71. The extra comes out of owner profit, never off a musician/DJ/
+  // roadie, so rounding only ever costs the band pot, never the people.
+  const perMusicianBasePence = regularCount > 0 ? roundUpToStep(rawPerMusicianBasePence) : 0;
+  const djFeePence = djCount > 0 ? roundUpToStep(rawDjFeePence) : 0;
+  const roadieFeePence = roadieCount > 0 ? roundUpToStep(rawRoadieFeePence) : 0;
+
+  const roundingCostPence =
+    (perMusicianBasePence - rawPerMusicianBasePence) * regularCount +
+    (djFeePence - rawDjFeePence) * djCount +
+    (roadieFeePence - rawRoadieFeePence) * roadieCount;
+
+  const ownerProfitPence = Math.round(rawOwnerProfitPence - roundingCostPence);
 
   // What actually gets paid out to musicians — owner profit is deliberately excluded.
   const allocatedPence =
