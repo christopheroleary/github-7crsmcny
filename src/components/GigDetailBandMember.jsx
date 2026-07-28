@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyFood from './NearbyFood.jsx';
+import NearbyFuel from './NearbyFuel.jsx';
 
 function vocalLabel(role) {
   if (role === 'lead') return 'Lead vocals';
@@ -357,6 +358,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       )}
 
       {hasPin && <NearbyFood lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
+      {hasPin && <NearbyFuel lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
     </div>
   );
 }
