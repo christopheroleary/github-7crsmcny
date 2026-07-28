@@ -10,6 +10,7 @@ export default function MyProfile() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
   const [homeLon, setHomeLon] = useState(null);
@@ -30,7 +31,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -42,6 +43,7 @@ export default function MyProfile() {
         setHomeAddress(profile.home_address || '');
         setHomeLat(profile.home_latitude ?? null);
         setHomeLon(profile.home_longitude ?? null);
+        setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -69,6 +71,7 @@ export default function MyProfile() {
         home_address: homeAddress || null,
         home_latitude: homeLat,
         home_longitude: homeLon,
+        share_phone_on_daysheet: sharePhoneOnDaysheet,
       })
       .eq('id', userId);
 
@@ -118,6 +121,21 @@ export default function MyProfile() {
         <label className="field">
           <span className="field__label">Phone</span>
           <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
+
+        <label className="field">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={sharePhoneOnDaysheet}
+              onChange={(e) => setSharePhoneOnDaysheet(e.target.checked)}
+              style={{ width: 'auto' }}
+            />
+            <span className="field__label" style={{ marginBottom: 0 }}>Share my phone number with bandmates</span>
+          </span>
+          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+            Shows your number to other confirmed musicians on the gig day sheet. Off by default.
+          </span>
         </label>
 
         <label className="field">

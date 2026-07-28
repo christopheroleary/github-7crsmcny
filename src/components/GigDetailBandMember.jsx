@@ -253,9 +253,15 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
             <div>
               <span className="day-sheet__roster-name">
                 {l.profiles?.full_name || l.placeholder_musicians?.name}
+                {l.is_captain && (
+                  <span className="status-tag" style={{ marginLeft: 6, background: 'var(--rust)22', color: 'var(--rust)', border: '1px solid var(--rust)44' }}>
+                    ★ Captain
+                  </span>
+                )}
               </span>
               <span className="day-sheet__roster-instrument">
                 {[l.instruments?.name, vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
+                {l.profiles?.share_phone_on_daysheet && l.profiles?.phone && ' · ' + l.profiles.phone}
               </span>
             </div>
             <span className={'status-tag status-tag--' + (l.confirmed ? 'confirmed' : 'inquiry')}>
