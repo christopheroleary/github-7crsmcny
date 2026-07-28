@@ -87,7 +87,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [showNewVenue, setShowNewVenue] = useState(Boolean(gig?._venueHint)); // ← auto-open if hint
 
   useEffect(() => {
-    supabase.from('bands').select('id, name, fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').order('name').then(({ data }) => setBands(data || []));
+    supabase.from('bands').select('id, name, fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').order('name').then(({ data }) => setBands(data || []));
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
@@ -238,6 +238,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const hasTemplate = selectedBand && [
     selectedBand.fee_split_owner_profit_pct,
     selectedBand.fee_split_singer_bonus_pct,
+    selectedBand.fee_split_captain_bonus_pct,
     selectedBand.fee_split_dj_pct,
     selectedBand.fee_split_roadie_pct,
   ].some((v) => v != null);
@@ -513,7 +514,8 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       )}
       {budgetPreview && (
         <div className="detail-list" style={{ marginTop: 8, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
-          {plannedHasCaptain && <><dt>Owner / band-leader profit</dt><dd>£{poundsFromPence(budgetPreview.ownerProfitPence)}</dd></>}
+          <dt>Owner / band-leader profit</dt><dd>£{poundsFromPence(budgetPreview.ownerProfitPence)} — band pot, not paid to a musician</dd>
+          {plannedHasCaptain && <><dt>Captain bonus</dt><dd>+£{poundsFromPence(budgetPreview.captainBonusPence)}</dd></>}
           {plannedHasSinger && <><dt>Singer bonus</dt><dd>+£{poundsFromPence(budgetPreview.singerBonusPence)}</dd></>}
           {needsDj && <><dt>DJ</dt><dd>£{poundsFromPence(budgetPreview.djFeePence)}</dd></>}
           {needsRoadie && <><dt>Roadie</dt><dd>£{poundsFromPence(budgetPreview.roadieFeePence)}</dd></>}

@@ -26,11 +26,23 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     setLoading(true);
     const { data } = await supabase
       .from('gig_lineup')
-      .select('id, travel_miles, travel_cost_pence, lift_share, profiles(full_name, home_latitude, home_longitude, home_address)')
+      .select('id, travel_miles, travel_cost_pence, lift_share, profiles(full_name, home_latitude, home_longitude, home_address), placeholder_musicians(name, latitude, longitude, address)')
       .eq('gig_id', gigId);
     setLineup(data || []);
     setLoading(false);
   }, [gigId]);
+
+  // A lineup entry's home location comes from whichever side is set —
+  // a full member's profile, or a dep's own saved address.
+  function homeOf(entry) {
+    if (entry.profiles) {
+      return { name: entry.profiles.full_name, lat: entry.profiles.home_latitude, lon: entry.profiles.home_longitude, address: entry.profiles.home_address };
+    }
+    if (entry.placeholder_musicians) {
+      return { name: entry.placeholder_musicians.name, lat: entry.placeholder_musicians.latitude, lon: entry.placeholder_musicians.longitude, address: entry.placeholder_musicians.address };
+    }
+    return { name: null, lat: null, lon: null, address: null };
+  }
 
   useEffect(() => {
     load();
@@ -43,12 +55,12 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     }
 
     const needsCalc = lineup.filter((l) => {
-      const p = l.profiles;
-      return !l.lift_share && p?.home_latitude != null && p?.home_longitude != null;
+      const home = homeOf(l);
+      return !l.lift_share && home.lat != null && home.lon != null;
     });
 
     if (needsCalc.length === 0) {
-      setError("No booked musicians have a home address with a map pin set yet. Each musician needs to set this on their own profile.");
+      setError("No booked musicians have a home address with a map pin set yet. Each musician (or dep) needs one saved.");
       return;
     }
 
@@ -56,9 +68,9 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     setError(null);
 
     for (const entry of needsCalc) {
-      const p = entry.profiles;
+      const home = homeOf(entry);
       try {
-        const miles = await fetchDrivingMiles(p.home_latitude, p.home_longitude, venueLat, venueLon);
+        const miles = await fetchDrivingMiles(home.lat, home.lon, venueLat, venueLon);
         if (miles == null) continue;
         const roundTrip = miles * 2;
         const costPence = Math.round(roundTrip * rate);
@@ -85,7 +97,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
   }
 
   const totalTravelPence = lineup.reduce((sum, l) => sum + (l.travel_cost_pence || 0), 0);
-  const hasAnyMissing = lineup.some((l) => !l.profiles?.home_latitude);
+  const hasAnyMissing = lineup.some((l) => homeOf(l).lat == null);
 
   if (loading) return <p className="state-message">Loading travel costs…</p>;
   if (lineup.length === 0) return null;
@@ -107,11 +119,11 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
         </thead>
         <tbody>
           {lineup.map((entry) => {
-            const p = entry.profiles;
-            const noPin = !p?.home_latitude;
+            const home = homeOf(entry);
+            const noPin = home.lat == null;
             return (
               <tr key={entry.id}>
-                <td>{p?.full_name ?? '—'}</td>
+                <td>{home.name ?? '—'}</td>
                 <td>
                   {noPin
                     ? <span className="field__hint">No home address set</span>
@@ -147,7 +159,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
       {hasAnyMissing && (
         <p className="field__hint" style={{ marginTop: 6 }}>
-          Musicians without a home address set on their profile are excluded from the calculation.
+          Musicians or deps without a home address set (on their profile, or under Musicians for a dep) are excluded from the calculation.
         </p>
       )}
 

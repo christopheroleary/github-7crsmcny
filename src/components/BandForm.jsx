@@ -17,6 +17,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [invoiceNotes, setInvoiceNotes] = useState(band?.invoice_notes || '');
   const [ownerProfitPct, setOwnerProfitPct] = useState(band?.fee_split_owner_profit_pct ?? '');
   const [singerBonusPct, setSingerBonusPct] = useState(band?.fee_split_singer_bonus_pct ?? '');
+  const [captainBonusPct, setCaptainBonusPct] = useState(band?.fee_split_captain_bonus_pct ?? '');
   const [djPct, setDjPct] = useState(band?.fee_split_dj_pct ?? '');
   const [roadiePct, setRoadiePct] = useState(band?.fee_split_roadie_pct ?? '');
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +43,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
       invoice_notes: invoiceNotes || null,
       fee_split_owner_profit_pct: ownerProfitPct === '' ? null : Number(ownerProfitPct),
       fee_split_singer_bonus_pct: singerBonusPct === '' ? null : Number(singerBonusPct),
+      fee_split_captain_bonus_pct: captainBonusPct === '' ? null : Number(captainBonusPct),
       fee_split_dj_pct: djPct === '' ? null : Number(djPct),
       fee_split_roadie_pct: roadiePct === '' ? null : Number(roadiePct),
     };
@@ -139,24 +141,29 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Fee split defaults (optional)</p>
       <p className="field__hint" style={{ marginBottom: 8 }}>
-        Owner profit, singer bonus, DJ, and roadie are each a % of the total gig fee, taken off the top — leave any blank if the
-        band doesn't use that role. Musicians then split whatever's left evenly across however many are actually booked, so a
-        3-piece and a 7-piece both get a sensible share of the same fee instead of a fixed cut each that wouldn't scale.
+        Each is a % of the total gig fee, taken off the top — leave any blank if the band doesn't use it. Musicians then split
+        whatever's left evenly across however many are actually booked, so a 3-piece and a 7-piece both get a sensible share of
+        the same fee instead of a fixed cut each that wouldn't scale.
       </p>
 
       <div className="field-row">
         <label className="field">
           <span className="field__label">Owner / band-leader profit (%)</span>
           <input type="number" min="0" max="100" step="0.1" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 30" />
-          <span className="field__hint">Goes to whoever is band captain, on top of their equal share as a musician.</span>
+          <span className="field__hint">A band-level pot — e.g. an agent's cut. Not paid to any individual musician, even if they're also playing.</span>
         </label>
         <label className="field">
-          <span className="field__label">Singer bonus (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+          <span className="field__label">Captain bonus (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+          <span className="field__hint">Extra pay for whoever leads on the day — a real payout, separate from owner profit above.</span>
         </label>
       </div>
 
       <div className="field-row">
+        <label className="field">
+          <span className="field__label">Singer bonus (%)</span>
+          <input type="number" min="0" max="100" step="0.1" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+        </label>
         <label className="field">
           <span className="field__label">DJ (%)</span>
           <input type="number" min="0" max="100" step="0.1" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />

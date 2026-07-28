@@ -4,6 +4,7 @@ import MusicianEditForm from './MusicianEditForm.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin } = useCurrentProfile();
@@ -286,13 +287,15 @@ function DepDetailsEditor({ ph, onSaved }) {
   const [phone, setPhone] = useState(ph.phone || '');
   const [email, setEmail] = useState(ph.email || '');
   const [address, setAddress] = useState(ph.address || '');
+  const [lat, setLat] = useState(ph.latitude ?? null);
+  const [lon, setLon] = useState(ph.longitude ?? null);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
     setSaving(true);
     const { error } = await supabase
       .from('placeholder_musicians')
-      .update({ phone: phone || null, email: email || null, address: address || null })
+      .update({ phone: phone || null, email: email || null, address: address || null, latitude: lat, longitude: lon })
       .eq('id', ph.id);
     setSaving(false);
     if (error) { alert("Couldn't save details: " + error.message); return; }
@@ -318,7 +321,12 @@ function DepDetailsEditor({ ph, onSaved }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320 }}>
         <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <AddressAutocomplete
+          value={address}
+          onChange={(text) => { setAddress(text); setLat(null); setLon(null); }}
+          onCoordinatesChange={(newLat, newLon) => { setLat(newLat); setLon(newLon); }}
+          placeholder="Address (used for travel cost — start typing…)"
+        />
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <button className="btn btn--primary btn--small" onClick={handleSave} disabled={saving}>
@@ -356,7 +364,7 @@ function PlaceholdersSection({ filterInstrumentId }) {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
-      supabase.from('placeholder_musicians').select('id, name, phone, email, address, merged_into').order('name'),
+      supabase.from('placeholder_musicians').select('id, name, phone, email, address, latitude, longitude, merged_into').order('name'),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),

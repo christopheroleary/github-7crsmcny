@@ -12,7 +12,7 @@ function feeForRow(row, split) {
   let fee = 0;
   if (row.instrument_id) fee += split.perMusicianBasePence;
   if (row.vocal_role === 'lead') fee += split.singerBonusPence;
-  if (row.is_captain) fee += split.ownerProfitPence;
+  if (row.is_captain) fee += split.captainBonusPence;
   if (row.is_dj) fee += split.djFeePence;
   if (row.is_roadie) fee += split.roadieFeePence;
   return fee;
@@ -29,10 +29,10 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     const [{ data: lineupData }, { data: bandData }] = await Promise.all([
       supabase
         .from('gig_lineup')
-        .select('id, instrument_id, vocal_role, is_captain, is_dj, is_roadie, travel_cost_pence, fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)')
+        .select('id, instrument_id, vocal_role, is_captain, is_dj, is_roadie, travel_cost_pence, lift_share, fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)')
         .eq('gig_id', gigId),
       bandId
-        ? supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
+        ? supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
     setLineup(lineupData || []);
@@ -48,12 +48,26 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   const hasCaptain = lineup.some((l) => l.is_captain);
   const djCount = lineup.filter((l) => l.is_dj).length;
   const roadieCount = lineup.filter((l) => l.is_roadie).length;
+  // Lift-share rows genuinely cost £0 — only rows with neither a calculated
+  // cost nor lift-share are "unknown" (no home location set yet). Their fuel
+  // gets predicted from the average of whoever's already calculated, since
+  // people going to the same gig tend to travel similar distances; falling
+  // back to the gig's pre-roster estimate if nobody's calculated yet.
+  const knownRows = lineup.filter((l) => l.travel_cost_pence != null && !l.lift_share);
+  const unknownRows = lineup.filter((l) => l.travel_cost_pence == null && !l.lift_share);
+  const knownTravelSum = knownRows.reduce((sum, l) => sum + l.travel_cost_pence, 0);
+  const knownAvgPence = knownRows.length > 0 ? Math.round(knownTravelSum / knownRows.length) : null;
+  const predictedPerUnknownPence = knownAvgPence != null
+    ? knownAvgPence
+    : (estimatedTravelPence && lineup.length > 0 ? Math.round(estimatedTravelPence / lineup.length) : 0);
   const actualTravelPence = lineup.reduce((sum, l) => sum + (l.travel_cost_pence || 0), 0);
-  const fuelPence = actualTravelPence > 0 ? actualTravelPence : (estimatedTravelPence || 0);
+  const predictedTravelPence = unknownRows.length * predictedPerUnknownPence;
+  const fuelPence = actualTravelPence + predictedTravelPence;
 
   const hasTemplate = template && [
     template.fee_split_owner_profit_pct,
     template.fee_split_singer_bonus_pct,
+    template.fee_split_captain_bonus_pct,
     template.fee_split_dj_pct,
     template.fee_split_roadie_pct,
   ].some((v) => v != null);
@@ -129,11 +143,16 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
       <dl className="detail-list" style={{ marginTop: 12 }}>
         <dt>Total fee</dt><dd>£{poundsFromPence(totalFeePence)}</dd>
+        {split && <><dt>Owner / band-leader profit</dt><dd>£{poundsFromPence(split.ownerProfitPence)} — not paid to any musician</dd></>}
         <dt>Allocated to musicians</dt><dd>£{poundsFromPence(allocatedPence)}</dd>
         <dt>Fuel</dt>
         <dd>
           £{poundsFromPence(fuelPence)}
-          {actualTravelPence === 0 && estimatedTravelPence > 0 && <span className="field__hint"> (estimated — not yet calculated)</span>}
+          {unknownRows.length > 0 && (
+            <span className="field__hint">
+              {' '}(£{poundsFromPence(actualTravelPence)} calculated + £{poundsFromPence(predictedTravelPence)} predicted for {unknownRows.length} without a set home location)
+            </span>
+          )}
         </dd>
         <dt>Remaining margin</dt>
         <dd>
