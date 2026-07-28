@@ -12,7 +12,7 @@ function feeForRow(row, split) {
   let fee = 0;
   if (row.instrument_id) fee += split.perMusicianBasePence;
   if (row.vocal_role === 'lead') fee += split.singerBonusPence;
-  if (row.is_captain) fee += split.captainBonusPence + split.remainderPence;
+  if (row.is_captain) fee += split.ownerProfitPence;
   if (row.is_dj) fee += split.djFeePence;
   if (row.is_roadie) fee += split.roadieFeePence;
   return fee;
@@ -32,7 +32,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         .select('id, instrument_id, vocal_role, is_captain, is_dj, is_roadie, travel_cost_pence, fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)')
         .eq('gig_id', gigId),
       bandId
-        ? supabase.from('bands').select('fee_split_musician_base_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
+        ? supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
     setLineup(lineupData || []);
@@ -52,26 +52,19 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   const fuelPence = actualTravelPence > 0 ? actualTravelPence : (estimatedTravelPence || 0);
 
   const hasTemplate = template && [
-    template.fee_split_musician_base_pct,
+    template.fee_split_owner_profit_pct,
     template.fee_split_singer_bonus_pct,
-    template.fee_split_captain_bonus_pct,
     template.fee_split_dj_pct,
     template.fee_split_roadie_pct,
   ].some((v) => v != null);
 
+  const split = (hasTemplate && totalFeePence > 0 && regularCount > 0)
+    ? calculateFeeSplit({ totalFeePence, regularCount, hasSinger, hasCaptain, djCount, roadieCount, fuelPence, template })
+    : null;
+
   async function handleCalculate() {
-    if (!hasTemplate || totalFeePence <= 0) return;
+    if (!split) return;
     setCalculating(true);
-    const split = calculateFeeSplit({
-      totalFeePence,
-      regularCount,
-      hasSinger,
-      hasCaptain,
-      djCount,
-      roadieCount,
-      fuelPence,
-      template,
-    });
     for (const row of lineup) {
       const fee = feeForRow(row, split);
       await supabase.from('gig_lineup').update({ fee_pence: fee }).eq('id', row.id);
@@ -148,12 +141,18 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         </dd>
       </dl>
 
+      {split?.belowDjOrRoadie && (
+        <p className="form-error">
+          ⚠ At this fee, each musician would earn less than the DJ/roadie flat rate — consider raising the fee or booking fewer musicians.
+        </p>
+      )}
+
       <button
         type="button"
         className="btn btn--primary btn--small"
         style={{ marginTop: 8 }}
         onClick={handleCalculate}
-        disabled={calculating || !hasTemplate || totalFeePence <= 0}
+        disabled={calculating || !split}
       >
         {calculating ? 'Calculating…' : 'Calculate fees'}
       </button>

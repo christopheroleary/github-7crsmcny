@@ -87,7 +87,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [showNewVenue, setShowNewVenue] = useState(Boolean(gig?._venueHint)); // ← auto-open if hint
 
   useEffect(() => {
-    supabase.from('bands').select('id, name, fee_split_musician_base_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').order('name').then(({ data }) => setBands(data || []));
+    supabase.from('bands').select('id, name, fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').order('name').then(({ data }) => setBands(data || []));
     supabase.from('venues').select('id, name').order('name').then(({ data }) => setVenues(data || []));
     supabase.from('clients').select('id, name').order('name').then(({ data }) => setClients(data || []));
     supabase.from('instruments').select('id, name').order('sort_order').then(({ data }) => setInstruments(data || []));
@@ -236,9 +236,8 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
   const selectedBand = bands.find((b) => b.id === bandId);
   const hasTemplate = selectedBand && [
-    selectedBand.fee_split_musician_base_pct,
+    selectedBand.fee_split_owner_profit_pct,
     selectedBand.fee_split_singer_bonus_pct,
-    selectedBand.fee_split_captain_bonus_pct,
     selectedBand.fee_split_dj_pct,
     selectedBand.fee_split_roadie_pct,
   ].some((v) => v != null);
@@ -514,21 +513,24 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       )}
       {budgetPreview && (
         <div className="detail-list" style={{ marginTop: 8, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
-          <dt>Per musician</dt><dd>£{poundsFromPence(budgetPreview.perMusicianBasePence)} × {previewHeadcount}</dd>
+          {plannedHasCaptain && <><dt>Owner / band-leader profit</dt><dd>£{poundsFromPence(budgetPreview.ownerProfitPence)}</dd></>}
           {plannedHasSinger && <><dt>Singer bonus</dt><dd>+£{poundsFromPence(budgetPreview.singerBonusPence)}</dd></>}
-          {plannedHasCaptain && <><dt>Captain bonus</dt><dd>+£{poundsFromPence(budgetPreview.captainBonusPence)}</dd></>}
           {needsDj && <><dt>DJ</dt><dd>£{poundsFromPence(budgetPreview.djFeePence)}</dd></>}
           {needsRoadie && <><dt>Roadie</dt><dd>£{poundsFromPence(budgetPreview.roadieFeePence)}</dd></>}
-          <dt>Allocated to musicians</dt><dd>£{poundsFromPence(budgetPreview.allocatedPence)}</dd>
           <dt>Estimated fuel</dt><dd>£{poundsFromPence(previewFuelPence)}</dd>
-          <dt>{plannedHasCaptain ? "Captain's remainder" : 'Unallocated margin'}</dt>
+          <dt>Per musician (÷{previewHeadcount})</dt>
           <dd>
-            <strong style={{ color: budgetPreview.remainderPence < 0 ? 'var(--rust)' : 'inherit' }}>
-              £{poundsFromPence(budgetPreview.remainderPence)}
+            <strong style={{ color: budgetPreview.perMusicianBasePence < 0 ? 'var(--rust)' : 'inherit' }}>
+              £{poundsFromPence(budgetPreview.perMusicianBasePence)} each
             </strong>
-            {budgetPreview.remainderPence < 0 && ' — this gig loses money at this fee'}
+            {budgetPreview.perMusicianBasePence < 0 && ' — this gig loses money at this fee'}
           </dd>
         </div>
+      )}
+      {budgetPreview?.belowDjOrRoadie && (
+        <p className="form-error">
+          ⚠ At this fee and headcount, each musician would earn less than the DJ/roadie flat rate — consider raising the fee or booking fewer musicians.
+        </p>
       )}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>DJ details (optional)</p>
