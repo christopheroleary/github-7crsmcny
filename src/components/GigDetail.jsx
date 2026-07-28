@@ -133,13 +133,19 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
         <dt>Instruments needed</dt>
         <dd>
-          {requirements.length === 0
+          {requirements.length === 0 && !gig.needs_dj && !gig.needs_roadie
             ? '—'
-            : requirements.map((r, i) => (
-                <span key={i} className="tag" style={{ marginRight: 6 }}>
-                  {r.instruments?.name} × {r.quantity}
-                </span>
-              ))}
+            : (
+              <>
+                {requirements.map((r, i) => (
+                  <span key={i} className="tag" style={{ marginRight: 6 }}>
+                    {r.instruments?.name} × {r.quantity}
+                  </span>
+                ))}
+                {gig.needs_dj && <span className="tag" style={{ marginRight: 6 }}>DJ</span>}
+                {gig.needs_roadie && <span className="tag" style={{ marginRight: 6 }}>Roadie</span>}
+              </>
+            )}
         </dd>
         {(gig.dj_song_rules || gig.first_dance_mode) && (
           <>

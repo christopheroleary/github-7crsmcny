@@ -63,7 +63,7 @@ const today = () => new Date().toISOString().slice(0, 10);
  * - showHistoric: when true, removes the date floor (matches GigsList behaviour)
  */
 async function fetchGigList({ isAdmin, profileId, showHistoric }) {
-  const adminFields = 'id, gig_date, start_time, status, fee_amount, notes, venues(name), clients(name), bands(name)';
+  const adminFields = 'id, gig_date, start_time, status, fee_amount, notes, needs_dj, needs_roadie, venues(name), clients(name), bands(name)';
   const memberFields = 'id, gig_date, start_time, status, notes, venues(name), bands(name)';
 
   if (isAdmin) {
@@ -114,19 +114,27 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
     // Incomplete = nobody booked at all, or a required instrument is short.
     const [{ data: requirements }, { data: lineup }] = await Promise.all([
       supabase.from('gig_requirements').select('gig_id, instrument_id, quantity').in('gig_id', fetchedGigIds),
-      supabase.from('gig_lineup').select('gig_id, instrument_id').in('gig_id', fetchedGigIds),
+      supabase.from('gig_lineup').select('gig_id, instrument_id, is_dj, is_roadie').in('gig_id', fetchedGigIds),
     ]);
 
     const lineupCountByGig = {};
     const filledByGigInstrument = {};
+    const djFilledByGig = {};
+    const roadieFilledByGig = {};
     for (const l of (lineup || [])) {
       lineupCountByGig[l.gig_id] = (lineupCountByGig[l.gig_id] || 0) + 1;
       const key = l.gig_id + '|' + l.instrument_id;
       filledByGigInstrument[key] = (filledByGigInstrument[key] || 0) + 1;
+      if (l.is_dj) djFilledByGig[l.gig_id] = true;
+      if (l.is_roadie) roadieFilledByGig[l.gig_id] = true;
     }
     const requirementsByGig = {};
     for (const r of (requirements || [])) {
       (requirementsByGig[r.gig_id] ||= []).push(r);
+    }
+    const needsByGig = {};
+    for (const g of (data || [])) {
+      needsByGig[g.id] = { needs_dj: g.needs_dj, needs_roadie: g.needs_roadie };
     }
     const incompleteRosterGigIds = new Set();
     for (const gigId of fetchedGigIds) {
@@ -136,7 +144,10 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
       }
       const reqs = requirementsByGig[gigId] || [];
       const short = reqs.some((r) => (filledByGigInstrument[gigId + '|' + r.instrument_id] || 0) < r.quantity);
-      if (short) incompleteRosterGigIds.add(gigId);
+      const needs = needsByGig[gigId] || {};
+      const missingDj = needs.needs_dj && !djFilledByGig[gigId];
+      const missingRoadie = needs.needs_roadie && !roadieFilledByGig[gigId];
+      if (short || missingDj || missingRoadie) incompleteRosterGigIds.add(gigId);
     }
 
     return (data || []).map((g) => ({

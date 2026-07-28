@@ -48,12 +48,14 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [notes, setNotes] = useState(gig?.notes || '');
 
   // DJ details
+  const [needsDj, setNeedsDj] = useState(gig?.needs_dj || false);
   const [djSongRules, setDjSongRules] = useState(gig?.dj_song_rules || '');
   const [firstDanceMode, setFirstDanceMode] = useState(gig?.first_dance_mode || '');
   const [firstDanceSongId, setFirstDanceSongId] = useState(gig?.first_dance_song_id || '');
   const [firstDanceSongTitle, setFirstDanceSongTitle] = useState('');
 
   // Roadie details
+  const [needsRoadie, setNeedsRoadie] = useState(gig?.needs_roadie || false);
   const [roadieStageLayout, setRoadieStageLayout] = useState(gig?.roadie_stage_layout || '');
   const [roadieVanParking, setRoadieVanParking] = useState(gig?.roadie_van_parking || '');
   const [roadieContact, setRoadieContact] = useState(gig?.roadie_contact || '');
@@ -176,9 +178,11 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       mileage_rate_pence: mileageRatePence === '' ? 35 : Math.round(Number(mileageRatePence)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
+      needs_dj: needsDj,
       dj_song_rules: djSongRules || null,
       first_dance_mode: firstDanceMode || null,
       first_dance_song_id: finalFirstDanceSongId,
+      needs_roadie: needsRoadie,
       roadie_stage_layout: roadieStageLayout || null,
       roadie_van_parking: roadieVanParking || null,
       roadie_contact: roadieContact || null,
@@ -423,6 +427,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>DJ details (optional)</p>
 
+      <label className="field field--checkbox">
+        <input type="checkbox" checked={needsDj} onChange={(e) => setNeedsDj(e.target.checked)} /> This gig needs a DJ
+      </label>
+
       <label className="field">
         <span className="field__label">Do / don't play songs</span>
         <textarea
@@ -464,6 +472,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       )}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Roadie details (optional)</p>
+
+      <label className="field field--checkbox">
+        <input type="checkbox" checked={needsRoadie} onChange={(e) => setNeedsRoadie(e.target.checked)} /> This gig needs a roadie
+      </label>
 
       <label className="field">
         <span className="field__label">Stage layout</span>

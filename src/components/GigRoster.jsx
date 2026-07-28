@@ -10,9 +10,43 @@ const VOCAL_OPTIONS = [
 ];
 
 // The vocal_role dropdown ("Lead vocals" / "Backing vocals") is redundant once
-// the chosen instrument already IS "Lead Vocals" or "Backing Vocals".
+// the chosen instrument already IS "Lead Vocals" or "Backing Vocals" — and
+// meaningless for a DJ/roadie slot, since neither of those roles sings.
 function isVocalInstrument(list, instrumentId) {
   return /vocal/i.test(list.find((i) => i.id === instrumentId)?.name || '');
+}
+
+function hidesVocalPrompt(list, instrumentId, isDj, isRoadie) {
+  return isDj || isRoadie || isVocalInstrument(list, instrumentId);
+}
+
+const DJ_COLOUR = 'var(--amber-dark)';
+const ROADIE_COLOUR = 'var(--teal)';
+
+function RoleBadge({ label, colour }) {
+  return (
+    <span
+      className="status-tag"
+      style={{ marginLeft: 6, background: colour + '22', color: colour, border: '1px solid ' + colour + '44' }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RoleToggle({ label, active, colour, onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      className={'role-toggle' + (active ? ' role-toggle--active' : '')}
+      style={{ '--role-toggle-colour': colour }}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="role-toggle__dot" />
+      {label}
+    </button>
+  );
 }
 
 function VocalBadge({ role }) {
@@ -56,6 +90,8 @@ export default function GigRoster({ gigId }) {
   const [newMusicianId, setNewMusicianId] = useState('');
   const [newInstrumentId, setNewInstrumentId] = useState('');
   const [newVocalRole, setNewVocalRole] = useState('');
+  const [newIsDj, setNewIsDj] = useState(false);
+  const [newIsRoadie, setNewIsRoadie] = useState(false);
   const [adding, setAdding] = useState(false);
 
   // Placeholder / dep add
@@ -64,18 +100,26 @@ export default function GigRoster({ gigId }) {
   const [selectedPlaceholderId, setSelectedPlaceholderId] = useState('');
   const [placeholderInstrumentId, setPlaceholderInstrumentId] = useState('');
   const [placeholderVocalRole, setPlaceholderVocalRole] = useState('');
+  const [placeholderIsDj, setPlaceholderIsDj] = useState(false);
+  const [placeholderIsRoadie, setPlaceholderIsRoadie] = useState(false);
   const [newDepName, setNewDepName] = useState('');
   const [newDepInstrumentId, setNewDepInstrumentId] = useState('');
   const [newDepVocalRole, setNewDepVocalRole] = useState('');
+  const [newDepIsDj, setNewDepIsDj] = useState(false);
+  const [newDepIsRoadie, setNewDepIsRoadie] = useState(false);
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
 
   // Band preset
   const [applyingPreset, setApplyingPreset] = useState(false);
   const [gigBandId, setGigBandId] = useState(null);
+  const [gigNeeds, setGigNeeds] = useState({ needs_dj: false, needs_roadie: false });
 
   useEffect(() => {
-    supabase.from('gigs').select('band_id').eq('id', gigId).single()
-      .then(({ data }) => setGigBandId(data?.band_id || null));
+    supabase.from('gigs').select('band_id, needs_dj, needs_roadie').eq('id', gigId).single()
+      .then(({ data }) => {
+        setGigBandId(data?.band_id || null);
+        setGigNeeds({ needs_dj: data?.needs_dj || false, needs_roadie: data?.needs_roadie || false });
+      });
   }, [gigId]);
 
   async function handleApplyPreset() {
@@ -123,7 +167,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -173,7 +217,7 @@ export default function GigRoster({ gigId }) {
   // ── Add registered musician ──────────────────────────────────────────────
   async function handleAdd(e) {
     e.preventDefault();
-    if (!newMusicianId || !newInstrumentId) return;
+    if (!newMusicianId || (!newInstrumentId && !newIsDj && !newIsRoadie)) return;
     setAdding(true);
     setError(null);
 
@@ -183,7 +227,7 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (!confirmIfOverfilled(newInstrumentId)) {
+    if (newInstrumentId && !confirmIfOverfilled(newInstrumentId)) {
       setAdding(false);
       return;
     }
@@ -192,22 +236,26 @@ export default function GigRoster({ gigId }) {
       gig_id: gigId,
       profile_id: newMusicianId,
       placeholder_id: null,
-      instrument_id: newInstrumentId,
+      instrument_id: newInstrumentId || null,
       confirmed: false,
-      vocal_role: newVocalRole || null,
+      vocal_role: hidesVocalPrompt(availableForMusician, newInstrumentId, newIsDj, newIsRoadie) ? null : (newVocalRole || null),
+      is_dj: newIsDj,
+      is_roadie: newIsRoadie,
     });
     setAdding(false);
     if (error) { setError(error.message); return; }
     setNewMusicianId('');
     setNewInstrumentId('');
     setNewVocalRole('');
+    setNewIsDj(false);
+    setNewIsRoadie(false);
     load();
   }
 
   // ── Add existing dep ─────────────────────────────────────────────────────
   async function handleAddExistingDep(e) {
     e.preventDefault();
-    if (!selectedPlaceholderId || !placeholderInstrumentId) return;
+    if (!selectedPlaceholderId || (!placeholderInstrumentId && !placeholderIsDj && !placeholderIsRoadie)) return;
     setAddingPlaceholder(true);
     setError(null);
 
@@ -217,30 +265,36 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (!confirmIfOverfilled(placeholderInstrumentId)) {
+    if (placeholderInstrumentId && !confirmIfOverfilled(placeholderInstrumentId)) {
       setAddingPlaceholder(false);
       return;
     }
 
-    await supabase.from('placeholder_musician_instruments')
-      .upsert(
-        { placeholder_id: selectedPlaceholderId, instrument_id: placeholderInstrumentId },
-        { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
-      );
+    if (placeholderInstrumentId) {
+      await supabase.from('placeholder_musician_instruments')
+        .upsert(
+          { placeholder_id: selectedPlaceholderId, instrument_id: placeholderInstrumentId },
+          { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
+        );
+    }
 
     const { error } = await supabase.from('gig_lineup').insert({
       gig_id: gigId,
       profile_id: null,
       placeholder_id: selectedPlaceholderId,
-      instrument_id: placeholderInstrumentId,
+      instrument_id: placeholderInstrumentId || null,
       confirmed: false,
-      vocal_role: placeholderVocalRole || null,
+      vocal_role: hidesVocalPrompt(availableForDep, placeholderInstrumentId, placeholderIsDj, placeholderIsRoadie) ? null : (placeholderVocalRole || null),
+      is_dj: placeholderIsDj,
+      is_roadie: placeholderIsRoadie,
     });
     setAddingPlaceholder(false);
     if (error) { setError(error.message); return; }
     setSelectedPlaceholderId('');
     setPlaceholderInstrumentId('');
     setPlaceholderVocalRole('');
+    setPlaceholderIsDj(false);
+    setPlaceholderIsRoadie(false);
     setShowPlaceholder(false);
     load();
   }
@@ -248,7 +302,7 @@ export default function GigRoster({ gigId }) {
   // ── Add brand new dep ────────────────────────────────────────────────────
   async function handleAddNewDep(e) {
     e.preventDefault();
-    if (!newDepName.trim() || !newDepInstrumentId) return;
+    if (!newDepName.trim() || (!newDepInstrumentId && !newDepIsDj && !newDepIsRoadie)) return;
     setAddingPlaceholder(true);
     setError(null);
 
@@ -275,30 +329,36 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (!confirmIfOverfilled(newDepInstrumentId)) {
+    if (newDepInstrumentId && !confirmIfOverfilled(newDepInstrumentId)) {
       setAddingPlaceholder(false);
       return;
     }
 
-    await supabase.from('placeholder_musician_instruments')
-      .upsert(
-        { placeholder_id: phId, instrument_id: newDepInstrumentId },
-        { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
-      );
+    if (newDepInstrumentId) {
+      await supabase.from('placeholder_musician_instruments')
+        .upsert(
+          { placeholder_id: phId, instrument_id: newDepInstrumentId },
+          { onConflict: 'placeholder_id,instrument_id', ignoreDuplicates: true }
+        );
+    }
 
     const { error } = await supabase.from('gig_lineup').insert({
       gig_id: gigId,
       profile_id: null,
       placeholder_id: phId,
-      instrument_id: newDepInstrumentId,
+      instrument_id: newDepInstrumentId || null,
       confirmed: false,
-      vocal_role: newDepVocalRole || null,
+      vocal_role: hidesVocalPrompt(instruments, newDepInstrumentId, newDepIsDj, newDepIsRoadie) ? null : (newDepVocalRole || null),
+      is_dj: newDepIsDj,
+      is_roadie: newDepIsRoadie,
     });
     setAddingPlaceholder(false);
     if (error) { setError(error.message); return; }
     setNewDepName('');
     setNewDepInstrumentId('');
     setNewDepVocalRole('');
+    setNewDepIsDj(false);
+    setNewDepIsRoadie(false);
     setShowPlaceholder(false);
     load();
   }
@@ -345,6 +405,27 @@ export default function GigRoster({ gigId }) {
     load();
   }
 
+  // Toggling DJ/roadie on for an existing roster row — clears vocal_role since
+  // neither role sings. Freely combinable with a real instrument and with
+  // each other (unlike instruments, which stay single-select per person).
+  async function handleToggleDj(entry) {
+    const makingDj = !entry.is_dj;
+    const { error } = await supabase.from('gig_lineup')
+      .update({ is_dj: makingDj, vocal_role: makingDj ? null : entry.vocal_role })
+      .eq('id', entry.id);
+    if (error) { alert("Couldn't update DJ role: " + error.message); return; }
+    load();
+  }
+
+  async function handleToggleRoadie(entry) {
+    const makingRoadie = !entry.is_roadie;
+    const { error } = await supabase.from('gig_lineup')
+      .update({ is_roadie: makingRoadie, vocal_role: makingRoadie ? null : entry.vocal_role })
+      .eq('id', entry.id);
+    if (error) { alert("Couldn't update roadie role: " + error.message); return; }
+    load();
+  }
+
   // Only one captain per gig — setting a new one clears any previous one.
   async function handleToggleCaptain(entry) {
     const makingCaptain = !entry.is_captain;
@@ -378,7 +459,7 @@ export default function GigRoster({ gigId }) {
     <div className="roster-section">
       <h3 className="roster-section__title">Roster &amp; vacancies</h3>
 
-      {requirements.length > 0 && (
+      {(requirements.length > 0 || gigNeeds.needs_dj || gigNeeds.needs_roadie) && (
         <ul className="vacancy-list">
           {requirements.map((r, i) => {
             const filled = filledCounts[r.instrument_id] || 0;
@@ -390,6 +471,24 @@ export default function GigRoster({ gigId }) {
               </li>
             );
           })}
+          {gigNeeds.needs_dj && (() => {
+            const filled = lineup.filter((l) => l.is_dj).length;
+            return (
+              <li className={filled === 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
+                <span>DJ</span>
+                <span>{filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}</span>
+              </li>
+            );
+          })()}
+          {gigNeeds.needs_roadie && (() => {
+            const filled = lineup.filter((l) => l.is_roadie).length;
+            return (
+              <li className={filled === 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
+                <span>Roadie</span>
+                <span>{filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}</span>
+              </li>
+            );
+          })()}
         </ul>
       )}
 
@@ -412,26 +511,42 @@ export default function GigRoster({ gigId }) {
                     )}
                     <VocalBadge role={entry.vocal_role} />
                     {entry.is_captain && <CaptainBadge />}
+                    {entry.is_dj && <RoleBadge label="DJ" colour={DJ_COLOUR} />}
+                    {entry.is_roadie && <RoleBadge label="Roadie" colour={ROADIE_COLOUR} />}
                   </span>
-                  <span className="simple-list__subtitle">{entry.instruments?.name || '—'}</span>
+                  <span className="simple-list__subtitle">
+                    {[entry.instruments?.name, entry.is_dj && 'DJ', entry.is_roadie && 'Roadie'].filter(Boolean).join(' + ') || '—'}
+                  </span>
+                  {isAdmin && (
+                    <div className="role-toggle-group" style={{ marginTop: 6 }}>
+                      <RoleToggle
+                        label="DJ"
+                        active={entry.is_dj}
+                        colour={DJ_COLOUR}
+                        onClick={() => handleToggleDj(entry)}
+                      />
+                      <RoleToggle
+                        label="Roadie"
+                        active={entry.is_roadie}
+                        colour={ROADIE_COLOUR}
+                        onClick={() => handleToggleRoadie(entry)}
+                      />
+                      <RoleToggle
+                        label="Captain"
+                        active={entry.is_captain}
+                        colour="var(--rust)"
+                        onClick={() => handleToggleCaptain(entry)}
+                      />
+                    </div>
+                  )}
                   {isAdmin && (
                     <select
                       value={entry.vocal_role || ''}
                       onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}
-                      style={{ fontSize: 12, marginTop: 4, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
+                      style={{ fontSize: 12, marginTop: 6, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
                     >
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                  )}
-                  {isAdmin && !isPlaceholder && (
-                    <button
-                      type="button"
-                      className="link-button"
-                      style={{ fontSize: 12, marginTop: 4, display: 'block' }}
-                      onClick={() => handleToggleCaptain(entry)}
-                    >
-                      {entry.is_captain ? 'Remove as captain' : 'Make captain'}
-                    </button>
                   )}
                 </div>
                 <div className="simple-list__actions">
@@ -483,6 +598,8 @@ export default function GigRoster({ gigId }) {
                 const theirInstruments = musicianInstruments[id] || [];
                 setNewInstrumentId(theirInstruments.length === 1 ? theirInstruments[0].id : '');
                 setNewVocalRole('');
+                setNewIsDj(false);
+                setNewIsRoadie(false);
               }}
               required
             >
@@ -494,16 +611,19 @@ export default function GigRoster({ gigId }) {
             <select
               value={newInstrumentId}
               onChange={(e) => { setNewInstrumentId(e.target.value); setNewVocalRole(''); }}
-              required
               disabled={!newMusicianId}
             >
-              <option value="">{newMusicianId ? 'Choose instrument…' : 'Pick a musician first'}</option>
+              <option value="">{newMusicianId ? 'No instrument (DJ / roadie only)' : 'Pick a musician first'}</option>
               {availableForMusician.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
             {newMusicianId && pickedMusicianInstruments.length === 0 && (
               <p className="field__hint">No instruments on profile — showing all.</p>
             )}
-            {!isVocalInstrument(availableForMusician, newInstrumentId) && (
+            <div className="role-toggle-group">
+              <RoleToggle label="DJ" active={newIsDj} colour={DJ_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsDj((v) => !v)} />
+              <RoleToggle label="Roadie" active={newIsRoadie} colour={ROADIE_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsRoadie((v) => !v)} />
+            </div>
+            {!hidesVocalPrompt(availableForMusician, newInstrumentId, newIsDj, newIsRoadie) && (
               <select
                 value={newVocalRole}
                 onChange={(e) => setNewVocalRole(e.target.value)}
@@ -512,7 +632,7 @@ export default function GigRoster({ gigId }) {
                 {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             )}
-            <button type="submit" className="btn btn--primary btn--small" disabled={adding}>
+            <button type="submit" className="btn btn--primary btn--small" disabled={adding || !newMusicianId || (!newInstrumentId && !newIsDj && !newIsRoadie)}>
               {adding ? 'Adding…' : '+ Add to roster'}
             </button>
           </form>
@@ -532,14 +652,14 @@ export default function GigRoster({ gigId }) {
                 <button
                   type="button"
                   className={placeholderMode === 'existing' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
-                  onClick={() => { setPlaceholderMode('existing'); setSelectedPlaceholderId(''); setPlaceholderInstrumentId(''); setPlaceholderVocalRole(''); }}
+                  onClick={() => { setPlaceholderMode('existing'); setSelectedPlaceholderId(''); setPlaceholderInstrumentId(''); setPlaceholderVocalRole(''); setPlaceholderIsDj(false); setPlaceholderIsRoadie(false); }}
                 >
                   Existing dep
                 </button>
                 <button
                   type="button"
                   className={placeholderMode === 'new' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
-                  onClick={() => { setPlaceholderMode('new'); setNewDepName(''); setNewDepInstrumentId(''); setNewDepVocalRole(''); }}
+                  onClick={() => { setPlaceholderMode('new'); setNewDepName(''); setNewDepInstrumentId(''); setNewDepVocalRole(''); setNewDepIsDj(false); setNewDepIsRoadie(false); }}
                 >
                   New dep
                 </button>
@@ -553,7 +673,13 @@ export default function GigRoster({ gigId }) {
                     <>
                       <select
                         value={selectedPlaceholderId}
-                        onChange={(e) => { setSelectedPlaceholderId(e.target.value); setPlaceholderInstrumentId(''); setPlaceholderVocalRole(''); }}
+                        onChange={(e) => {
+                          setSelectedPlaceholderId(e.target.value);
+                          setPlaceholderInstrumentId('');
+                          setPlaceholderVocalRole('');
+                          setPlaceholderIsDj(false);
+                          setPlaceholderIsRoadie(false);
+                        }}
                         required
                       >
                         <option value="">Choose dep…</option>
@@ -571,15 +697,18 @@ export default function GigRoster({ gigId }) {
                           <select
                             value={placeholderInstrumentId}
                             onChange={(e) => { setPlaceholderInstrumentId(e.target.value); setPlaceholderVocalRole(''); }}
-                            required
                           >
-                            <option value="">Choose instrument for this gig…</option>
+                            <option value="">No instrument (DJ / roadie only)</option>
                             {availableForDep.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                           </select>
                           {selectedDepData?.knownInstruments?.length === 0 && (
                             <p className="field__hint">No instruments saved for this dep yet — your selection will be saved to their profile.</p>
                           )}
-                          {!isVocalInstrument(availableForDep, placeholderInstrumentId) && (
+                          <div className="role-toggle-group">
+                            <RoleToggle label="DJ" active={placeholderIsDj} colour={DJ_COLOUR} onClick={() => setPlaceholderIsDj((v) => !v)} />
+                            <RoleToggle label="Roadie" active={placeholderIsRoadie} colour={ROADIE_COLOUR} onClick={() => setPlaceholderIsRoadie((v) => !v)} />
+                          </div>
+                          {!hidesVocalPrompt(availableForDep, placeholderInstrumentId, placeholderIsDj, placeholderIsRoadie) && (
                             <select
                               value={placeholderVocalRole}
                               onChange={(e) => setPlaceholderVocalRole(e.target.value)}
@@ -592,7 +721,11 @@ export default function GigRoster({ gigId }) {
 
                       <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
                         <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
-                        <button type="submit" className="btn btn--primary btn--small" disabled={addingPlaceholder}>
+                        <button
+                          type="submit"
+                          className="btn btn--primary btn--small"
+                          disabled={addingPlaceholder || !selectedPlaceholderId || (!placeholderInstrumentId && !placeholderIsDj && !placeholderIsRoadie)}
+                        >
                           {addingPlaceholder ? 'Adding…' : '+ Add dep'}
                         </button>
                       </div>
@@ -610,12 +743,15 @@ export default function GigRoster({ gigId }) {
                   <select
                     value={newDepInstrumentId}
                     onChange={(e) => { setNewDepInstrumentId(e.target.value); setNewDepVocalRole(''); }}
-                    required
                   >
-                    <option value="">Choose instrument…</option>
+                    <option value="">No instrument (DJ / roadie only)</option>
                     {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
-                  {!isVocalInstrument(instruments, newDepInstrumentId) && (
+                  <div className="role-toggle-group">
+                    <RoleToggle label="DJ" active={newDepIsDj} colour={DJ_COLOUR} onClick={() => setNewDepIsDj((v) => !v)} />
+                    <RoleToggle label="Roadie" active={newDepIsRoadie} colour={ROADIE_COLOUR} onClick={() => setNewDepIsRoadie((v) => !v)} />
+                  </div>
+                  {!hidesVocalPrompt(instruments, newDepInstrumentId, newDepIsDj, newDepIsRoadie) && (
                     <select
                       value={newDepVocalRole}
                       onChange={(e) => setNewDepVocalRole(e.target.value)}
@@ -623,10 +759,14 @@ export default function GigRoster({ gigId }) {
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   )}
-                  <p className="field__hint">Their instrument will be saved so you can reuse them on future gigs.</p>
+                  <p className="field__hint">Their instrument (if any) will be saved so you can reuse them on future gigs.</p>
                   <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
                     <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
-                    <button type="submit" className="btn btn--primary btn--small" disabled={addingPlaceholder}>
+                    <button
+                      type="submit"
+                      className="btn btn--primary btn--small"
+                      disabled={addingPlaceholder || !newDepName.trim() || (!newDepInstrumentId && !newDepIsDj && !newDepIsRoadie)}
+                    >
                       {addingPlaceholder ? 'Adding…' : '+ Add new dep'}
                     </button>
                   </div>

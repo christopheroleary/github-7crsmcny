@@ -760,6 +760,48 @@ input {
   background: rgba(200, 134, 46, 0.12);
   color: var(--amber-dark);
 }
+.role-toggle-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.role-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.role-toggle:hover:not(:disabled) {
+  border-color: var(--role-toggle-colour, var(--text-muted));
+}
+.role-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.role-toggle--active {
+  background: color-mix(in srgb, var(--role-toggle-colour) 16%, var(--paper));
+  border-color: var(--role-toggle-colour);
+  color: var(--role-toggle-colour);
+}
+.role-toggle__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+.role-toggle--active .role-toggle__dot {
+  opacity: 1;
+}
 .setlist-block {
   margin-bottom: 18px;
   padding: 14px;

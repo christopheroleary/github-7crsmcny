@@ -262,7 +262,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
                 )}
               </span>
               <span className="day-sheet__roster-instrument">
-                {[l.instruments?.name, vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
+                {[l.instruments?.name, l.is_dj && 'DJ', l.is_roadie && 'Roadie', vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
                 {l.profiles?.share_phone_on_daysheet && l.profiles?.phone && ' · ' + l.profiles.phone}
               </span>
             </div>
