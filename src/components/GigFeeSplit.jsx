@@ -114,6 +114,14 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   const remainingPence = totalFeePence - allocatedPence - fuelPence;
   const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
 
+  // The fees shown in the table are whatever was stored the last time
+  // "Calculate fees" was clicked — if the roster (or fee/fuel) has changed
+  // since, a fresh calculation would produce different numbers. Flag that
+  // explicitly rather than letting the warning below read like it contradicts
+  // the table.
+  const hasStoredFees = lineup.some((l) => l.fee_pence != null);
+  const isStale = hasStoredFees && split && Math.abs(allocatedPence - split.allocatedPence) > lineup.length;
+
   return (
     <div className="roster-section">
       <h3 className="roster-section__title">Fee split</h3>
@@ -128,6 +136,12 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         <p className="field__hint">
           Only {regularCount} of the planned {plannedHeadcount} musicians are booked so far — splitting against the planned
           headcount so early fees don't overstate what's left once everyone's added.
+        </p>
+      )}
+      {isStale && (
+        <p className="form-error">
+          ⚠ The fees below are from an earlier calculation — the roster, fee, or fuel has changed since. Click "Calculate
+          fees" to refresh them.
         </p>
       )}
 
@@ -183,7 +197,9 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
       {split?.belowDjOrRoadie && (
         <p className="form-error">
-          ⚠ At this fee, each musician would earn less than the DJ/roadie flat rate — consider raising the fee or booking fewer musicians.
+          ⚠ {isStale ? 'If you recalculate now, e' : 'E'}ach musician would earn £{poundsFromPence(split.perMusicianBasePence)} —
+          less than the DJ/roadie flat rate of £{poundsFromPence(Math.max(split.djFeePence, split.roadieFeePence))} — consider
+          raising the fee or booking fewer musicians.
         </p>
       )}
 
