@@ -19,6 +19,21 @@ async function getAdminIds() {
   return (admins || []).map((a) => a.id);
 }
 
+// Admins always get everything; band leaders additionally get anything
+// scoped to a band they lead (passing bandId).
+async function getRecipientIds(bandId?: string | null) {
+  const adminIds = await getAdminIds();
+  if (!bandId) return adminIds;
+
+  const { data: leaders } = await supabase
+    .from('band_leaders')
+    .select('profile_id')
+    .eq('band_id', bandId);
+  const leaderIds = (leaders || []).map((l) => l.profile_id);
+
+  return Array.from(new Set([...adminIds, ...leaderIds]));
+}
+
 async function getSubscriptionsFor(profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data: subs } = await supabase
@@ -28,13 +43,16 @@ async function getSubscriptionsFor(profileIds: string[]) {
   return subs || [];
 }
 
-async function pushToAdmins(payload: { title: string; body: string; tag: string; url?: string; gig_id?: string }) {
-  const adminIds = await getAdminIds();
-  if (!adminIds.length) return;
+async function pushToAdmins(
+  payload: { title: string; body: string; tag: string; url?: string; gig_id?: string },
+  bandId?: string | null
+) {
+  const recipientIds = await getRecipientIds(bandId);
+  if (!recipientIds.length) return;
 
-  // Save an in-app notification for every admin
+  // Save an in-app notification for every recipient
   await supabase.from('notifications').insert(
-    adminIds.map((profileId) => ({
+    recipientIds.map((profileId) => ({
       profile_id: profileId,
       title: payload.title,
       body: payload.body,
@@ -45,7 +63,7 @@ async function pushToAdmins(payload: { title: string; body: string; tag: string;
   );
 
   // Send push notification to all their subscribed devices
-  const subscriptions = await getSubscriptionsFor(adminIds);
+  const subscriptions = await getSubscriptionsFor(recipientIds);
   const stale: string[] = [];
 
   await Promise.allSettled(
@@ -86,7 +104,7 @@ Deno.serve(async (req) => {
 
         const { data: gig } = await supabase
           .from('gigs')
-          .select('gig_date, venues(name)')
+          .select('gig_date, band_id, venues(name)')
           .eq('id', record.gig_id)
           .single();
 
@@ -101,7 +119,7 @@ Deno.serve(async (req) => {
           tag: 'lineup-' + record.id,
           url: '/',
           gig_id: record.gig_id,
-        });
+        }, gig?.band_id);
       }
     }
 
@@ -115,7 +133,7 @@ Deno.serve(async (req) => {
 
         const { data: gig } = await supabase
           .from('gigs')
-          .select('gig_date, venues(name)')
+          .select('gig_date, band_id, venues(name)')
           .eq('id', record.gig_id)
           .single();
 
@@ -129,7 +147,7 @@ Deno.serve(async (req) => {
           tag: 'claim-' + record.id,
           url: '/',
           gig_id: record.gig_id,
-        });
+        }, gig?.band_id);
       }
 
       // A rejected claim was amended and resubmitted — put it back on the admin's radar.
@@ -142,7 +160,7 @@ Deno.serve(async (req) => {
 
         const { data: gig } = await supabase
           .from('gigs')
-          .select('gig_date, venues(name)')
+          .select('gig_date, band_id, venues(name)')
           .eq('id', record.gig_id)
           .single();
 
@@ -156,7 +174,7 @@ Deno.serve(async (req) => {
           tag: 'claim-' + record.id,
           url: '/',
           gig_id: record.gig_id,
-        });
+        }, gig?.band_id);
       }
     }
 
