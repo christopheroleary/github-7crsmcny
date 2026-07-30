@@ -15,14 +15,19 @@ const INSTRUMENT_TO_GROUP = {
   'Lead Vocals': 'singer',
 };
 
+// Short codes keep header cells as narrow as the initials cells below them —
+// full names are in the legend under the table instead.
 const GROUPS = [
-  { key: 'drummer', label: 'Drummer' },
-  { key: 'bass', label: 'Bass' },
-  { key: 'guitarKeys', label: 'Guitar/Keys' },
-  { key: 'singer', label: 'Singer' },
-  { key: 'dj', label: 'DJ' },
-  { key: 'roadie', label: 'Roadie' },
+  { key: 'drummer', label: 'Dr', title: 'Drummer' },
+  { key: 'bass', label: 'Bs', title: 'Bass' },
+  { key: 'guitarKeys', label: 'Gt', title: 'Guitar/Keys' },
+  { key: 'singer', label: 'Sg', title: 'Singer' },
+  { key: 'dj', label: 'DJ', title: 'DJ' },
+  { key: 'roadie', label: 'Rd', title: 'Roadie' },
 ];
+
+const TOWN_MAX_CHARS = 8;
+const TOTAL_COLS = 4 + GROUPS.length;
 
 function initialsFor(name) {
   if (!name) return '?';
@@ -32,6 +37,11 @@ function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function truncateTown(town) {
+  if (!town) return '—';
+  return town.length > TOWN_MAX_CHARS ? town.slice(0, TOWN_MAX_CHARS - 1) + '…' : town;
+}
+
 function formatTime(t) {
   return t ? t.slice(0, 5) : '';
 }
@@ -39,7 +49,6 @@ function formatTime(t) {
 export default function BandLeaderGigGrid() {
   const { ledBandIds } = useCurrentProfile();
   const [rows, setRows] = useState([]);
-  const [maxCols, setMaxCols] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -86,13 +95,11 @@ export default function BandLeaderGigGrid() {
     ]);
 
     // ── Build per-gig role-group arrays + required counts ──────────────────
-    const running = { drummer: 1, bass: 1, guitarKeys: 1, singer: 1, dj: 1, roadie: 1 };
-
     const gigMap = {};
     for (const g of gigs) {
       gigMap[g.id] = {
         ...g,
-        town: parseTownFromAddress(g.venues?.address),
+        town: truncateTown(parseTownFromAddress(g.venues?.address)),
         bandName: g.bands?.name || '',
         arrival: g.load_in_time || g.start_time,
         finish: g.end_time,
@@ -121,9 +128,8 @@ export default function BandLeaderGigGrid() {
     }
 
     for (const gig of Object.values(gigMap)) {
-      for (const key of Object.keys(running)) {
+      for (const key of Object.keys(gig.people)) {
         gig.people[key].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-        running[key] = Math.max(running[key], gig.people[key].length, gig.required[key]);
       }
     }
 
@@ -140,7 +146,6 @@ export default function BandLeaderGigGrid() {
     }
 
     setRows(grouped);
-    setMaxCols(running);
     setLoading(false);
   }, [ledBandIds]);
 
@@ -157,21 +162,28 @@ export default function BandLeaderGigGrid() {
     return <p className="state-message">No upcoming gigs.</p>;
   }
 
-  const totalCols = 4 + GROUPS.reduce((sum, g) => sum + (maxCols[g.key] || 1), 0);
-
   let prevMonth = null;
 
   return (
     <div className="gig-grid">
       <table>
+        <colgroup>
+          <col style={{ width: 28 }} />
+          <col style={{ width: 44 }} />
+          <col style={{ width: 30 }} />
+          <col style={{ width: 30 }} />
+          {GROUPS.map((g) => (
+            <col key={g.key} style={{ width: 20 }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             <th>Date</th>
             <th>Town</th>
-            <th>Arrival</th>
-            <th>Finish</th>
+            <th title="Arrival">Arr</th>
+            <th title="Finish">Fin</th>
             {GROUPS.map((g) => (
-              <th key={g.key} colSpan={maxCols[g.key] || 1}>{g.label}</th>
+              <th key={g.key} title={g.title}>{g.label}</th>
             ))}
           </tr>
         </thead>
@@ -188,23 +200,24 @@ export default function BandLeaderGigGrid() {
                 group={group}
                 showMonthRow={showMonthRow}
                 monthLabel={formatMonthYear(firstGig.gig_date)}
-                totalCols={totalCols}
-                maxCols={maxCols}
               />
             );
           })}
         </tbody>
       </table>
+      <p className="gig-grid__legend">
+        Dr Drummer &nbsp;·&nbsp; Bs Bass &nbsp;·&nbsp; Gt Guitar/Keys &nbsp;·&nbsp; Sg Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
+      </p>
     </div>
   );
 }
 
-function GigGroupRows({ group, showMonthRow, monthLabel, totalCols, maxCols }) {
+function GigGroupRows({ group, showMonthRow, monthLabel }) {
   return (
     <>
       {showMonthRow && (
         <tr className="gig-grid__month-row">
-          <td colSpan={totalCols}>{monthLabel}</td>
+          <td colSpan={TOTAL_COLS}>{monthLabel}</td>
         </tr>
       )}
       {group.map((gig, idx) => (
@@ -214,34 +227,38 @@ function GigGroupRows({ group, showMonthRow, monthLabel, totalCols, maxCols }) {
               {formatCompactDate(gig.gig_date)}
             </td>
           )}
-          <td>{gig.town || '—'}</td>
+          <td>{gig.town}</td>
           <td>{formatTime(gig.arrival)}</td>
           <td>{formatTime(gig.finish)}</td>
-          {GROUPS.map((g) => {
-            const cols = maxCols[g.key] || 1;
-            const people = gig.people[g.key];
-            const required = gig.required[g.key];
-            const cells = [];
-            for (let i = 0; i < cols; i++) {
-              const person = people[i];
-              if (person) {
-                cells.push(
-                  <td key={i} className={'gig-grid__cell' + (person.isCaptain ? ' gig-grid__cell--captain' : '')}>
-                    {person.initials}
-                  </td>
-                );
-              } else if (i < required) {
-                cells.push(
-                  <td key={i} className="gig-grid__cell gig-grid__cell--missing">?</td>
-                );
-              } else {
-                cells.push(<td key={i} className="gig-grid__cell gig-grid__cell--empty" />);
-              }
-            }
-            return cells;
-          })}
+          {GROUPS.map((g) => (
+            <RoleCell key={g.key} people={gig.people[g.key]} required={gig.required[g.key]} />
+          ))}
         </tr>
       ))}
     </>
+  );
+}
+
+function RoleCell({ people, required }) {
+  const lineCount = Math.max(people.length, required);
+  if (lineCount === 0) {
+    return <td className="gig-grid__cell gig-grid__cell--empty" />;
+  }
+  return (
+    <td className="gig-grid__cell">
+      {Array.from({ length: lineCount }, (_, i) => {
+        const person = people[i];
+        if (person) {
+          return (
+            <div key={i} className={'gig-grid__line' + (person.isCaptain ? ' gig-grid__line--captain' : '')}>
+              {person.initials}
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="gig-grid__line gig-grid__line--missing">?</div>
+        );
+      })}
+    </td>
   );
 }
