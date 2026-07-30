@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ClientForm from './ClientForm.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function ClientsList() {
+  const { isAdmin, profile } = useCurrentProfile();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -89,8 +91,12 @@ export default function ClientsList() {
                       <button className="link-button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
                         {expandedId === c.id ? 'Hide details' : 'View details'}
                       </button>
-                      <button className="link-button" onClick={() => setEditingId(c.id)}>Edit</button>
-                      <button className="link-button link-button--danger" onClick={() => handleDelete(c)}>Delete</button>
+                      {(isAdmin || c.created_by === profile?.id) && (
+                        <>
+                          <button className="link-button" onClick={() => setEditingId(c.id)}>Edit</button>
+                          <button className="link-button link-button--danger" onClick={() => handleDelete(c)}>Delete</button>
+                        </>
+                      )}
                     </div>
                   </div>
                   {expandedId === c.id && (

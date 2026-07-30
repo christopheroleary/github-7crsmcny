@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function BandMembers({ bandId, isAdmin }) {
+  const { profile: me } = useCurrentProfile();
   const [members, setMembers] = useState([]);
   const [musicians, setMusicians] = useState([]);
   const [allPlaceholders, setAllPlaceholders] = useState([]);
@@ -115,7 +117,7 @@ export default function BandMembers({ bandId, isAdmin }) {
     } else {
       const { data: newPh, error: phErr } = await supabase
         .from('placeholder_musicians')
-        .insert({ name: newDepName.trim() })
+        .insert({ name: newDepName.trim(), created_by: me?.id })
         .select()
         .single();
       if (phErr) { setError(phErr.message); return; }

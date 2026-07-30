@@ -64,7 +64,10 @@ function DrilldownModal({ title, gigs, isAdmin, onClose, onSelectGig }) {
 }
 
 export default function Dashboard({ onNavigate }) {
-  const { isAdmin, profile } = useCurrentProfile();
+  const { isAdmin: isAdminRole, isBandLeader, profile } = useCurrentProfile();
+  // Band leaders get the same full company-wide-shaped dashboard query as
+  // admin — RLS scopes the results down to just their own bands' gigs.
+  const isAdmin = isAdminRole || isBandLeader;
 
   const [loading, setLoading] = useState(true);
   const [outstanding, setOutstanding] = useState({ count: 0, value: 0, gigs: [] });

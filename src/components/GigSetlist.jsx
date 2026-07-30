@@ -3,7 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function GigSetlist({ gigId, bandId }) {
-  const { isAdmin } = useCurrentProfile();
+  const { isAdmin, isBandLeader, profile } = useCurrentProfile();
+  const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
   const [attachedIds, setAttachedIds] = useState([]);
   const [songs, setSongs] = useState([]);
@@ -21,7 +22,7 @@ export default function GigSetlist({ gigId, bandId }) {
 
     const { data: setlistRows } = await supabase
       .from('setlists')
-      .select('id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url))')
+      .select('id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url, is_public))')
       .eq('band_id', bandId)
       .order('name');
 
@@ -103,7 +104,11 @@ export default function GigSetlist({ gigId, bandId }) {
   async function handleAddSong(setlist, songId, newTitle) {
     let finalSongId = songId;
     if (!finalSongId && newTitle && newTitle.trim()) {
-      const { data: newSong, error: songError } = await supabase.from('songs').insert({ title: newTitle }).select().single();
+      const { data: newSong, error: songError } = await supabase
+        .from('songs')
+        .insert({ title: newTitle, created_by: isAdmin ? null : profile?.id })
+        .select()
+        .single();
       if (songError) {
         alert("Couldn't create song: " + songError.message);
         return;
@@ -159,7 +164,8 @@ export default function GigSetlist({ gigId, bandId }) {
           key={setlist.id}
           setlist={setlist}
           songs={songs}
-          isAdmin={isAdmin}
+          isAdmin={canManage}
+          canMakePublic={isAdmin}
           onAddSong={handleAddSong}
           onRemoveSong={handleRemoveSong}
           onDetach={() => handleDetach(setlist.id)}
@@ -168,7 +174,7 @@ export default function GigSetlist({ gigId, bandId }) {
         />
       ))}
 
-      {isAdmin && (
+      {canManage && (
         <div className="inline-subform">
           {availableToAttach.length > 0 && (
             <form onSubmit={handleAttachExisting} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -192,7 +198,7 @@ export default function GigSetlist({ gigId, bandId }) {
   );
 }
 
-function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRemoveSong, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
@@ -304,6 +310,7 @@ function SetlistBlock({ setlist, songs, isAdmin, onAddSong, onRemoveSong, onDeta
                 {isEditing && (
                   <SongEditFields
                     song={song}
+                    canMakePublic={canMakePublic}
                     onSaved={() => {
                       setEditingItemId(null);
                       reload();
@@ -360,12 +367,13 @@ function cleanArtist(artist) {
     .trim();
 }
 
-function SongEditFields({ song, onSaved, onCancel }) {
+function SongEditFields({ song, canMakePublic, onSaved, onCancel }) {
   const [title, setTitle] = useState(song.title || '');
   const [artist, setArtist] = useState(song.artist || '');
   const [key, setKey] = useState(song.original_key || '');
   const [referenceUrl, setReferenceUrl] = useState(song.reference_url || '');
   const [lyrics, setLyrics] = useState(song.lyrics || '');
+  const [isPublic, setIsPublic] = useState(Boolean(song.is_public));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -398,15 +406,18 @@ function SongEditFields({ song, onSaved, onCancel }) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    const payload = {
+      title,
+      artist: artist || null,
+      original_key: key || null,
+      reference_url: referenceUrl || null,
+      lyrics: lyrics || null,
+    };
+    if (canMakePublic) payload.is_public = isPublic;
+
     const { error } = await supabase
       .from('songs')
-      .update({
-        title,
-        artist: artist || null,
-        original_key: key || null,
-        reference_url: referenceUrl || null,
-        lyrics: lyrics || null,
-      })
+      .update(payload)
       .eq('id', song.id);
     setSaving(false);
     if (error) {
@@ -480,6 +491,13 @@ function SongEditFields({ song, onSaved, onCancel }) {
           placeholder={'Paste lyrics (or your own chord notes) here. Wrap section markers in brackets to bold them, e.g.\n[Verse 1]\n[Chorus]'}
         />
       </label>
+
+      {canMakePublic && (
+        <label className="field field--checkbox">
+          <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
+          <span>Share with all bands</span>
+        </label>
+      )}
 
       {error && <p className="form-error">{error}</p>}
 

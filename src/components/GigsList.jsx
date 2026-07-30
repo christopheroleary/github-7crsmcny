@@ -41,7 +41,10 @@ const INVOICE_CARD_COLORS = {
 };
 
 export default function GigsList() {
-  const { profile: me, isAdmin } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  // Band leaders get the same full-management gig UI as admin, scoped to their
+  // own bands by RLS — see the plan's "full management" decision.
+  const isAdmin = isAdminRole || isBandLeader;
 
   const [selectedGigId, setSelectedGigId] = useState(
     () => sessionStorage.getItem('selected_gig_id') || null

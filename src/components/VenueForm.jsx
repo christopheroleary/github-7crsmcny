@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function VenueForm({ venue, onSaved, onCancel }) {
+  const { profile: me } = useCurrentProfile();
   const isEdit = Boolean(venue);
   const [name, setName] = useState(venue?.name || '');
   const [address, setAddress] = useState(venue?.address || '');
@@ -35,7 +37,7 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
 
     const { error } = isEdit
       ? await supabase.from('venues').update(payload).eq('id', venue.id)
-      : await supabase.from('venues').insert(payload);
+      : await supabase.from('venues').insert({ ...payload, created_by: me?.id });
 
     setSubmitting(false);
     if (error) {

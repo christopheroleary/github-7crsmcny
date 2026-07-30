@@ -5,6 +5,7 @@ const ProfileContext = createContext(null);
 
 export function ProfileProvider({ children }) {
   const [profile, setProfile] = useState(null);
+  const [ledBandIds, setLedBandIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const loadedRef = useRef(false);
 
@@ -13,6 +14,7 @@ export function ProfileProvider({ children }) {
     const uid = userData?.user?.id;
     if (!uid) {
       setProfile(null);
+      setLedBandIds([]);
       setLoading(false);
       loadedRef.current = false;
       return;
@@ -23,6 +25,17 @@ export function ProfileProvider({ children }) {
       .eq('id', uid)
       .single();
     setProfile(data || null);
+
+    if (data?.role === 'band_leader') {
+      const { data: leaderRows } = await supabase
+        .from('band_leaders')
+        .select('band_id')
+        .eq('profile_id', uid);
+      setLedBandIds((leaderRows || []).map((r) => r.band_id));
+    } else {
+      setLedBandIds([]);
+    }
+
     setLoading(false);
     loadedRef.current = true;
   }
@@ -33,6 +46,7 @@ export function ProfileProvider({ children }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         setProfile(null);
+        setLedBandIds([]);
         setLoading(false);
         loadedRef.current = false;
       } else if (event === 'SIGNED_IN' && !loadedRef.current) {
@@ -47,7 +61,15 @@ export function ProfileProvider({ children }) {
   }, []);
 
   return (
-    <ProfileContext.Provider value={{ profile, isAdmin: profile?.role === 'admin', loading }}>
+    <ProfileContext.Provider
+      value={{
+        profile,
+        isAdmin: profile?.role === 'admin',
+        isBandLeader: profile?.role === 'band_leader',
+        ledBandIds,
+        loading,
+      }}
+    >
       {children}
     </ProfileContext.Provider>
   );

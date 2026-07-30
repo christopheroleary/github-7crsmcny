@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import TimeInput from './TimeInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
@@ -9,6 +10,7 @@ function poundsFromPence(pence) {
 }
 
 export default function GigForm({ gig, onSaved, onCancel }) {
+  const { profile: me } = useCurrentProfile();
   const isEdit = Boolean(gig) && !gig._isConvert;
   const [bands, setBands] = useState([]);
   const [venues, setVenues] = useState([]);
@@ -145,6 +147,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         longitude: newVenueLon,
         contact_name: newVenueContact || null,
         phone: newVenuePhone || null,
+        created_by: me?.id,
       }).select().single();
             if (ve) { setError(ve.message); setSubmitting(false); return; }
       finalVenueId = nv.id;
@@ -156,7 +159,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     let finalClientId = clientId || null;
     if (showNewClient && newClientName.trim()) {
       const { data: nc, error: ce } = await supabase.from('clients').insert({
-        name: newClientName, email: newClientEmail || null, phone: newClientPhone || null,
+        name: newClientName, email: newClientEmail || null, phone: newClientPhone || null, created_by: me?.id,
       }).select().single();
       if (ce) { setError(ce.message); setSubmitting(false); return; }
       finalClientId = nc.id;
@@ -167,7 +170,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     if (!finalFirstDanceSongId && firstDanceSongTitle.trim()) {
       const { data: ns, error: se } = await supabase
         .from('songs')
-        .insert({ title: firstDanceSongTitle.trim() })
+        .insert({ title: firstDanceSongTitle.trim(), created_by: me?.id })
         .select()
         .single();
       if (se) { setError(se.message); setSubmitting(false); return; }

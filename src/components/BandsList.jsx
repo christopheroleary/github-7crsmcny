@@ -2,17 +2,19 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import BandForm from './BandForm.jsx';
 import BandMembers from './BandMembers.jsx';
+import BandLeaders from './BandLeaders.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 export default function BandsList() {
-  const { isAdmin } = useCurrentProfile();
+  const { isAdmin, isBandLeader } = useCurrentProfile();
   const [bands, setBands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedLeadersId, setExpandedLeadersId] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const { query, setQuery, results: filteredBands } = useFuzzySearch(bands, ['name', 'notes']);
@@ -95,14 +97,20 @@ export default function BandsList() {
                         {expandedId === b.id ? 'Hide members' : 'View members'}
                       </button>
                       {isAdmin && (
-                        <>
-                          <button className="link-button" onClick={() => setEditingId(b.id)}>Edit</button>
-                          <button className="link-button link-button--danger" onClick={() => handleDelete(b)}>Delete</button>
-                        </>
+                        <button className="link-button" onClick={() => setExpandedLeadersId(expandedLeadersId === b.id ? null : b.id)}>
+                          {expandedLeadersId === b.id ? 'Hide leaders' : 'Leaders'}
+                        </button>
+                      )}
+                      {(isAdmin || isBandLeader) && (
+                        <button className="link-button" onClick={() => setEditingId(b.id)}>Edit</button>
+                      )}
+                      {isAdmin && (
+                        <button className="link-button link-button--danger" onClick={() => handleDelete(b)}>Delete</button>
                       )}
                     </div>
                   </div>
-                  {expandedId === b.id && <BandMembers bandId={b.id} isAdmin={isAdmin} />}
+                  {expandedId === b.id && <BandMembers bandId={b.id} isAdmin={isAdmin || isBandLeader} />}
+                  {isAdmin && expandedLeadersId === b.id && <BandLeaders bandId={b.id} />}
                 </>
               )}
             </li>

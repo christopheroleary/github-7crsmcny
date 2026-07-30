@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InstrumentPicker from './InstrumentPicker.jsx';
 
 export default function MusicianEditForm({ profile, onSaved, onCancel }) {
+  const { isAdmin } = useCurrentProfile();
   const [fullName, setFullName] = useState(profile.full_name || '');
   const [phone, setPhone] = useState(profile.phone || '');
+  const [role, setRole] = useState(profile.role || 'band_member');
   const [isActive, setIsActive] = useState(profile.is_active);
   const [allInstruments, setAllInstruments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -33,9 +36,12 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
     setSaving(true);
     setError(null);
 
+    const updates = { full_name: fullName, phone: phone || null, is_active: isActive };
+    if (isAdmin) updates.role = role;
+
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ full_name: fullName, phone: phone || null, is_active: isActive })
+      .update(updates)
       .eq('id', profile.id);
 
     let writeError = profileError;
@@ -80,6 +86,17 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
         <span className="field__label">Instruments</span>
         <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
       </label>
+
+      {isAdmin && (
+        <label className="field">
+          <span className="field__label">Role</span>
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="band_member">Band member</option>
+            <option value="band_leader">Band leader / owner</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+      )}
 
       <label className="field field--checkbox">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

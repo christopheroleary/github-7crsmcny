@@ -49,7 +49,7 @@ export default function App() {
 
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const { isAdmin, loading: profileLoading } = useCurrentProfile();
+  const { isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
   const [view, setView] = useState(() => sessionStorage.getItem('gig_view') || 'dashboard');
 
   function updateView(v) {
@@ -96,12 +96,21 @@ export default function App() {
     ['musicians', 'Musicians'],
   ];
 
+  const bandLeaderTabs = [
+    ['dashboard', 'Dashboard'],
+    ['gigs', 'Gigs'],
+    ['venues', 'Venues'],
+    ['clients', 'Clients'],
+    ['bands', 'Bands'],
+    ['musicians', 'Musicians'],
+  ];
+
   const memberTabs = [
     ['dashboard', 'Dashboard'],
     ['gigs', 'My gigs'],
   ];
 
-  const tabs = isAdmin ? adminTabs : memberTabs;
+  const tabs = isAdmin ? adminTabs : isBandLeader ? bandLeaderTabs : memberTabs;
 
   return (
     <div className="app-shell">
@@ -139,10 +148,10 @@ export default function App() {
         {view === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
         {view === 'gigs' && <GigsList />}
         {view === 'enquiries' && isAdmin && <EnquiriesList />}
-        {view === 'venues' && isAdmin && <VenuesList />}
-        {view === 'clients' && isAdmin && <ClientsList />}
-        {view === 'bands' && isAdmin && <BandsList />}
-        {view === 'musicians' && isAdmin && <MusiciansList />}
+        {view === 'venues' && (isAdmin || isBandLeader) && <VenuesList />}
+        {view === 'clients' && (isAdmin || isBandLeader) && <ClientsList />}
+        {view === 'bands' && (isAdmin || isBandLeader) && <BandsList />}
+        {view === 'musicians' && (isAdmin || isBandLeader) && <MusiciansList />}
         {view === 'profile' && <MyProfile />}
       </main>
     </div>

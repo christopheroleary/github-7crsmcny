@@ -76,7 +76,8 @@ function CaptainBadge() {
 }
 
 export default function GigRoster({ gigId }) {
-  const { profile: me, isAdmin } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
   const [lineup, setLineup] = useState([]);
   const [musicians, setMusicians] = useState([]);
@@ -316,7 +317,7 @@ export default function GigRoster({ gigId }) {
     } else {
       const { data: newPh, error: phErr } = await supabase
         .from('placeholder_musicians')
-        .insert({ name: newDepName.trim() })
+        .insert({ name: newDepName.trim(), created_by: me?.id })
         .select()
         .single();
       if (phErr) { setError(phErr.message); setAddingPlaceholder(false); return; }

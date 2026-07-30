@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 export default function ClientForm({ client, onSaved, onCancel }) {
+  const { profile: me } = useCurrentProfile();
   const isEdit = Boolean(client);
   const [name, setName] = useState(client?.name || '');
   const [email, setEmail] = useState(client?.email || '');
@@ -19,7 +21,7 @@ export default function ClientForm({ client, onSaved, onCancel }) {
 
     const { error } = isEdit
       ? await supabase.from('clients').update(payload).eq('id', client.id)
-      : await supabase.from('clients').insert(payload);
+      : await supabase.from('clients').insert({ ...payload, created_by: me?.id });
 
     setSubmitting(false);
     if (error) {

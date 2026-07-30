@@ -8,7 +8,8 @@ function poundsFromPence(pence) {
 }
 
 export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
-  const { isAdmin } = useCurrentProfile();
+  const { isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const isAdmin = isAdminRole || isBandLeader;
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
   const [lineup, setLineup] = useState([]);

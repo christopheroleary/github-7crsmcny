@@ -11,6 +11,7 @@ export default function MyProfile() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
+  const [availableForDepWork, setAvailableForDepWork] = useState(false);
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
   const [homeLon, setHomeLon] = useState(null);
@@ -31,7 +32,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -44,6 +45,7 @@ export default function MyProfile() {
         setHomeLat(profile.home_latitude ?? null);
         setHomeLon(profile.home_longitude ?? null);
         setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
+        setAvailableForDepWork(Boolean(profile.available_for_dep_work));
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -72,6 +74,7 @@ export default function MyProfile() {
         home_latitude: homeLat,
         home_longitude: homeLon,
         share_phone_on_daysheet: sharePhoneOnDaysheet,
+        available_for_dep_work: availableForDepWork,
       })
       .eq('id', userId);
 
@@ -135,6 +138,21 @@ export default function MyProfile() {
           </span>
           <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
             Shows your number to other confirmed musicians on the gig day sheet. Off by default.
+          </span>
+        </label>
+
+        <label className="field">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={availableForDepWork}
+              onChange={(e) => setAvailableForDepWork(e.target.checked)}
+              style={{ width: 'auto' }}
+            />
+            <span className="field__label" style={{ marginBottom: 0 }}>Available for dep work</span>
+          </span>
+          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+            Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default.
           </span>
         </label>
 
