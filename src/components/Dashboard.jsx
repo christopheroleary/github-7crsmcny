@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from '../supabaseClient';
 import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDate.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import BandLeaderGigGrid from './BandLeaderGigGrid.jsx';
 
 function KPICard({ label, count, value, colour, onClick }) {
   return (
@@ -78,6 +79,7 @@ export default function Dashboard({ onNavigate }) {
   const [inquiries, setInquiries] = useState({ count: 0, gigs: [] });
   const [trends, setTrends] = useState([]);
   const [activeDrilldown, setActiveDrilldown] = useState(null); // one of the state keys above, or null
+  const [view, setView] = useState('overview'); // 'overview' | 'grid' — grid is band-leader-only
 
   useEffect(() => {
     async function load() {
@@ -234,8 +236,30 @@ export default function Dashboard({ onNavigate }) {
 
   return (
     <div className="dashboard">
-      <h2 className="section-header__title" style={{ marginBottom: 16 }}>Dashboard</h2>
+      <div className="section-header" style={{ marginBottom: 16 }}>
+        <h2 className="section-header__title">Dashboard</h2>
+        {isBandLeader && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className={'btn btn--small ' + (view === 'overview' ? 'btn--primary' : 'btn--ghost')}
+              onClick={() => setView('overview')}
+            >
+              Overview
+            </button>
+            <button
+              className={'btn btn--small ' + (view === 'grid' ? 'btn--primary' : 'btn--ghost')}
+              onClick={() => setView('grid')}
+            >
+              Gig grid
+            </button>
+          </div>
+        )}
+      </div>
 
+      {view === 'grid' && isBandLeader ? (
+        <BandLeaderGigGrid />
+      ) : (
+        <>
       <div className="kpi-row">
         <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
         <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
@@ -296,6 +320,8 @@ export default function Dashboard({ onNavigate }) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -27,6 +27,20 @@ export function formatFullDate(dateStr) {
     return { day: d.getDate(), weekday, month: showYear ? `${month} ${year}` : month };
   }
 
+  // Compact weekday + day for dense grids where the month is already shown
+  // separately (e.g. as a section header) — "Thu 4" rather than "Thu 4 Jun".
+  export function formatCompactDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
+  }
+
+  export function formatMonthYear(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
+
   export function todayStr() {
     return new Date().toISOString().slice(0, 10);
   }
