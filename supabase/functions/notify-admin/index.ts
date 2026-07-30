@@ -160,6 +160,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (table === 'enquiries' && type === 'INSERT') {
+      const eventBits = [record.event_type, record.event_date].filter(Boolean).join(' · ');
+      const budget = record.estimated_budget ? '£' + record.estimated_budget : '';
+
+      await pushToAdmins({
+        title: `New enquiry from ${record.client_name}`,
+        body: [eventBits, budget].filter(Boolean).join(' — ') || 'View details in Enquiries.',
+        tag: 'enquiry-' + record.id,
+        url: '/enquiries',
+      });
+    }
+
+    if (table === 'profiles' && type === 'INSERT') {
+      await pushToAdmins({
+        title: 'New user signed up',
+        body: `${record.full_name || 'Someone'} just created an account.`,
+        tag: 'signup-' + record.id,
+        url: '/musicians',
+      });
+    }
+
     return new Response(JSON.stringify({ ok: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
