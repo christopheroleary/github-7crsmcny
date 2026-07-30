@@ -16,18 +16,22 @@ const INSTRUMENT_TO_GROUP = {
 };
 
 // Short codes keep header cells narrow — full names are in the legend
-// under the table instead.
-const GROUPS = [
+// under the table instead. Guitar/Keys is split into two columns: Gtr1
+// gets the first (alphabetically) guitarist, Gtr2/Keys pools everyone
+// else in that group — a second guitarist, a keys player, or both
+// stacked if there happen to be more than two.
+const GROUPS_LEFT = [
   { key: 'drummer', label: 'Drm', title: 'Drummer' },
   { key: 'bass', label: 'Bas', title: 'Bass' },
-  { key: 'guitarKeys', label: 'Gtr', title: 'Guitar/Keys' },
+];
+const GROUPS_RIGHT = [
   { key: 'singer', label: 'Sng', title: 'Singer' },
   { key: 'dj', label: 'DJ', title: 'DJ' },
   { key: 'roadie', label: 'Rdy', title: 'Roadie' },
 ];
 
 const TOWN_MAX_CHARS = 11;
-const TOTAL_COLS = 4 + GROUPS.length;
+const TOTAL_COLS = 4 + GROUPS_LEFT.length + 2 + GROUPS_RIGHT.length;
 
 function initialsFor(name) {
   if (!name) return '?';
@@ -131,6 +135,10 @@ export default function BandLeaderGigGrid() {
       for (const key of Object.keys(gig.people)) {
         gig.people[key].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
       }
+      gig.people.guitar1 = gig.people.guitarKeys.slice(0, 1);
+      gig.people.guitar2Keys = gig.people.guitarKeys.slice(1);
+      gig.required.guitar1 = Math.min(1, gig.required.guitarKeys);
+      gig.required.guitar2Keys = Math.max(0, gig.required.guitarKeys - 1);
     }
 
     // ── Group consecutive rows sharing date + band for the merged date cell ─
@@ -172,7 +180,12 @@ export default function BandLeaderGigGrid() {
           <col className="gig-grid__col-town" />
           <col className="gig-grid__col-time" />
           <col className="gig-grid__col-time" />
-          {GROUPS.map((g) => (
+          {GROUPS_LEFT.map((g) => (
+            <col key={g.key} className="gig-grid__col-role" />
+          ))}
+          <col className="gig-grid__col-role" />
+          <col className="gig-grid__col-role" />
+          {GROUPS_RIGHT.map((g) => (
             <col key={g.key} className="gig-grid__col-role" />
           ))}
         </colgroup>
@@ -182,7 +195,15 @@ export default function BandLeaderGigGrid() {
             <th>Town</th>
             <th title="Arrival">Arr</th>
             <th title="Finish">Fin</th>
-            {GROUPS.map((g) => (
+            {GROUPS_LEFT.map((g) => (
+              <th key={g.key} title={g.title}>{g.label}</th>
+            ))}
+            <th title="Guitar 1">Gtr1</th>
+            <th title="Guitar 2 or Keys" className="gig-grid__th-split">
+              <div>Gt2</div>
+              <div>Key</div>
+            </th>
+            {GROUPS_RIGHT.map((g) => (
               <th key={g.key} title={g.title}>{g.label}</th>
             ))}
           </tr>
@@ -206,7 +227,7 @@ export default function BandLeaderGigGrid() {
         </tbody>
       </table>
       <p className="gig-grid__legend">
-        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar/Keys &nbsp;·&nbsp; Sng Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rdy Roadie
+        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr1 Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2 or Keys &nbsp;·&nbsp; Sng Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rdy Roadie
       </p>
     </div>
   );
@@ -230,7 +251,12 @@ function GigGroupRows({ group, showMonthRow, monthLabel }) {
           <td>{gig.town}</td>
           <td>{formatTime(gig.arrival)}</td>
           <td>{formatTime(gig.finish)}</td>
-          {GROUPS.map((g) => (
+          {GROUPS_LEFT.map((g) => (
+            <RoleCell key={g.key} people={gig.people[g.key]} required={gig.required[g.key]} />
+          ))}
+          <RoleCell people={gig.people.guitar1} required={gig.required.guitar1} />
+          <RoleCell people={gig.people.guitar2Keys} required={gig.required.guitar2Keys} />
+          {GROUPS_RIGHT.map((g) => (
             <RoleCell key={g.key} people={gig.people[g.key]} required={gig.required[g.key]} />
           ))}
         </tr>

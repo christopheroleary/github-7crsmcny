@@ -984,10 +984,10 @@ input {
 /* Mobile-first column widths, tight enough to fit a phone in portrait
    without horizontal scroll. Widened on bigger screens — town/address
    gets the most extra room since it's the one most often truncated. */
-.gig-grid__col-date { width: 30px; }
-.gig-grid__col-town { width: 48px; }
-.gig-grid__col-time { width: 30px; }
-.gig-grid__col-role { width: 22px; }
+.gig-grid__col-date { width: 27px; }
+.gig-grid__col-town { width: 44px; }
+.gig-grid__col-time { width: 27px; }
+.gig-grid__col-role { width: 19px; }
 
 @media (min-width: 480px) {
   .gig-grid__col-date { width: 36px; }
@@ -999,6 +999,12 @@ input {
 @media (min-width: 768px) {
   .gig-grid__col-town { width: 160px; }
   .gig-grid__col-role { width: 30px; }
+}
+
+.gig-grid__th-split {
+  line-height: 1.2;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .gig-grid th,
@@ -1046,7 +1052,6 @@ input {
 .gig-grid__cell {
   background: var(--paper-raised);
   font-weight: 600;
-  min-width: 20px;
   padding: 1px 2px;
 }
 
