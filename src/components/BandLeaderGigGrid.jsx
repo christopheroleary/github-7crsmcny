@@ -15,18 +15,18 @@ const INSTRUMENT_TO_GROUP = {
   'Lead Vocals': 'singer',
 };
 
-// Short codes keep header cells as narrow as the initials cells below them —
-// full names are in the legend under the table instead.
+// Short codes keep header cells narrow — full names are in the legend
+// under the table instead.
 const GROUPS = [
-  { key: 'drummer', label: 'Dr', title: 'Drummer' },
-  { key: 'bass', label: 'Bs', title: 'Bass' },
-  { key: 'guitarKeys', label: 'Gt', title: 'Guitar/Keys' },
-  { key: 'singer', label: 'Sg', title: 'Singer' },
+  { key: 'drummer', label: 'Drm', title: 'Drummer' },
+  { key: 'bass', label: 'Bas', title: 'Bass' },
+  { key: 'guitarKeys', label: 'Gtr', title: 'Guitar/Keys' },
+  { key: 'singer', label: 'Sng', title: 'Singer' },
   { key: 'dj', label: 'DJ', title: 'DJ' },
-  { key: 'roadie', label: 'Rd', title: 'Roadie' },
+  { key: 'roadie', label: 'Rdy', title: 'Roadie' },
 ];
 
-const TOWN_MAX_CHARS = 8;
+const TOWN_MAX_CHARS = 11;
 const TOTAL_COLS = 4 + GROUPS.length;
 
 function initialsFor(name) {
@@ -168,12 +168,12 @@ export default function BandLeaderGigGrid() {
     <div className="gig-grid">
       <table>
         <colgroup>
-          <col style={{ width: 28 }} />
-          <col style={{ width: 44 }} />
-          <col style={{ width: 30 }} />
-          <col style={{ width: 30 }} />
+          <col className="gig-grid__col-date" />
+          <col className="gig-grid__col-town" />
+          <col className="gig-grid__col-time" />
+          <col className="gig-grid__col-time" />
           {GROUPS.map((g) => (
-            <col key={g.key} style={{ width: 20 }} />
+            <col key={g.key} className="gig-grid__col-role" />
           ))}
         </colgroup>
         <thead>
@@ -206,7 +206,7 @@ export default function BandLeaderGigGrid() {
         </tbody>
       </table>
       <p className="gig-grid__legend">
-        Dr Drummer &nbsp;·&nbsp; Bs Bass &nbsp;·&nbsp; Gt Guitar/Keys &nbsp;·&nbsp; Sg Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
+        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar/Keys &nbsp;·&nbsp; Sng Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rdy Roadie
       </p>
     </div>
   );
