@@ -7,7 +7,7 @@ import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function MusiciansList() {
-  const { profile: me, isAdmin } = useCurrentProfile();
+  const { profile: me, isAdmin, isBandLeader } = useCurrentProfile();
   const [musicians, setMusicians] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
   const [filterInstrumentId, setFilterInstrumentId] = useState('');
@@ -179,7 +179,9 @@ export default function MusiciansList() {
         </ul>
       )}
 
-      {isAdmin && <PlaceholdersSection filterInstrumentId={filterInstrumentId} />}
+      {(isAdmin || isBandLeader) && (
+        <PlaceholdersSection filterInstrumentId={filterInstrumentId} isAdmin={isAdmin} me={me} />
+      )}
     </div>
   );
 }
@@ -346,7 +348,7 @@ function DepDetailsEditor({ ph, onSaved }) {
 
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
-function PlaceholdersSection({ filterInstrumentId }) {
+function PlaceholdersSection({ filterInstrumentId, isAdmin, me }) {
   const [placeholders, setPlaceholders] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
@@ -364,7 +366,7 @@ function PlaceholdersSection({ filterInstrumentId }) {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
-      supabase.from('placeholder_musicians').select('id, name, phone, email, address, latitude, longitude, merged_into').order('name'),
+      supabase.from('placeholder_musicians').select('id, name, phone, email, address, latitude, longitude, merged_into, created_by').order('name'),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),
@@ -402,7 +404,7 @@ function PlaceholdersSection({ filterInstrumentId }) {
 
     const { data: newPh, error: phErr } = await supabase
       .from('placeholder_musicians')
-      .insert({ name })
+      .insert({ name, created_by: me?.id })
       .select()
       .single();
     if (phErr) { setAddError(phErr.message); setAddingDep(false); return; }
@@ -575,20 +577,24 @@ function PlaceholdersSection({ filterInstrumentId }) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <select
-                      value={mergeTargets[ph.id] || ''}
-                      onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
-                      style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
-                    >
-                      <option value="">Merge into real account…</option>
-                      {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                    </select>
-                    <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
-                  </div>
-                  <button className="link-button link-button--danger" style={{ fontSize: 12 }} onClick={() => handleDeleteDep(ph)}>
-                    Delete dep
-                  </button>
+                  {isAdmin && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <select
+                        value={mergeTargets[ph.id] || ''}
+                        onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
+                        style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+                      >
+                        <option value="">Merge into real account…</option>
+                        {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                      </select>
+                      <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
+                    </div>
+                  )}
+                  {(isAdmin || ph.created_by === me?.id) && (
+                    <button className="link-button link-button--danger" style={{ fontSize: 12 }} onClick={() => handleDeleteDep(ph)}>
+                      Delete dep
+                    </button>
+                  )}
                 </div>
               </div>
             </li>
