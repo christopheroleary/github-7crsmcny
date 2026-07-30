@@ -16,8 +16,8 @@ const INSTRUMENT_TO_GROUP = {
 };
 
 // Short codes keep header cells narrow — full names are in the legend
-// under the table instead. Guitar/Keys is split into two columns: Gtr1
-// gets the first (alphabetically) guitarist, Gtr2/Keys pools everyone
+// under the table instead. Guitar/Keys is split into two columns: Gtr
+// gets the first (alphabetically) guitarist, Gt2/Key pools everyone
 // else in that group — a second guitarist, a keys player, or both
 // stacked if there happen to be more than two.
 const GROUPS_LEFT = [
@@ -25,9 +25,9 @@ const GROUPS_LEFT = [
   { key: 'bass', label: 'Bas', title: 'Bass' },
 ];
 const GROUPS_RIGHT = [
-  { key: 'singer', label: 'Sng', title: 'Singer' },
+  { key: 'singer', label: 'Vox', title: 'Singer' },
   { key: 'dj', label: 'DJ', title: 'DJ' },
-  { key: 'roadie', label: 'Rdy', title: 'Roadie' },
+  { key: 'roadie', label: 'Rd', title: 'Roadie' },
 ];
 
 const TOWN_MAX_CHARS = 11;
@@ -198,7 +198,7 @@ export default function BandLeaderGigGrid() {
             {GROUPS_LEFT.map((g) => (
               <th key={g.key} title={g.title}>{g.label}</th>
             ))}
-            <th title="Guitar 1">Gtr1</th>
+            <th title="Guitar 1">Gtr</th>
             <th title="Guitar 2 or Keys" className="gig-grid__th-split">
               <div>Gt2</div>
               <div>Key</div>
@@ -227,7 +227,7 @@ export default function BandLeaderGigGrid() {
         </tbody>
       </table>
       <p className="gig-grid__legend">
-        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr1 Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2 or Keys &nbsp;·&nbsp; Sng Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rdy Roadie
+        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2 or Keys &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
       </p>
     </div>
   );
