@@ -40,6 +40,7 @@ export default function GigWhatsAppGroup({ gig }) {
   const [inviteLink, setInviteLink] = useState(gig.whatsapp_invite_link || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,7 +63,6 @@ export default function GigWhatsAppGroup({ gig }) {
       ...(leaders || []).map((l) => ({ name: l.profiles?.full_name, phone: l.profiles?.phone })),
     ].filter((p) => p.name);
 
-    // De-dupe (a leader who's also in the lineup shouldn't get two rows)
     const seen = new Set();
     const deduped = people.filter((p) => {
       const key = p.name + '|' + (p.phone || '');
@@ -93,6 +93,7 @@ export default function GigWhatsAppGroup({ gig }) {
 
   const venueName = gig.venues?.name || 'the venue';
   const groupTitle = formatShortDate(gig.gig_date) + ' – ' + venueName;
+  const gigLink = window.location.origin + '/?gig=' + gig.id;
 
   const timesLine = [
     gig.load_in_time && 'Load-in ' + gig.load_in_time.slice(0, 5),
@@ -106,7 +107,17 @@ export default function GigWhatsAppGroup({ gig }) {
     (timesLine || '') +
     (gig.venues?.address ? '\n📍 ' + gig.venues.address : '') +
     (gig.parking_notes ? '\nParking: ' + gig.parking_notes : '') +
-    '\n\nAny questions, ask away in here!';
+    '\n\nFull gig details: ' + gigLink;
+
+  const withPhone = recipients.filter((p) => toWhatsAppNumber(p.phone));
+  const nextPerson = withPhone[sentCount];
+
+  function waHref(person) {
+    const text =
+      'Hi ' + person.name.split(' ')[0] + '! Here\'s the WhatsApp group for ' +
+      venueName + ' on ' + formatShortDate(gig.gig_date) + ': ' + inviteLink;
+    return 'https://wa.me/' + toWhatsAppNumber(person.phone) + '?text=' + encodeURIComponent(text);
+  }
 
   return (
     <div style={{ marginTop: 32 }}>
@@ -114,92 +125,83 @@ export default function GigWhatsAppGroup({ gig }) {
         <h2 className="section-header__title">WhatsApp group</h2>
       </div>
 
-      <p className="field__hint" style={{ marginBottom: 16 }}>
-        WhatsApp doesn't allow apps to create groups or add members directly — this prepares
-        everything so it's copy/paste from here into WhatsApp. Create the group yourself, paste
-        the title and first message below, then send each person their own invite link.
-      </p>
+      <details>
+        <summary className="field__hint" style={{ cursor: 'pointer', userSelect: 'none' }}>
+          Set up group for this gig
+        </summary>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480 }}>
-        <div>
-          <span className="field__label">1. Group title</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <code style={{ flex: 1, padding: '6px 10px', background: 'var(--paper-raised)', borderRadius: 6, border: '1px solid var(--line)' }}>
-              {groupTitle}
-            </code>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10, maxWidth: 420 }}>
+          <p className="field__hint" style={{ margin: 0 }}>
+            WhatsApp doesn't let apps create groups automatically, so create it yourself and use
+            these to fill it in — works the same on desktop (WhatsApp Web/Desktop) as on a phone.
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1 }}>1. Group title</span>
             <CopyButton text={groupTitle} label="Copy" />
           </div>
-        </div>
 
-        <div>
-          <span className="field__label">2. First message (paste after creating the group)</span>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 4 }}>
-            <pre style={{ flex: 1, whiteSpace: 'pre-wrap', padding: '6px 10px', background: 'var(--paper-raised)', borderRadius: 6, border: '1px solid var(--line)', fontFamily: 'inherit', margin: 0 }}>
-              {summaryMessage}
-            </pre>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1 }}>2. Welcome message (paste after creating the group)</span>
             <CopyButton text={summaryMessage} label="Copy" />
           </div>
-        </div>
 
-        <form onSubmit={handleSaveLink}>
-          <span className="field__label">3. Group invite link (Group Info → Invite via Link)</span>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <input
-              type="url"
-              placeholder="https://chat.whatsapp.com/…"
-              value={inviteLink}
-              onChange={(e) => setInviteLink(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
-              {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-            </button>
+          <form onSubmit={handleSaveLink}>
+            <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
+              3. In WhatsApp: Group Info → Invite via Link → Copy Link — then paste it here
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="url"
+                placeholder="https://chat.whatsapp.com/…"
+                value={inviteLink}
+                onChange={(e) => setInviteLink(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
+                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </form>
+
+          <div>
+            <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
+              4. Send invites — WhatsApp only lets one chat open per tap, so this queues them one at a time
+            </span>
+            {loading ? (
+              <p className="state-message">Loading lineup…</p>
+            ) : !inviteLink ? (
+              <p className="field__hint">Save the invite link above first.</p>
+            ) : withPhone.length === 0 ? (
+              <p className="field__hint">No one on the roster has a phone number on file yet.</p>
+            ) : (
+              <>
+                {nextPerson ? (
+                  <a
+                    className="btn btn--primary btn--small"
+                    href={waHref(nextPerson)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setSentCount((n) => n + 1)}
+                  >
+                    Send next invite ({sentCount + 1} of {withPhone.length}) — {nextPerson.name}
+                  </a>
+                ) : (
+                  <p className="field__hint">✓ All invites sent.</p>
+                )}
+                <ul className="field__hint" style={{ marginTop: 8, paddingLeft: 18, lineHeight: 1.7 }}>
+                  {recipients.map((p, i) => {
+                    const wa = toWhatsAppNumber(p.phone);
+                    const waIndex = wa ? withPhone.indexOf(p) : -1;
+                    const status = !wa ? 'no phone' : waIndex < sentCount ? 'sent ✓' : 'pending';
+                    return <li key={i}>{p.name} — {status}</li>;
+                  })}
+                </ul>
+              </>
+            )}
           </div>
-        </form>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <span className="field__label">4. Send each person their invite</span>
-        {loading ? (
-          <p className="state-message">Loading lineup…</p>
-        ) : recipients.length === 0 ? (
-          <p className="state-message">No one on the roster yet.</p>
-        ) : !inviteLink ? (
-          <p className="field__hint" style={{ marginTop: 8 }}>Save the invite link above first.</p>
-        ) : (
-          <ul className="simple-list" style={{ marginTop: 8 }}>
-            {recipients.map((p, i) => {
-              const waNumber = toWhatsAppNumber(p.phone);
-              const inviteText =
-                'Hi ' + p.name.split(' ')[0] + '! Here\'s the WhatsApp group for ' +
-                venueName + ' on ' + formatShortDate(gig.gig_date) + ': ' + inviteLink;
-              const href = waNumber
-                ? 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(inviteText)
-                : null;
-
-              return (
-                <li className="simple-list__item" key={i}>
-                  <div className="simple-list__row">
-                    <span className="simple-list__title">{p.name}</span>
-                    {href ? (
-                      <a
-                        className="btn btn--primary btn--small"
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Send invite
-                      </a>
-                    ) : (
-                      <span className="field__hint">No phone number</span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+        </div>
+      </details>
     </div>
   );
 }

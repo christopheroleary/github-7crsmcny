@@ -83,6 +83,28 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Deep link support: ?gig=<id> opens straight to that gig once signed in
+  // (e.g. a link shared via the WhatsApp group setup panel).
+  useEffect(() => {
+    const gigId = new URLSearchParams(window.location.search).get('gig');
+    if (gigId) {
+      sessionStorage.setItem('pending_gig_id', gigId);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Also wait on profileLoading: handleNavigate closes over `tabs`, which
+    // only exists on renders that get past the loading/login early-returns
+    // below — session and the profile fetch resolve at different times.
+    if (!session || profileLoading) return;
+    const pendingGigId = sessionStorage.getItem('pending_gig_id');
+    if (!pendingGigId) return;
+    sessionStorage.removeItem('pending_gig_id');
+    handleNavigate({ url: '/gigs', gig_id: pendingGigId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, profileLoading]);
+
   if (sessionLoading || profileLoading) return <div className="page-loading">Loading…</div>;
   if (!session) return <Login />;
 
