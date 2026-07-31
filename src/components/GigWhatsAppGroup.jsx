@@ -95,16 +95,13 @@ export default function GigWhatsAppGroup({ gig }) {
   const groupTitle = formatShortDate(gig.gig_date) + ' – ' + venueName;
   const gigLink = window.location.origin + '/?gig=' + gig.id;
 
-  const timesLine = [
-    gig.load_in_time && 'Load-in ' + gig.load_in_time.slice(0, 5),
-    gig.start_time && 'On stage ' + gig.start_time.slice(0, 5),
-    gig.end_time && 'Finish ' + gig.end_time.slice(0, 5),
-  ].filter(Boolean).join(' · ');
-
+  // Times deliberately left out — they can change in the app after this
+  // message is sent, and a stale time in WhatsApp would disagree with the
+  // app (the actual source of truth). The gig link below always shows
+  // current times instead.
   const summaryMessage =
     (gig.bands?.name || 'Gig') + ' — ' + venueName + '\n' +
-    formatFullDate(gig.gig_date) + '\n' +
-    (timesLine || '') +
+    formatFullDate(gig.gig_date) +
     (gig.venues?.address ? '\n📍 ' + gig.venues.address : '') +
     (gig.parking_notes ? '\nParking: ' + gig.parking_notes : '') +
     '\n\nFull gig details: ' + gigLink;
