@@ -238,25 +238,23 @@ export default function Dashboard({ onNavigate }) {
     <div className="dashboard">
       <div className="section-header" style={{ marginBottom: 16 }}>
         <h2 className="section-header__title">Dashboard</h2>
-        {isBandLeader && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className={'btn btn--small ' + (view === 'overview' ? 'btn--primary' : 'btn--ghost')}
-              onClick={() => setView('overview')}
-            >
-              Overview
-            </button>
-            <button
-              className={'btn btn--small ' + (view === 'grid' ? 'btn--primary' : 'btn--ghost')}
-              onClick={() => setView('grid')}
-            >
-              Gig grid
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className={'btn btn--small ' + (view === 'overview' ? 'btn--primary' : 'btn--ghost')}
+            onClick={() => setView('overview')}
+          >
+            Overview
+          </button>
+          <button
+            className={'btn btn--small ' + (view === 'grid' ? 'btn--primary' : 'btn--ghost')}
+            onClick={() => setView('grid')}
+          >
+            Gig grid
+          </button>
+        </div>
       </div>
 
-      {view === 'grid' && isBandLeader ? (
+      {view === 'grid' ? (
         <BandLeaderGigGrid />
       ) : (
         <>

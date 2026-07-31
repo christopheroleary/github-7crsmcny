@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDate.js';
 import { parseTownFromAddress } from '../utils/parseAddress.js';
 
@@ -31,7 +30,8 @@ const GROUPS_RIGHT = [
 ];
 
 const TOWN_MAX_CHARS = 11;
-const TOTAL_COLS = 4 + GROUPS_LEFT.length + 2 + GROUPS_RIGHT.length;
+const BAND_MAX_CHARS = 10;
+const BASE_TOTAL_COLS = 4 + GROUPS_LEFT.length + 2 + GROUPS_RIGHT.length;
 
 function initialsFor(name) {
   if (!name) return '?';
@@ -41,34 +41,35 @@ function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function truncateTown(town) {
-  if (!town) return '—';
-  return town.length > TOWN_MAX_CHARS ? town.slice(0, TOWN_MAX_CHARS - 1) + '…' : town;
+function truncate(text, maxChars) {
+  if (!text) return '—';
+  return text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
 }
 
 function formatTime(t) {
   return t ? t.slice(0, 5) : '';
 }
 
+// Everyone gets this grid (admin sees every band's gigs, a band leader
+// sees gigs for the bands they lead plus any they personally perform on,
+// a plain band member sees just their own gigs) — the `gigs` query below
+// has no band_id filter at all, so RLS is the only thing scoping results
+// per role. The Band column only appears when more than one band shows
+// up in the current result set, so a single-band leader's view stays as
+// compact as before.
 export default function BandLeaderGigGrid() {
-  const { ledBandIds } = useCurrentProfile();
   const [rows, setRows] = useState([]);
+  const [showBandColumn, setShowBandColumn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
-    if (!ledBandIds || ledBandIds.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
 
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
       .select('id, band_id, gig_date, load_in_time, start_time, end_time, needs_dj, needs_roadie, venues(address), bands(name)')
-      .in('band_id', ledBandIds)
       .gte('gig_date', todayStr())
       .neq('status', 'cancelled')
       .order('gig_date', { ascending: true })
@@ -103,8 +104,8 @@ export default function BandLeaderGigGrid() {
     for (const g of gigs) {
       gigMap[g.id] = {
         ...g,
-        town: truncateTown(parseTownFromAddress(g.venues?.address)),
-        bandName: g.bands?.name || '',
+        town: truncate(parseTownFromAddress(g.venues?.address), TOWN_MAX_CHARS),
+        bandName: truncate(g.bands?.name, BAND_MAX_CHARS),
         arrival: g.load_in_time || g.start_time,
         finish: g.end_time,
         people: { drummer: [], bass: [], guitarKeys: [], singer: [], dj: [], roadie: [] },
@@ -154,8 +155,9 @@ export default function BandLeaderGigGrid() {
     }
 
     setRows(grouped);
+    setShowBandColumn(new Set(gigs.map((g) => g.band_id)).size > 1);
     setLoading(false);
-  }, [ledBandIds]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -163,13 +165,11 @@ export default function BandLeaderGigGrid() {
 
   if (loading) return <p className="state-message">Loading gig grid…</p>;
   if (error) return <p className="state-message state-message--error">Couldn't load: {error}</p>;
-  if (!ledBandIds || ledBandIds.length === 0) {
-    return <p className="state-message">You're not assigned to lead any bands yet.</p>;
-  }
   if (rows.length === 0) {
     return <p className="state-message">No upcoming gigs.</p>;
   }
 
+  const totalCols = BASE_TOTAL_COLS + (showBandColumn ? 1 : 0);
   let prevMonth = null;
 
   return (
@@ -177,6 +177,7 @@ export default function BandLeaderGigGrid() {
       <table>
         <colgroup>
           <col className="gig-grid__col-date" />
+          {showBandColumn && <col className="gig-grid__col-town" />}
           <col className="gig-grid__col-town" />
           <col className="gig-grid__col-time" />
           <col className="gig-grid__col-time" />
@@ -192,6 +193,7 @@ export default function BandLeaderGigGrid() {
         <thead>
           <tr>
             <th>Date</th>
+            {showBandColumn && <th>Band</th>}
             <th>Town</th>
             <th title="Arrival">Arr</th>
             <th title="Finish">Fin</th>
@@ -221,6 +223,8 @@ export default function BandLeaderGigGrid() {
                 group={group}
                 showMonthRow={showMonthRow}
                 monthLabel={formatMonthYear(firstGig.gig_date)}
+                showBandColumn={showBandColumn}
+                totalCols={totalCols}
               />
             );
           })}
@@ -233,12 +237,12 @@ export default function BandLeaderGigGrid() {
   );
 }
 
-function GigGroupRows({ group, showMonthRow, monthLabel }) {
+function GigGroupRows({ group, showMonthRow, monthLabel, showBandColumn, totalCols }) {
   return (
     <>
       {showMonthRow && (
         <tr className="gig-grid__month-row">
-          <td colSpan={TOTAL_COLS}>{monthLabel}</td>
+          <td colSpan={totalCols}>{monthLabel}</td>
         </tr>
       )}
       {group.map((gig, idx) => (
@@ -248,6 +252,7 @@ function GigGroupRows({ group, showMonthRow, monthLabel }) {
               {formatCompactDate(gig.gig_date)}
             </td>
           )}
+          {showBandColumn && <td>{gig.bandName}</td>}
           <td>{gig.town}</td>
           <td>{formatTime(gig.arrival)}</td>
           <td>{formatTime(gig.finish)}</td>
