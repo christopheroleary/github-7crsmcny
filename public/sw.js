@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gig-manager-shell-v2';
+const CACHE_NAME = 'gig-manager-shell-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then((response) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));

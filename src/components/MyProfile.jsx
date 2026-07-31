@@ -4,6 +4,7 @@ import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
+import { forceRefreshApp } from '../utils/serviceWorker.js';
 
 export default function MyProfile() {
   const [loading, setLoading] = useState(true);
@@ -187,6 +188,21 @@ export default function MyProfile() {
         <div className="field">
           <span className="field__label">Notifications</span>
           <NotificationSetup />
+        </div>
+
+        <div className="field">
+          <span className="field__label">App feels out of date?</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={() => {
+              if (window.confirm('Refresh the app and clear its cache? Any unsaved changes will be lost.')) {
+                forceRefreshApp();
+              }
+            }}
+          >
+            Refresh app
+          </button>
         </div>
 
         {error && <p className="form-error">{error}</p>}

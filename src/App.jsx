@@ -12,6 +12,7 @@ import NotificationBell from './components/NotificationBell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EnquiriesList from './components/EnquiriesList.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
+import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 
 function UserIcon() {
   return (
@@ -77,8 +78,9 @@ export default function App() {
       setSession(data.session);
       setSessionLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+      if (event === 'SIGNED_IN') checkForServiceWorkerUpdate();
     });
     return () => listener.subscription.unsubscribe();
   }, []);
