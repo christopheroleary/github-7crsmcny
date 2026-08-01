@@ -855,6 +855,7 @@ input {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 .setlist-song__handle {
   cursor: grab;
