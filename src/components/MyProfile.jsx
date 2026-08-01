@@ -6,6 +6,13 @@ import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 
+const UI_THEMES = [
+  { id: 'default', label: 'Classic', swatch: '#c8862e' },
+  { id: 'ocean', label: 'Ocean', swatch: '#2f6690' },
+  { id: 'forest', label: 'Forest', swatch: '#4a7c59' },
+  { id: 'rose', label: 'Rose', swatch: '#b5566f' },
+];
+
 export default function MyProfile() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -13,6 +20,7 @@ export default function MyProfile() {
   const [phone, setPhone] = useState('');
   const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
   const [availableForDepWork, setAvailableForDepWork] = useState(false);
+  const [uiTheme, setUiTheme] = useState('default');
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
   const [homeLon, setHomeLon] = useState(null);
@@ -33,7 +41,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -47,6 +55,7 @@ export default function MyProfile() {
         setHomeLon(profile.home_longitude ?? null);
         setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
         setAvailableForDepWork(Boolean(profile.available_for_dep_work));
+        setUiTheme(profile.ui_theme || 'default');
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -76,6 +85,7 @@ export default function MyProfile() {
         home_longitude: homeLon,
         share_phone_on_daysheet: sharePhoneOnDaysheet,
         available_for_dep_work: availableForDepWork,
+        ui_theme: uiTheme,
       })
       .eq('id', userId);
 
@@ -156,6 +166,37 @@ export default function MyProfile() {
             Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default.
           </span>
         </label>
+
+        <div className="field">
+          <span className="field__label">App colour theme</span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {UI_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setUiTheme(t.id);
+                  document.documentElement.setAttribute('data-theme', t.id);
+                }}
+                title={t.label}
+                aria-label={t.label}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: t.swatch,
+                  border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+            Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own
+            document theme instead (set on the band, under Bands).
+          </span>
+        </div>
 
         <label className="field">
           <span className="field__label">Home address (used for travel cost calculations)</span>

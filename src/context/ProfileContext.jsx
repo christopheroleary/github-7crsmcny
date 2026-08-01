@@ -1,6 +1,15 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
+// Applies the user's app-wide UI colour theme (My Profile) via a
+// data-theme attribute on <html> -- separate from --doc-accent/
+// --doc-secondary, which is per-band document branding and lives
+// entirely in inline styles on the invoice/quote/contract preview
+// elements, never touching this attribute.
+function applyUiTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme || 'default');
+}
+
 const ProfileContext = createContext(null);
 
 // Cache the resolved profile so reopening the app with no signal doesn't
@@ -39,6 +48,7 @@ export function ProfileProvider({ children }) {
       setLedBandIds([]);
       setLoading(false);
       loadedRef.current = false;
+      applyUiTheme('default');
       try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch {}
       return;
     }
@@ -51,17 +61,19 @@ export function ProfileProvider({ children }) {
       setLedBandIds(cached.ledBandIds || []);
       setLoading(false);
       loadedRef.current = true;
+      applyUiTheme(cached.profile?.ui_theme);
     }
 
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role')
+        .select('id, full_name, role, ui_theme')
         .eq('id', uid)
         .single();
       if (error) throw error;
 
       setProfile(data || null);
+      applyUiTheme(data?.ui_theme);
 
       let leaderIds = [];
       if (data?.role === 'band_leader') {
@@ -91,6 +103,7 @@ export function ProfileProvider({ children }) {
         setLedBandIds([]);
         setLoading(false);
         loadedRef.current = false;
+        applyUiTheme('default');
       } else if (event === 'SIGNED_IN' && !loadedRef.current) {
         // Only reload if we don't already have a profile —
         // prevents tab-focus token refreshes from wiping navigation state

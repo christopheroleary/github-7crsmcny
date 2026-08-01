@@ -21,6 +21,37 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
+/* ============================================================
+   App-wide UI colour theme (My Profile) -- a personal preference for
+   the app's own chrome (nav, buttons, active states). Independent of
+   --doc-accent/--doc-secondary above, which is per-band document
+   branding and never changes with this. Applied via a data-theme
+   attribute on <html>, set from profile.ui_theme (ProfileContext).
+   --ink/--text-muted/--rust/--paper-raised stay constant across
+   presets for legibility and so error/status colours don't shift.
+   ============================================================ */
+:root[data-theme="ocean"] {
+  --amber: #2f6690;
+  --amber-dark: #1f4a6b;
+  --teal: #16425b;
+  --paper: #f5f8fa;
+  --line: #d5e0e6;
+}
+:root[data-theme="forest"] {
+  --amber: #4a7c59;
+  --amber-dark: #35593f;
+  --teal: #2c3e2e;
+  --paper: #f4f7f2;
+  --line: #dbe5d6;
+}
+:root[data-theme="rose"] {
+  --amber: #b5566f;
+  --amber-dark: #8c3f52;
+  --teal: #4a2e35;
+  --paper: #faf3f4;
+  --line: #ecd9dd;
+}
+
 html, body {
   margin: 0;
   padding: 0;
