@@ -44,7 +44,7 @@ function DrilldownModal({ title, gigs, isAdmin, onClose, onSelectGig }) {
                 </tr>
               </thead>
               <tbody>
-                {gigs.map((g) => (
+                {[...gigs].sort((a, b) => a.gig_date.localeCompare(b.gig_date)).map((g) => (
                   <tr key={g.id} onClick={() => onSelectGig(g.id)} style={{ cursor: 'pointer' }}>
                     <td>{formatShortDate(g.gig_date)}</td>
                     <td>{g.venues?.name || '—'}</td>
