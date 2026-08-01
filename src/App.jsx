@@ -12,6 +12,7 @@ import NotificationBell from './components/NotificationBell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EnquiriesList from './components/EnquiriesList.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
+import PublicDocumentView from './components/PublicDocumentView.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 
 function UserIcon() {
@@ -37,14 +38,14 @@ export default function App() {
     return <EnquiryForm />;
   }
 
-  if (window.location.pathname.startsWith('/invoice/')) {
-    const token = window.location.pathname.split('/')[2];
-    return (
-      <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-        <h1>✅ The Route Works!</h1>
-        <p>If you see this instead of the login screen, the bypass was successful.</p>
-      </div>
-    );
+  // Public, no-login share links for invoices/quotes/contracts — each
+  // reads through a SECURITY DEFINER RPC scoped to the exact token in the
+  // URL (see PublicDocumentView.jsx), never a directly-queried table.
+  for (const docType of ['invoice', 'quote', 'contract']) {
+    if (window.location.pathname.startsWith('/' + docType + '/')) {
+      const token = window.location.pathname.split('/')[2];
+      return <PublicDocumentView type={docType} token={token} />;
+    }
   }
 
 

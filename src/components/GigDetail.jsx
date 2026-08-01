@@ -9,6 +9,7 @@ import TravelCalculator from './TravelCalculator.jsx';
 import GigFeeSplit from './GigFeeSplit.jsx';
 import GigInvoice from './GigInvoice.jsx';
 import GigQuote from './GigQuote.jsx';
+import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 
@@ -214,6 +215,11 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         gigId={gigId}
         gigFeeAmount={gig.fee_amount}
         onConverted={() => setInvoiceRefreshKey((k) => k + 1)}
+      />
+
+      <GigContract
+        gigId={gigId}
+        gigFeeAmount={gig.fee_amount}
       />
 
       <GigInvoice
