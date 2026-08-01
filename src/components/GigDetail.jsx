@@ -8,6 +8,7 @@ import GigSetlist from './GigSetlist.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
 import GigFeeSplit from './GigFeeSplit.jsx';
 import GigInvoice from './GigInvoice.jsx';
+import GigQuote from './GigQuote.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 
@@ -16,6 +17,10 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
     useOfflineGigData(gigId);
 
   const [editing, setEditing] = useState(false);
+  // Bumped when a quote converts to an invoice, forcing GigInvoice to
+  // remount and pick up the newly-created invoice it wouldn't otherwise
+  // know exists (they're sibling components, each loading on mount only).
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
 
   // ── Loading state ─────────────────────────────────────────────────────────
   // Show spinner only when we have no data at all (cache miss + first load).
@@ -205,7 +210,14 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
 
       <MusicianClaimsAdmin gigId={gigId} />
 
+      <GigQuote
+        gigId={gigId}
+        gigFeeAmount={gig.fee_amount}
+        onConverted={() => setInvoiceRefreshKey((k) => k + 1)}
+      />
+
       <GigInvoice
+        key={invoiceRefreshKey}
         gigId={gigId}
         gigFeeAmount={gig.fee_amount}
         mileageRatePence={gig.mileage_rate_pence}
