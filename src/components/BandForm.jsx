@@ -15,6 +15,8 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [bankAccountNumber, setBankAccountNumber] = useState(band?.bank_account_number || '');
   const [vatNumber, setVatNumber] = useState(band?.vat_number || '');
   const [invoiceNotes, setInvoiceNotes] = useState(band?.invoice_notes || '');
+  const [docAccentColour, setDocAccentColour] = useState(band?.doc_accent_colour || '#c8862e');
+  const [docSecondaryColour, setDocSecondaryColour] = useState(band?.doc_secondary_colour || '#1f3d3a');
   const [ownerProfitPct, setOwnerProfitPct] = useState(band?.fee_split_owner_profit_pct ?? '');
   const [singerBonusPct, setSingerBonusPct] = useState(band?.fee_split_singer_bonus_pct ?? '');
   const [captainBonusPct, setCaptainBonusPct] = useState(band?.fee_split_captain_bonus_pct ?? '');
@@ -41,6 +43,8 @@ export default function BandForm({ band, onSaved, onCancel }) {
       bank_account_number: bankAccountNumber || null,
       vat_number: vatNumber || null,
       invoice_notes: invoiceNotes || null,
+      doc_accent_colour: docAccentColour,
+      doc_secondary_colour: docSecondaryColour,
       fee_split_owner_profit_pct: ownerProfitPct === '' ? null : Number(ownerProfitPct),
       fee_split_singer_bonus_pct: singerBonusPct === '' ? null : Number(singerBonusPct),
       fee_split_captain_bonus_pct: captainBonusPct === '' ? null : Number(captainBonusPct),
@@ -138,6 +142,49 @@ export default function BandForm({ band, onSaved, onCancel }) {
           placeholder="e.g. Payment is due within 14 days of the invoice date. Thank you for your booking."
         />
       </label>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Document theme</p>
+      <p className="field__hint" style={{ marginBottom: 8 }}>
+        Used on this band's invoices, quotes and contracts (heading, divider, "total due" bar, "paid" stamp). This is separate
+        from your own personal app colour theme, set on your profile.
+      </p>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Accent colour</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="color"
+              value={docAccentColour}
+              onChange={(e) => setDocAccentColour(e.target.value)}
+              style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--line)', borderRadius: 6 }}
+            />
+            <input
+              value={docAccentColour}
+              onChange={(e) => setDocAccentColour(e.target.value)}
+              style={{ width: 90, fontFamily: 'var(--font-mono)' }}
+              placeholder="#c8862e"
+            />
+          </div>
+        </label>
+        <label className="field">
+          <span className="field__label">Secondary colour</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="color"
+              value={docSecondaryColour}
+              onChange={(e) => setDocSecondaryColour(e.target.value)}
+              style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--line)', borderRadius: 6 }}
+            />
+            <input
+              value={docSecondaryColour}
+              onChange={(e) => setDocSecondaryColour(e.target.value)}
+              style={{ width: 90, fontFamily: 'var(--font-mono)' }}
+              placeholder="#1f3d3a"
+            />
+          </div>
+        </label>
+      </div>
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Fee split defaults (optional)</p>
       <p className="field__hint" style={{ marginBottom: 8 }}>
