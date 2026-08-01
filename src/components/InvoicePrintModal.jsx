@@ -22,6 +22,11 @@ function formatDate(dateStr) {
     const isOverdue = invoice.status === 'overdue';
     const invNumber = invoiceNumber(invoice.created_at);
     const bandDisplayName = band?.invoice_name || band?.name;
+    // This is a standalone popup document -- it can't inherit the React
+    // tree's CSS custom properties, so the band's colours are interpolated
+    // directly into the <style> block below instead.
+    const accent = band?.doc_accent_colour || '#c8862e';
+    const secondary = band?.doc_secondary_colour || '#1f3d3a';
   
     const stampHTML = (isPaid || isOverdue)
       ? '<div class="stamp stamp--' + invoice.status + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
@@ -98,12 +103,12 @@ function formatDate(dateStr) {
       border-radius: 4px;
       pointer-events: none;
     }
-    .stamp--paid { color: #1f3d3a; border-color: #1f3d3a; }
+    .stamp--paid { color: ${secondary}; border-color: ${secondary}; }
     .stamp--overdue { color: #b6452c; border-color: #b6452c; }
-  
+
     /* Header */
     .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
-    .band-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: #c8862e; margin: 0 0 5px; letter-spacing: -0.02em; }
+    .band-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: ${accent}; margin: 0 0 5px; letter-spacing: -0.02em; }
     .from-detail { margin: 1px 0; font-size: 9pt; color: #555; line-height: 1.5; }
     .meta { text-align: right; flex-shrink: 0; }
     .meta-block { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 6px; }
@@ -111,7 +116,7 @@ function formatDate(dateStr) {
     .meta-value { font-family: 'IBM Plex Mono', monospace; font-size: 10pt; font-weight: 500; }
   
     /* Divider */
-    .divider { height: 3px; background: linear-gradient(90deg, #c8862e 0%, #e8a84e 60%, transparent 100%); border-radius: 2px; margin-bottom: 8mm; }
+    .divider { height: 3px; background: linear-gradient(90deg, ${accent} 0%, color-mix(in srgb, ${accent} 65%, white) 60%, transparent 100%); border-radius: 2px; margin-bottom: 8mm; }
   
     /* Parties */
     .parties { display: flex; gap: 12mm; margin-bottom: 8mm; }
@@ -119,7 +124,7 @@ function formatDate(dateStr) {
     .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #999; font-weight: 600; margin: 0 0 4px; }
     .client-name { font-family: 'Space Grotesk', sans-serif; font-size: 14pt; font-weight: 700; margin: 0 0 3px; }
     .detail { margin: 1px 0; font-size: 9pt; color: #555; }
-    .event-box { background: #f5f2ec; border-left: 3px solid #c8862e; border-radius: 4px; padding: 10px 14px; flex: 1; max-width: 80mm; }
+    .event-box { background: #f5f2ec; border-left: 3px solid ${accent}; border-radius: 4px; padding: 10px 14px; flex: 1; max-width: 80mm; }
     .venue-name { font-family: 'Space Grotesk', sans-serif; font-size: 11pt; font-weight: 700; margin: 0 0 3px; }
   
     /* Table */
@@ -135,7 +140,7 @@ function formatDate(dateStr) {
     .totals { display: flex; flex-direction: column; align-items: flex-end; border-top: 2px solid #1e1b16; padding-top: 8px; margin-bottom: 8mm; }
     .totals-row { display: flex; gap: 32px; justify-content: flex-end; padding: 3px 10px; font-size: 9.5pt; color: #555; width: 100%; }
     .totals-row .amt { font-family: 'IBM Plex Mono', monospace; font-size: 9pt; min-width: 70px; text-align: right; }
-    .totals-grand { background: #c8862e; border-radius: 4px; color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: 12pt; font-weight: 700; padding: 8px 10px; margin-top: 6px; }
+    .totals-grand { background: ${accent}; border-radius: 4px; color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: 12pt; font-weight: 700; padding: 8px 10px; margin-top: 6px; }
     .totals-grand .amt { font-family: 'Space Grotesk', sans-serif; font-size: 12pt; }
   
     /* Payment */
@@ -287,8 +292,14 @@ function formatDate(dateStr) {
           </div>
         </div>
   
-        <div className="invoice-page-preview">
-  
+        <div
+          className="invoice-page-preview"
+          style={{
+            '--doc-accent': band?.doc_accent_colour || '#c8862e',
+            '--doc-secondary': band?.doc_secondary_colour || '#1f3d3a',
+          }}
+        >
+
           {(isPaid || isOverdue) && (
             <div className={'invoice-stamp invoice-stamp--' + invoice.status}>
               {isPaid ? 'PAID' : 'OVERDUE'}

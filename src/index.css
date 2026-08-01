@@ -9,6 +9,13 @@
   --line: #ddd5c7;
   --text-muted: #6b6357;
 
+  /* Per-band document branding (invoices/quotes/contracts) -- distinct
+     from the app's own UI colours above. Falls back to the app's amber/
+     teal so an unthemed band's documents look exactly like they always
+     have; InvoicePrintModal overrides these inline per-band. */
+  --doc-accent: var(--amber);
+  --doc-secondary: var(--teal);
+
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
@@ -1202,7 +1209,7 @@ input {
     padding: 4px 12px;
     border-radius: 4px;
   }
-  .invoice-stamp--paid { color: #1f3d3a; border-color: #1f3d3a; }
+  .invoice-stamp--paid { color: var(--doc-secondary); border-color: var(--doc-secondary); }
   .invoice-stamp--overdue { color: #b6452c; border-color: #b6452c; }
   
   /* ---- Header ---- */
@@ -1218,7 +1225,7 @@ input {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 22pt;
     font-weight: 700;
-    color: #c8862e;
+    color: var(--doc-accent);
     margin: 0 0 4px;
     letter-spacing: -0.02em;
   }
@@ -1260,7 +1267,7 @@ input {
   
   .invoice-divider {
     height: 3px;
-    background: linear-gradient(90deg, #c8862e 0%, #e8a84e 60%, transparent 100%);
+    background: linear-gradient(90deg, var(--doc-accent) 0%, color-mix(in srgb, var(--doc-accent) 65%, white) 60%, transparent 100%);
     border-radius: 2px;
     margin-bottom: 8mm;
   }
@@ -1300,7 +1307,7 @@ input {
   
   .invoice-event-box {
     background: #f5f2ec;
-    border-left: 3px solid #c8862e;
+    border-left: 3px solid var(--doc-accent);
     border-radius: 4px;
     padding: 10px 14px;
     flex: 1;
@@ -1401,7 +1408,7 @@ input {
   }
   
   .invoice-totals__row--total {
-    background: #c8862e;
+    background: var(--doc-accent);
     border-radius: 4px;
     color: #fff;
     font-family: 'Space Grotesk', sans-serif;
