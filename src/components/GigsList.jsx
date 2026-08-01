@@ -181,7 +181,7 @@ export default function GigsList() {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
         <button
           className="btn btn--ghost btn--small"
           onClick={() => setShowHistoric((v) => !v)}
