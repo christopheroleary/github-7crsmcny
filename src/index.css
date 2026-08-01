@@ -692,6 +692,7 @@ input {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .simple-list__actions {
   display: flex;
@@ -765,6 +766,8 @@ input {
   border-radius: 8px;
   background: rgba(31, 61, 58, 0.08);
   color: var(--teal);
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 .vacancy-list__item--open {
   background: rgba(200, 134, 46, 0.12);
@@ -1118,6 +1121,7 @@ input {
     top: 0;
     z-index: 10;
     flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
   .btn--toolbar-ghost {
@@ -1515,6 +1519,7 @@ input {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .day-sheet__band {
@@ -1615,6 +1620,7 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .day-sheet__roster-name {
@@ -1661,6 +1667,7 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .day-sheet__song-title {
@@ -1698,6 +1705,7 @@ input {
   gap: 12px;
   align-items: center;
   font-size: 14px;
+  flex-wrap: wrap;
 }
 
 .claim-card__label {
@@ -1722,6 +1730,8 @@ input {
   border-radius: 8px;
   margin: 10px 0 12px;
   font-family: var(--font-mono);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .sync-bar--online {
@@ -1889,6 +1899,8 @@ input {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .notif-panel__title {
