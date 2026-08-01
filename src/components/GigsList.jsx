@@ -171,66 +171,67 @@ export default function GigsList() {
     <div>
       <div className="section-header">
         <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+        {isAdmin && (
           <button
-            className="btn btn--ghost btn--small"
-            onClick={() => setShowHistoric((v) => !v)}
+            className="btn btn--primary btn--small"
+            onClick={() => setShowAddForm((v) => !v)}
           >
-            {showHistoric ? 'Hide historic' : 'Show historic'}
+            {showAddForm ? 'Close' : '+ Add gig'}
           </button>
-          {isAdmin && (
-            <button
-              className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
-              onClick={() => {
-                setShowNeedsInvoicing((v) => !v);
-                setShowPendingClaims(false);
-                setShowIncompleteRoster(false);
-              }}
-            >
-              {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              className={`btn btn--small ${showPendingClaims ? 'btn--primary' : 'btn--ghost'}`}
-              onClick={() => {
-                setShowPendingClaims((v) => !v);
-                setShowNeedsInvoicing(false);
-                setShowIncompleteRoster(false);
-              }}
-            >
-              {showPendingClaims ? 'Pending claims ✕' : 'Pending claims'}
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              className={`btn btn--small ${showIncompleteRoster ? 'btn--primary' : 'btn--ghost'}`}
-              onClick={() => {
-                setShowIncompleteRoster((v) => !v);
-                setShowNeedsInvoicing(false);
-                setShowPendingClaims(false);
-              }}
-            >
-              {showIncompleteRoster ? 'Roster incomplete ✕' : 'Roster incomplete'}
-            </button>
-          )}
-          {!isAdmin && (
-            <button
-              className={`btn btn--small ${showUnclaimedGigs ? 'btn--primary' : 'btn--ghost'}`}
-              onClick={() => setShowUnclaimedGigs((v) => !v)}
-            >
-              {showUnclaimedGigs ? 'Unpaid claims ✕' : 'Unpaid claims'}
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              className="btn btn--primary btn--small"
-              onClick={() => setShowAddForm((v) => !v)}
-            >
-              {showAddForm ? 'Close' : '+ Add gig'}
-            </button>
-          )}
-        </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <button
+          className="btn btn--ghost btn--small"
+          onClick={() => setShowHistoric((v) => !v)}
+        >
+          {showHistoric ? 'Hide historic' : 'Show historic'}
+        </button>
+        {isAdmin && (
+          <button
+            className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
+            onClick={() => {
+              setShowNeedsInvoicing((v) => !v);
+              setShowPendingClaims(false);
+              setShowIncompleteRoster(false);
+            }}
+          >
+            {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            className={`btn btn--small ${showPendingClaims ? 'btn--primary' : 'btn--ghost'}`}
+            onClick={() => {
+              setShowPendingClaims((v) => !v);
+              setShowNeedsInvoicing(false);
+              setShowIncompleteRoster(false);
+            }}
+          >
+            {showPendingClaims ? 'Pending claims ✕' : 'Pending claims'}
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            className={`btn btn--small ${showIncompleteRoster ? 'btn--primary' : 'btn--ghost'}`}
+            onClick={() => {
+              setShowIncompleteRoster((v) => !v);
+              setShowNeedsInvoicing(false);
+              setShowPendingClaims(false);
+            }}
+          >
+            {showIncompleteRoster ? 'Roster incomplete ✕' : 'Roster incomplete'}
+          </button>
+        )}
+        {!isAdmin && (
+          <button
+            className={`btn btn--small ${showUnclaimedGigs ? 'btn--primary' : 'btn--ghost'}`}
+            onClick={() => setShowUnclaimedGigs((v) => !v)}
+          >
+            {showUnclaimedGigs ? 'Unpaid claims ✕' : 'Unpaid claims'}
+          </button>
+        )}
       </div>
 
       {/* ── Active filter hint ───────────────────────────────────────────────── */}
