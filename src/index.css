@@ -667,11 +667,18 @@ input {
   border: 1px dashed var(--line);
   border-radius: 8px;
 }
-.inline-subform input {
+.inline-subform input,
+.inline-subform select {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   font-size: 14px;
+}
+.inline-subform .btn--primary {
+  width: auto;
 }
 .requirement-row {
   align-items: center;
