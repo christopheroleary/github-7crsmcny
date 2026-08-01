@@ -38,38 +38,56 @@ export default function GigWhatsAppGroup({ gig }) {
   const [recipients, setRecipients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteLink, setInviteLink] = useState(gig.whatsapp_invite_link || '');
+  const [editingLink, setEditingLink] = useState(!gig.whatsapp_invite_link);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [sentCount, setSentCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: lineup }, { data: leaders }] = await Promise.all([
+    const [{ data: lineup }, { data: leaders }, { data: invites }] = await Promise.all([
       supabase
         .from('gig_lineup')
-        .select('profiles(full_name, phone), placeholder_musicians(name, phone)')
+        .select('profile_id, placeholder_id, profiles(full_name, phone), placeholder_musicians(name, phone)')
         .eq('gig_id', gig.id),
       supabase
         .from('band_leaders')
-        .select('profiles!band_leaders_profile_id_fkey(full_name, phone)')
+        .select('profile_id, profiles!band_leaders_profile_id_fkey(full_name, phone)')
         .eq('band_id', gig.band_id),
+      supabase
+        .from('gig_whatsapp_invites')
+        .select('profile_id, placeholder_id, sent_at')
+        .eq('gig_id', gig.id),
     ]);
+
+    const sentMap = new Map();
+    for (const inv of invites || []) {
+      sentMap.set(inv.profile_id || inv.placeholder_id, inv.sent_at);
+    }
 
     const people = [
       ...(lineup || []).map((l) => ({
+        key: l.profile_id || l.placeholder_id,
+        profileId: l.profile_id,
+        placeholderId: l.placeholder_id,
         name: l.profiles?.full_name || l.placeholder_musicians?.name,
         phone: l.profiles?.phone || l.placeholder_musicians?.phone,
       })),
-      ...(leaders || []).map((l) => ({ name: l.profiles?.full_name, phone: l.profiles?.phone })),
-    ].filter((p) => p.name);
+      ...(leaders || []).map((l) => ({
+        key: l.profile_id,
+        profileId: l.profile_id,
+        placeholderId: null,
+        name: l.profiles?.full_name,
+        phone: l.profiles?.phone,
+      })),
+    ].filter((p) => p.name && p.key);
 
     const seen = new Set();
     const deduped = people.filter((p) => {
-      const key = p.name + '|' + (p.phone || '');
-      if (seen.has(key)) return false;
-      seen.add(key);
+      if (seen.has(p.key)) return false;
+      seen.add(p.key);
       return true;
     });
+    deduped.forEach((p) => { p.sentAt = sentMap.get(p.key) || null; });
     deduped.sort((a, b) => a.name.localeCompare(b.name));
 
     setRecipients(deduped);
@@ -88,7 +106,25 @@ export default function GigWhatsAppGroup({ gig }) {
     setSaving(false);
     if (error) { alert("Couldn't save invite link: " + error.message); return; }
     setSaved(true);
+    setEditingLink(false);
     setTimeout(() => setSaved(false), 1500);
+  }
+
+  async function markSent(person) {
+    const now = new Date().toISOString();
+    setRecipients((prev) => prev.map((p) => (p.key === person.key ? { ...p, sentAt: now } : p)));
+
+    const { data: userData } = await supabase.auth.getUser();
+    const row = {
+      gig_id: gig.id,
+      profile_id: person.profileId || null,
+      placeholder_id: person.placeholderId || null,
+      sent_at: now,
+      sent_by: userData?.user?.id || null,
+    };
+    const onConflict = person.profileId ? 'gig_id,profile_id' : 'gig_id,placeholder_id';
+    const { error } = await supabase.from('gig_whatsapp_invites').upsert(row, { onConflict });
+    if (error) console.warn("Couldn't record sent invite:", error.message);
   }
 
   const venueName = gig.venues?.name || 'the venue';
@@ -107,7 +143,7 @@ export default function GigWhatsAppGroup({ gig }) {
     '\n\nFull gig details: ' + gigLink;
 
   const withPhone = recipients.filter((p) => toWhatsAppNumber(p.phone));
-  const nextPerson = withPhone[sentCount];
+  const nextPerson = withPhone.find((p) => !p.sentAt);
 
   function waHref(person) {
     const text =
@@ -143,23 +179,33 @@ export default function GigWhatsAppGroup({ gig }) {
             <CopyButton text={summaryMessage} label="Copy" />
           </div>
 
-          <form onSubmit={handleSaveLink}>
+          <div>
             <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
               3. In WhatsApp: Group Info → Invite via Link → Copy Link — then paste it here
             </span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="url"
-                placeholder="https://chat.whatsapp.com/…"
-                value={inviteLink}
-                onChange={(e) => setInviteLink(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
-                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </form>
+            {!editingLink ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>✓ Invite link saved</span>
+                <button type="button" className="link-button" onClick={() => setEditingLink(true)}>
+                  Change
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveLink} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="url"
+                  placeholder="https://chat.whatsapp.com/…"
+                  value={inviteLink}
+                  onChange={(e) => setInviteLink(e.target.value)}
+                  style={{ flex: 1 }}
+                  autoFocus
+                />
+                <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
+                  {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
+                </button>
+              </form>
+            )}
+          </div>
 
           <div>
             <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
@@ -179,19 +225,22 @@ export default function GigWhatsAppGroup({ gig }) {
                     href={waHref(nextPerson)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={() => setSentCount((n) => n + 1)}
+                    onClick={() => markSent(nextPerson)}
                   >
-                    Send next invite ({sentCount + 1} of {withPhone.length}) — {nextPerson.name}
+                    Send next invite ({withPhone.filter((p) => p.sentAt).length + 1} of {withPhone.length}) — {nextPerson.name}
                   </a>
                 ) : (
                   <p className="field__hint">✓ All invites sent.</p>
                 )}
                 <ul className="field__hint" style={{ marginTop: 8, paddingLeft: 18, lineHeight: 1.7 }}>
-                  {recipients.map((p, i) => {
+                  {recipients.map((p) => {
                     const wa = toWhatsAppNumber(p.phone);
-                    const waIndex = wa ? withPhone.indexOf(p) : -1;
-                    const status = !wa ? 'no phone' : waIndex < sentCount ? 'sent ✓' : 'pending';
-                    return <li key={i}>{p.name} — {status}</li>;
+                    const status = !wa
+                      ? 'no phone'
+                      : p.sentAt
+                        ? 'sent ' + formatShortDate(p.sentAt.slice(0, 10))
+                        : 'pending';
+                    return <li key={p.key}>{p.name} — {status}</li>;
                   })}
                 </ul>
               </>
