@@ -820,14 +820,9 @@ input {
 }
 .setlist-block__songs {
   margin: 0 0 10px;
-  padding-left: 20px;
+  padding-left: 0;
+  list-style: none;
   font-size: 14px;
-}
-.setlist-block__songs li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
 }
 .setlist-block__add {
   display: flex;
