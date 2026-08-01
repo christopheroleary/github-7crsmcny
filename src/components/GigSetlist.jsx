@@ -286,7 +286,7 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
                   <span className="setlist-song__handle" title="Drag to reorder">⠿</span>
                   <span className="setlist-song__number">{idx + 1}</span>
                   <span className="setlist-song__title">
-                    {song?.title}
+                    {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
                     {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
                   </span>
                   <div className="setlist-song__actions">
@@ -300,14 +300,16 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
                         {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
                       </button>
                     )}
-                    <button className="link-button" onClick={() => setEditingItemId(isEditing ? null : item.id)}>
-                      {isEditing ? 'Close' : 'Edit'}
-                    </button>
+                    {song && (
+                      <button className="link-button" onClick={() => setEditingItemId(isEditing ? null : item.id)}>
+                        {isEditing ? 'Close' : 'Edit'}
+                      </button>
+                    )}
                     <button className="link-button link-button--danger" onClick={() => onRemoveSong(item)}>×</button>
                   </div>
                 </div>
 
-                {isEditing && (
+                {isEditing && song && (
                   <SongEditFields
                     song={song}
                     canMakePublic={canMakePublic}
