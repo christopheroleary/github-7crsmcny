@@ -51,10 +51,14 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const { isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
-  const [view, setView] = useState(() => sessionStorage.getItem('gig_view') || 'dashboard');
+  // localStorage, not sessionStorage: a PWA fully exited (e.g. backgrounded
+  // at a venue with no signal, then killed by the OS) loses sessionStorage
+  // on relaunch — this needs to survive that so the user lands back on the
+  // gig they were on instead of defaulting to Dashboard.
+  const [view, setView] = useState(() => localStorage.getItem('gig_view') || 'dashboard');
 
   function updateView(v) {
-    sessionStorage.setItem('gig_view', v);
+    localStorage.setItem('gig_view', v);
     setView(v);
   }
 
@@ -62,9 +66,9 @@ export default function App() {
     const tab = url ? url.replace('/', '') : 'gigs';
     if (tabs.some(([k]) => k === tab)) {
       if (gig_id) {
-        sessionStorage.setItem('selected_gig_id', gig_id);
+        localStorage.setItem('selected_gig_id', gig_id);
       } else {
-        sessionStorage.removeItem('selected_gig_id');
+        localStorage.removeItem('selected_gig_id');
       }
       updateView(tab);
       setTimeout(() => {

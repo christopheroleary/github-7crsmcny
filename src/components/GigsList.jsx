@@ -46,12 +46,14 @@ export default function GigsList() {
   // own bands by RLS — see the plan's "full management" decision.
   const isAdmin = isAdminRole || isBandLeader;
 
+  // localStorage so this survives a full PWA restart, not just a re-render —
+  // see the matching note in App.jsx.
   const [selectedGigId, setSelectedGigId] = useState(
-    () => sessionStorage.getItem('selected_gig_id') || null
+    () => localStorage.getItem('selected_gig_id') || null
   );
   function selectGig(id) {
-    if (id) sessionStorage.setItem('selected_gig_id', id);
-    else sessionStorage.removeItem('selected_gig_id');
+    if (id) localStorage.setItem('selected_gig_id', id);
+    else localStorage.removeItem('selected_gig_id');
     setSelectedGigId(id);
   }
 
@@ -114,10 +116,10 @@ export default function GigsList() {
     { name: 'dateLabel', getFn: (gig) => formatShortDate(gig.gig_date) },
   ]);
 
-  // ── Keep sessionStorage navigation working (notification clicks etc.) ────────
+  // ── Keep cross-tab navigation working (notification clicks etc.) ─────────────
   useEffect(() => {
     function handleStorage() {
-      const id = sessionStorage.getItem('selected_gig_id');
+      const id = localStorage.getItem('selected_gig_id');
       setSelectedGigId(id || null);
     }
     window.addEventListener('storage', handleStorage);

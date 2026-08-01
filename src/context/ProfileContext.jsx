@@ -3,6 +3,25 @@ import { supabase } from '../supabaseClient';
 
 const ProfileContext = createContext(null);
 
+// Cache the resolved profile so reopening the app with no signal doesn't
+// hang forever waiting on a network request — see loadProfile() below.
+const PROFILE_CACHE_KEY = 'gig_manager_profile_cache';
+
+function readCachedProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(profile, ledBandIds) {
+  try {
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ profile, ledBandIds }));
+  } catch {}
+}
+
 export function ProfileProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [ledBandIds, setLedBandIds] = useState([]);
@@ -10,34 +29,57 @@ export function ProfileProvider({ children }) {
   const loadedRef = useRef(false);
 
   async function loadProfile() {
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData?.user?.id;
+    // getSession() reads the persisted session locally — unlike getUser(),
+    // it doesn't require a network round-trip, so this still resolves when
+    // the app is reopened somewhere with no signal.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData?.session?.user?.id;
     if (!uid) {
       setProfile(null);
       setLedBandIds([]);
       setLoading(false);
       loadedRef.current = false;
+      try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch {}
       return;
     }
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('id', uid)
-      .single();
-    setProfile(data || null);
 
-    if (data?.role === 'band_leader') {
-      const { data: leaderRows } = await supabase
-        .from('band_leaders')
-        .select('band_id')
-        .eq('profile_id', uid);
-      setLedBandIds((leaderRows || []).map((r) => r.band_id));
-    } else {
-      setLedBandIds([]);
+    // Show the cached identity immediately (if any) so there's no hang —
+    // refined below once/if the network fetch actually succeeds.
+    const cached = readCachedProfile();
+    if (cached) {
+      setProfile(cached.profile);
+      setLedBandIds(cached.ledBandIds || []);
+      setLoading(false);
+      loadedRef.current = true;
     }
 
-    setLoading(false);
-    loadedRef.current = true;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('id', uid)
+        .single();
+      if (error) throw error;
+
+      setProfile(data || null);
+
+      let leaderIds = [];
+      if (data?.role === 'band_leader') {
+        const { data: leaderRows } = await supabase
+          .from('band_leaders')
+          .select('band_id')
+          .eq('profile_id', uid);
+        leaderIds = (leaderRows || []).map((r) => r.band_id);
+      }
+      setLedBandIds(leaderIds);
+      writeCachedProfile(data, leaderIds);
+    } catch {
+      // Offline or the request failed — fall back to whatever we already
+      // set from cache above (or stay null if there was nothing cached).
+    } finally {
+      setLoading(false);
+      loadedRef.current = true;
+    }
   }
 
   useEffect(() => {
