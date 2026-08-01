@@ -89,12 +89,14 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Deep link support: ?gig=<id> opens straight to that gig once signed in
-  // (e.g. a link shared via the WhatsApp group setup panel).
+  // Deep link support: ?gig=<share_code> opens straight to that gig once
+  // signed in (e.g. a link shared via the WhatsApp group setup panel). The
+  // short code (not the raw gig id) keeps the link short enough to look
+  // sane pasted as plain text in a WhatsApp message.
   useEffect(() => {
-    const gigId = new URLSearchParams(window.location.search).get('gig');
-    if (gigId) {
-      sessionStorage.setItem('pending_gig_id', gigId);
+    const code = new URLSearchParams(window.location.search).get('gig');
+    if (code) {
+      sessionStorage.setItem('pending_gig_code', code);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -104,10 +106,17 @@ export default function App() {
     // only exists on renders that get past the loading/login early-returns
     // below — session and the profile fetch resolve at different times.
     if (!session || profileLoading) return;
-    const pendingGigId = sessionStorage.getItem('pending_gig_id');
-    if (!pendingGigId) return;
-    sessionStorage.removeItem('pending_gig_id');
-    handleNavigate({ url: '/gigs', gig_id: pendingGigId });
+    const pendingCode = sessionStorage.getItem('pending_gig_code');
+    if (!pendingCode) return;
+    sessionStorage.removeItem('pending_gig_code');
+    supabase
+      .from('gigs')
+      .select('id')
+      .eq('share_code', pendingCode)
+      .single()
+      .then(({ data }) => {
+        if (data?.id) handleNavigate({ url: '/gigs', gig_id: data.id });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, profileLoading]);
 

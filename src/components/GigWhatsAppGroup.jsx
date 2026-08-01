@@ -34,6 +34,13 @@ function CopyButton({ text, label }) {
   );
 }
 
+function generateShareCode() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 export default function GigWhatsAppGroup({ gig }) {
   const [recipients, setRecipients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +48,18 @@ export default function GigWhatsAppGroup({ gig }) {
   const [editingLink, setEditingLink] = useState(!gig.whatsapp_invite_link);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [shareCode, setShareCode] = useState(gig.share_code || null);
+
+  // Short code instead of the raw gig id — WhatsApp shows plain-text URLs
+  // as-is (no custom link text possible), so keeping this short is the only
+  // way to make it look tidy once pasted into a message.
+  useEffect(() => {
+    if (gig.share_code) { setShareCode(gig.share_code); return; }
+    const code = generateShareCode();
+    supabase.from('gigs').update({ share_code: code }).eq('id', gig.id).then(({ error }) => {
+      if (!error) setShareCode(code);
+    });
+  }, [gig.id, gig.share_code]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,7 +148,7 @@ export default function GigWhatsAppGroup({ gig }) {
 
   const venueName = gig.venues?.name || 'the venue';
   const groupTitle = formatShortDate(gig.gig_date) + ' – ' + venueName;
-  const gigLink = window.location.origin + '/?gig=' + gig.id;
+  const gigLink = shareCode ? window.location.origin + '/?gig=' + shareCode : null;
 
   // Times deliberately left out — they can change in the app after this
   // message is sent, and a stale time in WhatsApp would disagree with the
@@ -140,7 +159,7 @@ export default function GigWhatsAppGroup({ gig }) {
     formatFullDate(gig.gig_date) +
     (gig.venues?.address ? '\n📍 ' + gig.venues.address : '') +
     (gig.parking_notes ? '\nParking: ' + gig.parking_notes : '') +
-    '\n\nFull gig details: ' + gigLink;
+    (gigLink ? '\n\nFull gig details: ' + gigLink : '');
 
   const withPhone = recipients.filter((p) => toWhatsAppNumber(p.phone));
   const nextPerson = withPhone.find((p) => !p.sentAt);
