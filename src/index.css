@@ -389,11 +389,13 @@ input {
   margin-bottom: 16px;
 }
 /* .btn--primary defaults to width:100%, which inside a section-header
-   flex row makes the button swallow almost the whole row and squeeze
-   the title against it — size it to its content here instead. */
+   flex row made the button swallow almost the whole row and squeeze the
+   title against it. Sized to content but with extra padding — still an
+   important, prominent button, just not full-row-extreme. */
 .section-header > .btn--primary {
   width: auto;
   flex-shrink: 0;
+  padding: 12px 32px;
 }
 .section-header__title {
   font-family: var(--font-display);
