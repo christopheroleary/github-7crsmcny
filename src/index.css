@@ -385,7 +385,15 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
+}
+/* .btn--primary defaults to width:100%, which inside a section-header
+   flex row makes the button swallow almost the whole row and squeeze
+   the title against it — size it to its content here instead. */
+.section-header > .btn--primary {
+  width: auto;
+  flex-shrink: 0;
 }
 .section-header__title {
   font-family: var(--font-display);
