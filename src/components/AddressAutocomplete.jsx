@@ -86,7 +86,20 @@ export default function AddressAutocomplete({ value, onChange, onCoordinatesChan
           {suggestions.map((f, i) => {
             const label = formatAddress(f);
             return (
-              <li key={i} onClick={() => handleSelect(f)}>
+              <li
+                key={i}
+                // Mousedown on the item fires before the input's blur —
+                // preventDefault stops the input losing focus at all, so
+                // there's nothing racing the click below to hide the list
+                // first. Without this, selection depended on the click
+                // landing inside the ~150ms window before handleBlur's
+                // delayed setOpen(false) ran, which is exactly the kind of
+                // timing that's fine on a fast click and flaky on a real
+                // device (especially touch, where the event sequence has
+                // more jitter).
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(f)}
+              >
                 {label}
               </li>
             );
