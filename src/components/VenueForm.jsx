@@ -85,7 +85,14 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
 
       {lookupHref && (
         <p className="field__hint" style={{ marginTop: -8, marginBottom: 16 }}>
-          <a href={lookupHref} target="_blank" rel="noopener noreferrer">Find on Google Maps ↗</a>
+          <button
+            type="button"
+            className="link-button"
+            style={{ display: 'inline', padding: 0, fontSize: 'inherit' }}
+            onClick={() => window.open(lookupHref, '_blank', 'noopener,noreferrer')}
+          >
+            Find on Google Maps ↗
+          </button>
           {' '}— useful for finding this venue's phone number or website to fill in below.
         </p>
       )}
