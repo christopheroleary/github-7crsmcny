@@ -53,6 +53,9 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [mileageRatePence, setMileageRatePence] = useState(gig?.mileage_rate_pence != null ? gig.mileage_rate_pence : 35);
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
+  const [setsInfo, setSetsInfo] = useState(gig?.sets_info || '');
+  const [dressCode, setDressCode] = useState(gig?.dress_code || '');
+  const [venueWifi, setVenueWifi] = useState(gig?.venue_wifi || '');
 
   // DJ details
   const [needsDj, setNeedsDj] = useState(gig?.needs_dj || false);
@@ -194,6 +197,9 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       mileage_rate_pence: mileageRatePence === '' ? 35 : Math.round(Number(mileageRatePence)),
       parking_notes: parkingNotes || null,
       notes: notes || null,
+      sets_info: setsInfo || null,
+      dress_code: dressCode || null,
+      venue_wifi: venueWifi || null,
       needs_dj: needsDj,
       dj_song_rules: djSongRules || null,
       first_dance_mode: firstDanceMode || null,
@@ -451,6 +457,34 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           value={notes} 
           onChange={(e) => setNotes(e.target.value)} 
           rows={3} 
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Sets (optional)</span>
+        <input
+          value={setsInfo}
+          onChange={(e) => setSetsInfo(e.target.value)}
+          placeholder="e.g. 2x 60min sets"
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Dress code (optional)</span>
+        <textarea
+          value={dressCode}
+          onChange={(e) => setDressCode(e.target.value)}
+          rows={2}
+          placeholder="e.g. Black shirt, black suit trousers (no jeans), black shoes, no tie, no jacket"
+        />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Venue wifi (optional)</span>
+        <input
+          value={venueWifi}
+          onChange={(e) => setVenueWifi(e.target.value)}
+          placeholder="e.g. routername123 - pass1234567"
         />
       </label>
 

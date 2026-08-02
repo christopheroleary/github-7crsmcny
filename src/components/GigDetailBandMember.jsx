@@ -247,6 +247,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
             <strong>Parking:</strong> {gig.parking_notes}
           </p>
         )}
+        {gig.venue_wifi && (
+          <p className="day-sheet__text day-sheet__text--muted">
+            <strong>Wifi:</strong> {gig.venue_wifi}
+          </p>
+        )}
         {myTravel != null && (
           <p className="day-sheet__text">
             <strong>Your travel:</strong> £{(myTravel / 100).toFixed(2)}
@@ -301,12 +306,22 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       </div>
 
       {/* Notes */}
-      {(gig.notes || gig.clients?.name) && (
+      {(gig.notes || gig.clients?.name || gig.sets_info || gig.dress_code) && (
         <div className="day-sheet__section">
           <h3 className="day-sheet__section-title">Event notes</h3>
           {gig.clients?.name && (
             <p className="day-sheet__text">
               <strong>Client:</strong> {gig.clients.name}
+            </p>
+          )}
+          {gig.sets_info && (
+            <p className="day-sheet__text">
+              <strong>Sets:</strong> {gig.sets_info}
+            </p>
+          )}
+          {gig.dress_code && (
+            <p className="day-sheet__text">
+              <strong>Dress code:</strong> {gig.dress_code}
             </p>
           )}
           {gig.notes && <p className="day-sheet__text u-pre-line">{gig.notes}</p>}

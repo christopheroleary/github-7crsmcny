@@ -170,6 +170,9 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd>{gig.notes || '—'}</dd>
+        <dt>Sets</dt><dd>{gig.sets_info || '—'}</dd>
+        <dt>Dress code</dt><dd>{gig.dress_code || '—'}</dd>
+        <dt>Venue wifi</dt><dd>{gig.venue_wifi || '—'}</dd>
         {(gig.dj_song_rules || gig.first_dance_mode) && (
           <>
             <dt>DJ — do/don't play</dt><dd>{gig.dj_song_rules || '—'}</dd>
