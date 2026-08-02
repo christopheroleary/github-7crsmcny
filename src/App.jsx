@@ -63,7 +63,7 @@ export default function App() {
     setView(v);
   }
 
-  function handleNavigate({ url, gig_id }) {
+  function handleNavigate({ url, gig_id, section }) {
     const tab = url ? url.replace('/', '') : 'gigs';
     if (tabs.some(([k]) => k === tab)) {
       if (gig_id) {
@@ -73,7 +73,7 @@ export default function App() {
       }
       updateView(tab);
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: gig_id || null } }));
+        window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: gig_id || null, section: section || null } }));
       }, 50);
     }
   }

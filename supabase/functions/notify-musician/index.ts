@@ -25,6 +25,7 @@ async function notifyMusician(profileId: string, payload: {
   tag: string;
   url?: string;
   gig_id?: string;
+  section?: string;
 }) {
   // Save to in-app notification bell
   await supabase.from('notifications').insert({
@@ -33,6 +34,7 @@ async function notifyMusician(profileId: string, payload: {
     body: payload.body,
     url: payload.url || '/gigs',
     gig_id: payload.gig_id || null,
+    section: payload.section || null,
     read: false,
   });
 
@@ -135,6 +137,7 @@ Deno.serve(async (req) => {
         tag: 'lineup-' + record.id,
         url: '/gigs',
         gig_id: record.gig_id,
+        section: 'roster',
       });
     }
 
@@ -181,6 +184,7 @@ Deno.serve(async (req) => {
         tag: 'claim-' + record.id,
         url: '/gigs',
         gig_id: record.gig_id,
+        section: 'claims',
       });
     }
 

@@ -99,7 +99,7 @@ export default function NotificationBell({ onNavigate }) {
     }
     setOpen(false);
     if (onNavigate) {
-      onNavigate({ url: notification.url, gig_id: notification.gig_id || null });
+      onNavigate({ url: notification.url, gig_id: notification.gig_id || null, section: notification.section || null });
     }
   }
 

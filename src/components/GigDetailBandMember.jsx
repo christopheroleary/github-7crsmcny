@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import MusicianClaim from './MusicianClaim.jsx';
@@ -38,11 +38,30 @@ function formatSyncTime(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
+export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled }) {
   const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
   const [confirming, setConfirming] = useState(false);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
+
+  // Scroll to the section a notification pointed at (e.g. straight to the
+  // roster or your claim) once the gig has actually rendered. Placed above
+  // the loading/error early returns below to keep this an unconditional
+  // hook call, per the rules of hooks. Retried a couple of times over ~1s
+  // since sections below the target can still be loading their own data
+  // when gig first resolves, growing the page and drifting the target down
+  // after a single immediate scroll (see the matching note in GigDetail.jsx).
+  useEffect(() => {
+    if (!scrollToSection || !gig) return;
+    const id = 'gig-section-' + scrollToSection;
+    function tryScroll() {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    tryScroll();
+    const t1 = setTimeout(tryScroll, 400);
+    const t2 = setTimeout(() => { tryScroll(); onScrolled?.(); }, 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [scrollToSection, gig, onScrolled]);
 
   async function handleConfirm(myEntry) {
     setConfirming(true);
@@ -262,7 +281,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       )}
 
       {/* Roster */}
-      <div className="day-sheet__section">
+      <div className="day-sheet__section" id="gig-section-roster">
         <h3 className="day-sheet__section-title">Who's on this gig</h3>
         <ul className="day-sheet__roster">
         {sortedLineup.map((l) => (
@@ -349,15 +368,17 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack }) {
       )}
 
       {/* Payment claim — only when online */}
-      {!isOffline && (
-        <MusicianClaim gigId={gigId} myProfileId={myProfileId} />
-      )}
-      {isOffline && (
-        <div className="day-sheet__section">
-          <h3 className="day-sheet__section-title">My payment claim</h3>
-          <p className="field__hint">Payment claims require a connection.</p>
-        </div>
-      )}
+      <div id="gig-section-claims">
+        {!isOffline && (
+          <MusicianClaim gigId={gigId} myProfileId={myProfileId} />
+        )}
+        {isOffline && (
+          <div className="day-sheet__section">
+            <h3 className="day-sheet__section-title">My payment claim</h3>
+            <p className="field__hint">Payment claims require a connection.</p>
+          </div>
+        )}
+      </div>
 
       {/* Confirm button repeated at bottom */}
       {myEntry && !myEntry.confirmed && !isOffline && (

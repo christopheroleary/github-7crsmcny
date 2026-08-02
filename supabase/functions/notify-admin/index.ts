@@ -44,7 +44,7 @@ async function getSubscriptionsFor(profileIds: string[]) {
 }
 
 async function pushToAdmins(
-  payload: { title: string; body: string; tag: string; url?: string; gig_id?: string },
+  payload: { title: string; body: string; tag: string; url?: string; gig_id?: string; section?: string },
   bandId?: string | null
 ) {
   const recipientIds = await getRecipientIds(bandId);
@@ -56,8 +56,9 @@ async function pushToAdmins(
       profile_id: profileId,
       title: payload.title,
       body: payload.body,
-      url: payload.url || '/',
+      url: payload.url || '/gigs',
       gig_id: payload.gig_id || null,
+      section: payload.section || null,
       read: false,
     }))
   );
@@ -117,8 +118,9 @@ Deno.serve(async (req) => {
           title: `${musicianName} ${action} for ${venueName}`,
           body: `${musicianName} has ${action} their place on the ${gigDate} gig at ${venueName}.`,
           tag: 'lineup-' + record.id,
-          url: '/',
+          url: '/gigs',
           gig_id: record.gig_id,
+          section: 'roster',
         }, gig?.band_id);
       }
     }
@@ -145,8 +147,9 @@ Deno.serve(async (req) => {
           title: `New payment claim from ${musicianName}`,
           body: `${musicianName} submitted a ${amount} claim for ${venueName} — ${record.description}.`,
           tag: 'claim-' + record.id,
-          url: '/',
+          url: '/gigs',
           gig_id: record.gig_id,
+          section: 'claims',
         }, gig?.band_id);
       }
 
@@ -172,8 +175,9 @@ Deno.serve(async (req) => {
           title: `${musicianName} resubmitted their claim`,
           body: `${musicianName} amended and resubmitted a ${amount} claim for ${venueName} — ${record.description}.`,
           tag: 'claim-' + record.id,
-          url: '/',
+          url: '/gigs',
           gig_id: record.gig_id,
+          section: 'claims',
         }, gig?.band_id);
       }
     }

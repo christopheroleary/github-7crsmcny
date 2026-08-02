@@ -51,10 +51,15 @@ export default function GigsList() {
   const [selectedGigId, setSelectedGigId] = useState(
     () => localStorage.getItem('selected_gig_id') || null
   );
+  // Which section of the gig page to scroll to on open (e.g. from a
+  // notification click) — a one-shot value, not persisted, cleared once
+  // GigDetail/GigDetailBandMember has performed the scroll.
+  const [selectedSection, setSelectedSection] = useState(null);
   function selectGig(id) {
     if (id) localStorage.setItem('selected_gig_id', id);
     else localStorage.removeItem('selected_gig_id');
     setSelectedGigId(id);
+    setSelectedSection(null);
   }
 
   const [showHistoric, setShowHistoric] = useState(false);
@@ -129,6 +134,7 @@ export default function GigsList() {
   useEffect(() => {
     function handleGigSelected(e) {
       setSelectedGigId(e.detail.gig_id || null);
+      setSelectedSection(e.detail.section || null);
     }
     window.addEventListener('gig-selected', handleGigSelected);
     return () => window.removeEventListener('gig-selected', handleGigSelected);
@@ -154,6 +160,8 @@ export default function GigsList() {
           gigId={selectedGigId}
           onBack={() => { selectGig(null); loadGigs(); }}
           onDeleted={() => { selectGig(null); loadGigs(); }}
+          scrollToSection={selectedSection}
+          onScrolled={() => setSelectedSection(null)}
         />
       );
     }
@@ -162,6 +170,8 @@ export default function GigsList() {
         gigId={selectedGigId}
         myProfileId={me?.id}
         onBack={() => { selectGig(null); loadGigs(); }}
+        scrollToSection={selectedSection}
+        onScrolled={() => setSelectedSection(null)}
       />
     );
   }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import GigForm from './GigForm.jsx';
@@ -13,7 +13,7 @@ import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 
-export default function GigDetail({ gigId, onBack, onDeleted }) {
+export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
   const { gig, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
 
@@ -22,6 +22,25 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
   // remount and pick up the newly-created invoice it wouldn't otherwise
   // know exists (they're sibling components, each loading on mount only).
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
+
+  // Scroll to the section a notification pointed at (e.g. straight to the
+  // roster or the claims list) once the gig has actually rendered, rather
+  // than just dropping the visitor at the top of a long page. Retried a
+  // couple of times over ~1s: sections below the target (TravelCalculator,
+  // GigFeeSplit, etc.) fetch their own data independently and can still be
+  // in a short "Loading…" state when gig first resolves, so the page grows
+  // taller and the target drifts down after a single immediate scroll.
+  useEffect(() => {
+    if (!scrollToSection || !gig) return;
+    const id = 'gig-section-' + scrollToSection;
+    function tryScroll() {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    tryScroll();
+    const t1 = setTimeout(tryScroll, 400);
+    const t2 = setTimeout(() => { tryScroll(); onScrolled?.(); }, 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [scrollToSection, gig, onScrolled]);
 
   // ── Loading state ─────────────────────────────────────────────────────────
   // Show spinner only when we have no data at all (cache miss + first load).
@@ -190,7 +209,9 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         </button>
       )}
 
-      <GigRoster gigId={gigId} />
+      <div id="gig-section-roster">
+        <GigRoster gigId={gigId} />
+      </div>
 
       <GigWhatsAppGroup gig={gig} />
 
@@ -209,7 +230,9 @@ export default function GigDetail({ gigId, onBack, onDeleted }) {
         plannedHeadcount={gig.planned_headcount}
       />
 
-      <MusicianClaimsAdmin gigId={gigId} />
+      <div id="gig-section-claims">
+        <MusicianClaimsAdmin gigId={gigId} />
+      </div>
 
       <GigQuote
         gigId={gigId}
