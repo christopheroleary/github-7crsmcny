@@ -108,6 +108,18 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
     ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(venue.address) + '&travelmode=driving'
     : null;
 
+  // Satellite/Street View need an actual lat/lng (Google's Maps URLs API has
+  // no address-only form for these two view types), so both are gated on
+  // hasPin same as the map embed above, not just an address string.
+  const satelliteHref = hasPin
+    ? 'https://www.google.com/maps/@?api=1&map_action=map&center=' +
+      venue.latitude + ',' + venue.longitude + '&zoom=19&basemap=satellite'
+    : null;
+  const streetViewHref = hasPin
+    ? 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' +
+      venue.latitude + ',' + venue.longitude
+    : null;
+
   const myEntry = lineup.find((l) => l.profile_id === myProfileId) || null;
   const myTravel = myEntry?.travel_cost_pence;
 
@@ -255,15 +267,36 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
             Map not available offline — use the directions button to navigate.
           </p>
         )}
-        {directionsHref && (
-          <button
-            type="button"
-            className="btn btn--primary btn--small"
-            style={{ marginTop: 10 }}
-            onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
-          >
-            Get directions ↗
-          </button>
+        {(directionsHref || satelliteHref || streetViewHref) && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {directionsHref && (
+              <button
+                type="button"
+                className="btn btn--primary btn--small"
+                onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
+              >
+                Get directions ↗
+              </button>
+            )}
+            {satelliteHref && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => window.open(satelliteHref, '_blank', 'noopener,noreferrer')}
+              >
+                Satellite view ↗
+              </button>
+            )}
+            {streetViewHref && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => window.open(streetViewHref, '_blank', 'noopener,noreferrer')}
+              >
+                Street View ↗
+              </button>
+            )}
+          </div>
         )}
       </div>
 

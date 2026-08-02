@@ -103,6 +103,18 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       '&travelmode=driving'
     : null;
 
+  // Satellite/Street View need an actual lat/lng (Google's Maps URLs API has
+  // no address-only form for these two view types), so both are gated on
+  // hasPin same as the map embed above, not just an address string.
+  const satelliteHref = hasPin
+    ? 'https://www.google.com/maps/@?api=1&map_action=map&center=' +
+      venue.latitude + ',' + venue.longitude + '&zoom=19&basemap=satellite'
+    : null;
+  const streetViewHref = hasPin
+    ? 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' +
+      venue.latitude + ',' + venue.longitude
+    : null;
+
   return (
     <div className="entity-detail">
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
@@ -198,15 +210,36 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         </p>
       )}
 
-      {directionsHref && (
-        <button
-          type="button"
-          className="btn btn--primary"
-          style={{ marginTop: 12 }}
-          onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
-        >
-          Get directions
-        </button>
+      {(directionsHref || satelliteHref || streetViewHref) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          {directionsHref && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => window.open(directionsHref, '_blank', 'noopener,noreferrer')}
+            >
+              Get directions
+            </button>
+          )}
+          {satelliteHref && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => window.open(satelliteHref, '_blank', 'noopener,noreferrer')}
+            >
+              Satellite view ↗
+            </button>
+          )}
+          {streetViewHref && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => window.open(streetViewHref, '_blank', 'noopener,noreferrer')}
+            >
+              Street View ↗
+            </button>
+          )}
+        </div>
       )}
 
       <div id="gig-section-roster">
