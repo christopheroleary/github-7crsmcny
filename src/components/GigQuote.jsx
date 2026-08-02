@@ -246,7 +246,8 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
                   <button className="btn btn--ghost" onClick={async () => {
                     const ok = window.confirm('Delete this quote? This cannot be undone.');
                     if (!ok) return;
-                    await supabase.from('quotes').delete().eq('id', quote.id);
+                    const { error } = await supabase.from('quotes').delete().eq('id', quote.id);
+                    if (error) { alert("Couldn't delete: " + error.message); return; }
                     setQuote(null);
                     setItems([]);
                   }}>

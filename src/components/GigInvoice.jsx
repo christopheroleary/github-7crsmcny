@@ -205,7 +205,8 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                   <button className="btn btn--ghost" onClick={async () => {
                     const ok = window.confirm('Delete this invoice? This cannot be undone.');
                     if (!ok) return;
-                    await supabase.from('invoices').delete().eq('id', invoice.id);
+                    const { error } = await supabase.from('invoices').delete().eq('id', invoice.id);
+                    if (error) { alert("Couldn't delete: " + error.message); return; }
                     setInvoice(null);
                     setItems([]);
                   }}>

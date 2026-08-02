@@ -136,7 +136,8 @@ export default function GigContract({ gigId, gigFeeAmount }) {
                   <button className="btn btn--ghost" onClick={async () => {
                     const ok = window.confirm('Delete this contract? This cannot be undone.');
                     if (!ok) return;
-                    await supabase.from('contracts').delete().eq('id', contract.id);
+                    const { error } = await supabase.from('contracts').delete().eq('id', contract.id);
+                    if (error) { alert("Couldn't delete: " + error.message); return; }
                     setContract(null);
                   }}>
                     Delete contract
