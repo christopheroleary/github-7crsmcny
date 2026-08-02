@@ -14,6 +14,7 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
   const [contactTitle, setContactTitle] = useState(venue?.contact_title || '');
   const [phone, setPhone] = useState(venue?.phone || '');
   const [email, setEmail] = useState(venue?.email || '');
+  const [website, setWebsite] = useState(venue?.website || '');
   const [loadInNotes, setLoadInNotes] = useState(venue?.load_in_notes || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -32,6 +33,7 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
       contact_title: contactTitle || null,
       phone: phone || null,
       email: email || null,
+      website: website || null,
       load_in_notes: loadInNotes || null,
     };
 
@@ -46,6 +48,15 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
     }
     onSaved?.();
   }
+
+  // OpenStreetMap/Photon (used above for address autocomplete) don't
+  // reliably carry phone/website for the kind of small, often-private
+  // venues this app deals with -- that data mostly lives in each venue's
+  // Google Business Profile instead, so this just jumps straight to a
+  // pre-filled search rather than trying to auto-fetch it.
+  const lookupHref = name.trim()
+    ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name + (address ? ', ' + address : ''))
+    : null;
 
   return (
     <form className="entity-form" onSubmit={handleSubmit}>
@@ -72,6 +83,13 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
         {latitude != null && <p className="address-autocomplete__credit">Map location set ✓</p>}
       </label>
 
+      {lookupHref && (
+        <p className="field__hint" style={{ marginTop: -8, marginBottom: 16 }}>
+          <a href={lookupHref} target="_blank" rel="noopener noreferrer">Find on Google Maps ↗</a>
+          {' '}— useful for finding this venue's phone number or website to fill in below.
+        </p>
+      )}
+
       <div className="field-row">
         <label className="field">
           <span className="field__label">Contact name</span>
@@ -93,6 +111,11 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
       </div>
+
+      <label className="field">
+        <span className="field__label">Website</span>
+        <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://…" />
+      </label>
 
       <label className="field">
         <span className="field__label">Load-in notes</span>

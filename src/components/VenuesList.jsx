@@ -105,6 +105,8 @@ export default function VenuesList() {
                       <dd>{v.contact_name ? v.contact_name + (v.contact_title ? ' (' + v.contact_title + ')' : '') : '—'}</dd>
                       <dt>Phone</dt><dd>{v.phone || '—'}</dd>
                       <dt>Email</dt><dd>{v.email || '—'}</dd>
+                      <dt>Website</dt>
+                      <dd>{v.website ? <a href={v.website} target="_blank" rel="noopener noreferrer">{v.website} ↗</a> : '—'}</dd>
                       <dt>Load-in notes</dt><dd>{v.load_in_notes || '—'}</dd>
                     </dl>
                   )}
