@@ -926,6 +926,15 @@ input:not([type]) {
   margin-bottom: 8px;
   background: var(--paper);
 }
+/* The floating clone that follows the pointer/finger while dragging (see
+   DragOverlay in GigSetlist.jsx) -- lifted off the page with a shadow so it
+   visually reads as "picked up", matching a native app's drag feedback
+   rather than a plain reordering list. */
+.setlist-song--overlay {
+  box-shadow: 0 8px 20px rgba(30, 27, 22, 0.18);
+  background: var(--paper-raised);
+  cursor: grabbing;
+}
 .setlist-song__row {
   display: flex;
   align-items: center;

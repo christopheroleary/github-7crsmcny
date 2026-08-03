@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
+import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function GigSetlist({ gigId, bandId }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
@@ -24,7 +27,7 @@ export default function GigSetlist({ gigId, bandId }) {
 
     const { data: setlistRows } = await supabase
       .from('setlists')
-      .select('id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url, is_public))')
+      .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, lyrics, reference_url, is_public))')
       .eq('band_id', bandId)
       .order('name');
 
@@ -139,6 +142,34 @@ export default function GigSetlist({ gigId, bandId }) {
     load();
   }
 
+  // Optimistic reorder: update the on-screen order immediately (no network
+  // wait, no reload) so dragging feels instant, then persist positions in
+  // the background. A full reload() here -- the old approach -- flips the
+  // whole Setlist section back to "Loading…" and re-renders it from
+  // scratch, which is what made letting go of a drag feel like a page
+  // refresh and reset the scroll position to the top of the section
+  // instead of staying where you dropped it. Reverts and reports the error
+  // if the background save genuinely fails.
+  async function handleReorderSongs(setlistId, reorderedItems) {
+    const previousSetlists = bandSetlists;
+    setBandSetlists((prev) =>
+      prev.map((sl) => (sl.id === setlistId ? { ...sl, setlist_items: reorderedItems } : sl))
+    );
+
+    const { error } = await supabase.from('setlist_items').upsert(
+      reorderedItems.map((item, idx) => ({
+        id: item.id,
+        setlist_id: setlistId,
+        song_id: item.song_id,
+        position: idx + 1,
+      }))
+    );
+    if (error) {
+      alert("Couldn't save the new song order: " + error.message);
+      setBandSetlists(previousSetlists);
+    }
+  }
+
   if (!bandId) {
     return (
       <div className="roster-section">
@@ -170,6 +201,7 @@ export default function GigSetlist({ gigId, bandId }) {
           canMakePublic={isAdmin}
           onAddSong={handleAddSong}
           onRemoveSong={handleRemoveSong}
+          onReorder={handleReorderSongs}
           onDetach={() => handleDetach(setlist.id)}
           onDeleteTemplate={() => handleDeleteTemplate(setlist)}
           reload={load}
@@ -217,12 +249,13 @@ export default function GigSetlist({ gigId, bandId }) {
   );
 }
 
-function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRemoveSong, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
+  const [activeId, setActiveId] = useState(null);
 
   function handleAdd(e) {
     e.preventDefault();
@@ -231,27 +264,25 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
     setNewTitle('');
   }
 
-  function handleDragStart(e, itemId) {
-    e.dataTransfer.setData('text/plain', itemId);
+  // distance:4 lets a tap on the handle register as a tap (opening nothing,
+  // since the handle has no click action) rather than every touch briefly
+  // registering as a drag -- and, combined with touch-action:none on the
+  // handle itself below, is what makes this feel like an app drag instead
+  // of fighting the page's own touch-scroll.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const activeItem = activeId ? setlist.setlist_items.find((i) => i.id === activeId) : null;
+
+  function handleDragStart(event) {
+    setActiveId(event.active.id);
   }
-  function handleDragOver(e) {
-    e.preventDefault();
-  }
-  async function handleDrop(e, targetItemId) {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData('text/plain');
-    if (!draggedId || draggedId === targetItemId) return;
-
-    const items = [...setlist.setlist_items];
-    const fromIndex = items.findIndex((i) => i.id === draggedId);
-    const toIndex = items.findIndex((i) => i.id === targetItemId);
-    if (fromIndex === -1 || toIndex === -1) return;
-
-    const [moved] = items.splice(fromIndex, 1);
-    items.splice(toIndex, 0, moved);
-
-    await Promise.all(items.map((item, idx) => supabase.from('setlist_items').update({ position: idx + 1 }).eq('id', item.id)));
-    reload();
+  function handleDragEnd(event) {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id || !isAdmin) return;
+    const oldIndex = setlist.setlist_items.findIndex((i) => i.id === active.id);
+    const newIndex = setlist.setlist_items.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onReorder(setlist.id, arrayMove(setlist.setlist_items, oldIndex, newIndex));
   }
 
   const [renaming, setRenaming] = useState(false);
@@ -292,64 +323,32 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
       {setlist.setlist_items.length === 0 ? (
         <p className="state-message" style={{ padding: '4px 0', textAlign: 'left' }}>No songs added yet.</p>
       ) : (
-        <ol className="setlist-block__songs">
-          {setlist.setlist_items.map((item, idx) => {
-            const song = item.songs;
-            const isEditing = editingItemId === item.id;
-            return (
-              <li
-                key={item.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, item.id)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, item.id)}
-                className="setlist-song"
-              >
-                <div className="setlist-song__row">
-                  <span className="setlist-song__handle" title="Drag to reorder">⠿</span>
-                  <span className="setlist-song__number">{idx + 1}</span>
-                  <span className="setlist-song__title">
-                    {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
-                    {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
-                  </span>
-                  <div className="setlist-song__actions">
-                    {song?.reference_url && (
-                      <button className="link-button" onClick={() => setShowPlayerId(showPlayerId === item.id ? null : item.id)}>
-                        {showPlayerId === item.id ? 'Hide player' : 'Listen'}
-                      </button>
-                    )}
-                    {song?.lyrics && (
-                      <button className="link-button" onClick={() => setShowLyricsId(showLyricsId === item.id ? null : item.id)}>
-                        {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
-                      </button>
-                    )}
-                    {song && (
-                      <button className="link-button" onClick={() => setEditingItemId(isEditing ? null : item.id)}>
-                        {isEditing ? 'Close' : 'Edit'}
-                      </button>
-                    )}
-                    <button className="link-button link-button--danger" onClick={() => onRemoveSong(item)}>×</button>
-                  </div>
-                </div>
-
-                {isEditing && song && (
-                  <SongEditFields
-                    song={song}
-                    canMakePublic={canMakePublic}
-                    onSaved={() => {
-                      setEditingItemId(null);
-                      reload();
-                    }}
-                    onCancel={() => setEditingItemId(null)}
-                  />
-                )}
-
-                {!isEditing && showPlayerId === item.id && <ReferencePlayer url={song?.reference_url} />}
-                {!isEditing && showLyricsId === item.id && <LyricsView text={song?.lyrics} />}
-              </li>
-            );
-          })}
-        </ol>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <SortableContext items={setlist.setlist_items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <ol className="setlist-block__songs">
+              {setlist.setlist_items.map((item, idx) => (
+                <SortableSongItem
+                  key={item.id}
+                  item={item}
+                  idx={idx}
+                  isAdmin={isAdmin}
+                  canMakePublic={canMakePublic}
+                  isEditing={editingItemId === item.id}
+                  showPlayerId={showPlayerId}
+                  showLyricsId={showLyricsId}
+                  onRemoveSong={onRemoveSong}
+                  setShowPlayerId={setShowPlayerId}
+                  setShowLyricsId={setShowLyricsId}
+                  setEditingItemId={setEditingItemId}
+                  reload={reload}
+                />
+              ))}
+            </ol>
+          </SortableContext>
+          <DragOverlay>
+            {activeItem ? <SongRowPreview item={activeItem} /> : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {isAdmin && (
@@ -379,6 +378,92 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
         </form>
       )}
     </div>
+  );
+}
+
+function SortableSongItem({
+  item, idx, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId,
+  onRemoveSong, setShowPlayerId, setShowLyricsId, setEditingItemId, reload,
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const song = item.songs;
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <li ref={setNodeRef} style={style} className="setlist-song">
+      <div className="setlist-song__row">
+        <span
+          className="setlist-song__handle"
+          title={isAdmin ? 'Drag to reorder' : undefined}
+          style={{ touchAction: 'none', cursor: isAdmin ? 'grab' : 'default' }}
+          {...(isAdmin ? attributes : {})}
+          {...(isAdmin ? listeners : {})}
+        >
+          ⠿
+        </span>
+        <span className="setlist-song__number">{idx + 1}</span>
+        <span className="setlist-song__title">
+          {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
+          {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
+        </span>
+        <div className="setlist-song__actions">
+          {song?.reference_url && (
+            <button className="link-button" onClick={() => setShowPlayerId(showPlayerId === item.id ? null : item.id)}>
+              {showPlayerId === item.id ? 'Hide player' : 'Listen'}
+            </button>
+          )}
+          {song?.lyrics && (
+            <button className="link-button" onClick={() => setShowLyricsId(showLyricsId === item.id ? null : item.id)}>
+              {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
+            </button>
+          )}
+          {song && (
+            <button className="link-button" onClick={() => setEditingItemId(isEditing ? null : item.id)}>
+              {isEditing ? 'Close' : 'Edit'}
+            </button>
+          )}
+          <button className="link-button link-button--danger" onClick={() => onRemoveSong(item)}>×</button>
+        </div>
+      </div>
+
+      {isEditing && song && (
+        <SongEditFields
+          song={song}
+          canMakePublic={canMakePublic}
+          onSaved={() => {
+            setEditingItemId(null);
+            reload();
+          }}
+          onCancel={() => setEditingItemId(null)}
+        />
+      )}
+
+      {!isEditing && showPlayerId === item.id && <ReferencePlayer url={song?.reference_url} />}
+      {!isEditing && showLyricsId === item.id && <LyricsView text={song?.lyrics} />}
+    </li>
+  );
+}
+
+// Static floating preview shown under the pointer/finger while dragging --
+// deliberately simplified (no action buttons, no expandable lyrics/player)
+// since it's a transient visual stand-in for the row, not an interactive one.
+function SongRowPreview({ item }) {
+  const song = item.songs;
+  return (
+    <li className="setlist-song setlist-song--overlay">
+      <div className="setlist-song__row">
+        <span className="setlist-song__handle" style={{ cursor: 'grabbing' }}>⠿</span>
+        <span className="setlist-song__title">
+          {song ? song.title : 'Song details unavailable'}
+          {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
+        </span>
+      </div>
+    </li>
   );
 }
 
