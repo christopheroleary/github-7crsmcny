@@ -236,8 +236,8 @@ export default function MyProfile() {
           <p className="field__hint" style={{ margin: 0 }}>
             When you use this app, we log basic technical info — device type, browser, screen size, whether
             you've installed it as a PWA, your notification permission, your IP address, and when you were
-            last active. This is used only by the band admin, to monitor app usage and troubleshoot problems
-            — never shared outside the band, and not visible to band leaders or other musicians.
+            last active. This is used only by the admin, to monitor app usage and troubleshoot problems
+            — never shared outside the app, and not visible to band leaders or other musicians.
           </p>
         </div>
 
