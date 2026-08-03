@@ -31,6 +31,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,9 +94,15 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   async function handleCalculate() {
     if (!split) return;
     setCalculating(true);
+    setError(null);
     for (const row of lineup) {
       const fee = feeForRow(row, split);
-      await supabase.from('gig_lineup').update({ fee_pence: fee }).eq('id', row.id);
+      const { error: updateError } = await supabase.from('gig_lineup').update({ fee_pence: fee }).eq('id', row.id);
+      if (updateError) {
+        setError(updateError.message);
+        setCalculating(false);
+        return;
+      }
     }
     setCalculating(false);
     load();
@@ -103,7 +110,11 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
   async function handleOverride(entryId, pounds) {
     const pence = pounds === '' ? null : Math.round(Number(pounds) * 100);
-    await supabase.from('gig_lineup').update({ fee_pence: pence }).eq('id', entryId);
+    const { error: updateError } = await supabase.from('gig_lineup').update({ fee_pence: pence }).eq('id', entryId);
+    if (updateError) {
+      alert("Couldn't save fee: " + updateError.message);
+      return;
+    }
     load();
   }
 
@@ -204,6 +215,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
           raising the fee or booking fewer musicians.
         </p>
       )}
+      {error && <p className="form-error">Couldn't save fees: {error}</p>}
 
       <button
         type="button"

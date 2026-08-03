@@ -232,11 +232,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     }
     for (const r of requirements) {
       if (!r.instrument_id) continue;
-      if (r.id) {
-        await supabase.from('gig_requirements').update({ instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 }).eq('id', r.id);
-      } else {
-        await supabase.from('gig_requirements').insert({ gig_id: gigId, instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 });
-      }
+      const { error: re } = r.id
+        ? await supabase.from('gig_requirements').update({ instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 }).eq('id', r.id)
+        : await supabase.from('gig_requirements').insert({ gig_id: gigId, instrument_id: r.instrument_id, quantity: Number(r.quantity) || 1 });
+      if (re) { setError(re.message); setSubmitting(false); return; }
     }
 
     setSubmitting(false);

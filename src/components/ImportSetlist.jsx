@@ -138,17 +138,49 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         const activeIndices = indices.filter((i) => !parsed[i].skip);
         if (activeIndices.length === 0) continue;
 
-        const { data: newSetlist, error: setlistError } = await supabase
+        // Reuse a set of this name already attached to this gig rather than
+        // creating a duplicate -- e.g. re-running an import of the same
+        // paste (after navigating back, or doing it again next day) would
+        // otherwise leave two identical "Set 1"s attached to one gig.
+        let setlistId = null;
+        let startPosition = 0;
+        const { data: sameNameSetlists } = await supabase
           .from('setlists')
-          .insert({ band_id: bandId, name: sectionName })
-          .select()
-          .single();
-        if (setlistError) throw setlistError;
+          .select('id')
+          .eq('band_id', bandId)
+          .eq('name', sectionName);
+        if (sameNameSetlists && sameNameSetlists.length > 0) {
+          const { data: attachedRows } = await supabase
+            .from('gig_setlists')
+            .select('setlist_id')
+            .eq('gig_id', gigId)
+            .in('setlist_id', sameNameSetlists.map((s) => s.id));
+          if (attachedRows && attachedRows.length > 0) {
+            setlistId = attachedRows[0].setlist_id;
+            const { data: existingItems } = await supabase
+              .from('setlist_items')
+              .select('position')
+              .eq('setlist_id', setlistId)
+              .order('position', { ascending: false })
+              .limit(1);
+            startPosition = existingItems?.[0]?.position || 0;
+          }
+        }
 
-        const { error: attachError } = await supabase
-          .from('gig_setlists')
-          .insert({ gig_id: gigId, setlist_id: newSetlist.id });
-        if (attachError) throw attachError;
+        if (!setlistId) {
+          const { data: newSetlist, error: setlistError } = await supabase
+            .from('setlists')
+            .insert({ band_id: bandId, name: sectionName })
+            .select()
+            .single();
+          if (setlistError) throw setlistError;
+          setlistId = newSetlist.id;
+
+          const { error: attachError } = await supabase
+            .from('gig_setlists')
+            .insert({ gig_id: gigId, setlist_id: setlistId });
+          if (attachError) throw attachError;
+        }
 
         const needsNewSong = activeIndices.filter((i) => !parsed[i].matchedSongId);
         let createdSongs = [];
@@ -169,9 +201,9 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         const createdSongIdByIndex = new Map(needsNewSong.map((i, idx) => [i, createdSongs[idx]?.id]));
 
         const itemsToInsert = activeIndices.map((i, pos) => ({
-          setlist_id: newSetlist.id,
+          setlist_id: setlistId,
           song_id: parsed[i].matchedSongId || createdSongIdByIndex.get(i),
-          position: pos + 1,
+          position: startPosition + pos + 1,
         }));
 
         const { error: itemsError } = await supabase.from('setlist_items').insert(itemsToInsert);

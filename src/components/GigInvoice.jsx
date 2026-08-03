@@ -271,7 +271,8 @@ function InvoiceEditor({ invoice, items: initialItems, onSaved }) {
 
     if (invError) { setError(invError.message); setSaving(false); return; }
 
-    await supabase.from('invoice_items').delete().eq('invoice_id', invoice.id);
+    const { error: deleteError } = await supabase.from('invoice_items').delete().eq('invoice_id', invoice.id);
+    if (deleteError) { setError(deleteError.message); setSaving(false); return; }
     if (items.length > 0) {
       const { error: itemsError } = await supabase.from('invoice_items').insert(
         items.map((item, i) => ({

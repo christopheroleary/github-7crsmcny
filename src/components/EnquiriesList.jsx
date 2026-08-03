@@ -33,16 +33,24 @@ export default function EnquiriesList() {
   );
 
   async function updateStatus(id, status) {
-    await supabase.from('enquiries').update({ status }).eq('id', id);
+    const { error } = await supabase.from('enquiries').update({ status }).eq('id', id);
+    if (error) {
+      alert("Couldn't update status: " + error.message);
+      return;
+    }
     load();
   }
 
   async function saveNotes(id, notes) {
-    await supabase.from('enquiries').update({ admin_notes: notes }).eq('id', id);
+    const { error } = await supabase.from('enquiries').update({ admin_notes: notes }).eq('id', id);
+    if (error) alert("Couldn't save notes: " + error.message);
   }
 
   async function handleGigSaved(gigId, enquiryId) {
-    await supabase.from('enquiries').update({ status: 'converted' }).eq('id', enquiryId);
+    const { error } = await supabase.from('enquiries').update({ status: 'converted' }).eq('id', enquiryId);
+    if (error) {
+      alert("Gig was saved, but couldn't mark the enquiry as converted: " + error.message);
+    }
     setConvertingEnq(null);
     setExpandedId(null);
     load();

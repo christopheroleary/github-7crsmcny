@@ -527,7 +527,7 @@ export default function GigRoster({ gigId }) {
                   <span className="simple-list__subtitle">
                     {[entry.instruments?.name, entry.is_dj && 'DJ', entry.is_roadie && 'Roadie'].filter(Boolean).join(' + ') || '—'}
                   </span>
-                  {isAdmin && (
+                  {isAdmin && !hidesVocalPrompt(instruments, entry.instrument_id, entry.is_dj, entry.is_roadie) && (
                     <select
                       value={entry.vocal_role || ''}
                       onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}

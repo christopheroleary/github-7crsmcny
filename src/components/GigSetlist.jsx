@@ -260,7 +260,11 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
   async function handleRename(e) {
     e.preventDefault();
     if (!renameValue.trim()) return;
-    await supabase.from('setlists').update({ name: renameValue }).eq('id', setlist.id);
+    const { error } = await supabase.from('setlists').update({ name: renameValue }).eq('id', setlist.id);
+    if (error) {
+      alert("Couldn't rename set: " + error.message);
+      return;
+    }
     setRenaming(false);
     reload();
   }

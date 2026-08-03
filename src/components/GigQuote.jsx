@@ -316,7 +316,8 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
 
     if (quoteError) { setError(quoteError.message); setSaving(false); return; }
 
-    await supabase.from('quote_items').delete().eq('quote_id', quote.id);
+    const { error: deleteError } = await supabase.from('quote_items').delete().eq('quote_id', quote.id);
+    if (deleteError) { setError(deleteError.message); setSaving(false); return; }
     if (items.length > 0) {
       const { error: itemsError } = await supabase.from('quote_items').insert(
         items.map((item, i) => ({

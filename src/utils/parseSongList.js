@@ -58,9 +58,11 @@ function toTitleCaseIfShouting(text) {
   if (!text) return text;
   const letters = text.replace(/[^A-Za-z]/g, '');
   if (letters.length > 2 && letters === letters.toUpperCase()) {
-    // Capitalise after whitespace/start/hyphen only -- not after an
-    // apostrophe, so "DON'T" becomes "Don't" rather than "Don'T".
-    return text.toLowerCase().replace(/(^|[\s-])([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
+    // Capitalise after whitespace/start/hyphen/slash/dot -- not after an
+    // apostrophe, so "DON'T" becomes "Don't" rather than "Don'T". Slash and
+    // dot matter for real artist/title formats like "AC/DC" and "Y.M.C.A.",
+    // which would otherwise come out as "Ac/dc" and "Y.m.c.a.".
+    return text.toLowerCase().replace(/(^|[\s/.-])([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
   }
   return text;
 }

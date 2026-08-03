@@ -39,12 +39,23 @@ const SESSION_LOG_THROTTLE_MS = 30 * 60 * 1000;
 const SESSION_LOG_KEY = 'gig_manager_last_session_log_at';
 
 function maybeLogSession() {
+  let last = 0;
   try {
-    const last = Number(localStorage.getItem(SESSION_LOG_KEY) || 0);
-    if (Date.now() - last < SESSION_LOG_THROTTLE_MS) return;
-    localStorage.setItem(SESSION_LOG_KEY, String(Date.now()));
+    last = Number(localStorage.getItem(SESSION_LOG_KEY) || 0);
   } catch {}
-  supabase.functions.invoke('log-session', { body: getDeviceInfo() }).catch(() => {});
+  if (Date.now() - last < SESSION_LOG_THROTTLE_MS) return;
+
+  // Stamp the throttle only once the call actually succeeds -- stamping it
+  // up front meant a single failed invoke (cold start, transient network
+  // blip) silently blocked any retry for the full 30 minutes, with that
+  // device never appearing in the admin Activity dashboard and no error
+  // surfaced anywhere.
+  supabase.functions.invoke('log-session', { body: getDeviceInfo() })
+    .then(({ error }) => {
+      if (error) return;
+      try { localStorage.setItem(SESSION_LOG_KEY, String(Date.now())); } catch {}
+    })
+    .catch(() => {});
 }
 
 export function ProfileProvider({ children }) {
