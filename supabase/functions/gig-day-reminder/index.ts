@@ -90,11 +90,13 @@ Deno.serve(async (_req) => {
 
     const today = todayInLondon();
 
+    // Only confirmed gigs -- an inquiry hasn't actually been booked yet, so
+    // telling musicians "you're on today" for one would be actively wrong.
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
       .select('id, load_in_time, start_time, venues(name)')
       .eq('gig_date', today)
-      .neq('status', 'cancelled');
+      .eq('status', 'confirmed');
 
     if (gigsError) throw gigsError;
     if (!gigs || gigs.length === 0) {
