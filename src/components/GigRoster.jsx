@@ -528,6 +528,15 @@ export default function GigRoster({ gigId }) {
                     {[entry.instruments?.name, entry.is_dj && 'DJ', entry.is_roadie && 'Roadie'].filter(Boolean).join(' + ') || '—'}
                   </span>
                   {isAdmin && (
+                    <select
+                      value={entry.vocal_role || ''}
+                      onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}
+                      style={{ fontSize: 12, marginTop: 6, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
+                    >
+                      {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  )}
+                  {isAdmin && (
                     <div className="role-toggle-group" style={{ marginTop: 6 }}>
                       <RoleToggle
                         label="DJ"
@@ -548,15 +557,6 @@ export default function GigRoster({ gigId }) {
                         onClick={() => handleToggleCaptain(entry)}
                       />
                     </div>
-                  )}
-                  {isAdmin && (
-                    <select
-                      value={entry.vocal_role || ''}
-                      onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}
-                      style={{ fontSize: 12, marginTop: 6, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
-                    >
-                      {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
                   )}
                 </div>
                 <div className="simple-list__actions">
@@ -629,10 +629,6 @@ export default function GigRoster({ gigId }) {
             {newMusicianId && pickedMusicianInstruments.length === 0 && (
               <p className="field__hint">No instruments on profile — showing all.</p>
             )}
-            <div className="role-toggle-group">
-              <RoleToggle label="DJ" active={newIsDj} colour={DJ_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsDj((v) => !v)} />
-              <RoleToggle label="Roadie" active={newIsRoadie} colour={ROADIE_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsRoadie((v) => !v)} />
-            </div>
             {!hidesVocalPrompt(availableForMusician, newInstrumentId, newIsDj, newIsRoadie) && (
               <select
                 value={newVocalRole}
@@ -642,6 +638,10 @@ export default function GigRoster({ gigId }) {
                 {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             )}
+            <div className="role-toggle-group">
+              <RoleToggle label="DJ" active={newIsDj} colour={DJ_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsDj((v) => !v)} />
+              <RoleToggle label="Roadie" active={newIsRoadie} colour={ROADIE_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsRoadie((v) => !v)} />
+            </div>
             <button type="submit" className="btn btn--primary btn--small" disabled={adding || !newMusicianId || (!newInstrumentId && !newIsDj && !newIsRoadie)}>
               {adding ? 'Adding…' : '+ Add to roster'}
             </button>
@@ -714,10 +714,6 @@ export default function GigRoster({ gigId }) {
                           {selectedDepData?.knownInstruments?.length === 0 && (
                             <p className="field__hint">No instruments saved for this dep yet — your selection will be saved to their profile.</p>
                           )}
-                          <div className="role-toggle-group">
-                            <RoleToggle label="DJ" active={placeholderIsDj} colour={DJ_COLOUR} onClick={() => setPlaceholderIsDj((v) => !v)} />
-                            <RoleToggle label="Roadie" active={placeholderIsRoadie} colour={ROADIE_COLOUR} onClick={() => setPlaceholderIsRoadie((v) => !v)} />
-                          </div>
                           {!hidesVocalPrompt(availableForDep, placeholderInstrumentId, placeholderIsDj, placeholderIsRoadie) && (
                             <select
                               value={placeholderVocalRole}
@@ -726,6 +722,10 @@ export default function GigRoster({ gigId }) {
                               {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
                           )}
+                          <div className="role-toggle-group">
+                            <RoleToggle label="DJ" active={placeholderIsDj} colour={DJ_COLOUR} onClick={() => setPlaceholderIsDj((v) => !v)} />
+                            <RoleToggle label="Roadie" active={placeholderIsRoadie} colour={ROADIE_COLOUR} onClick={() => setPlaceholderIsRoadie((v) => !v)} />
+                          </div>
                         </>
                       )}
 
@@ -757,10 +757,6 @@ export default function GigRoster({ gigId }) {
                     <option value="">No instrument (DJ / roadie only)</option>
                     {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
-                  <div className="role-toggle-group">
-                    <RoleToggle label="DJ" active={newDepIsDj} colour={DJ_COLOUR} onClick={() => setNewDepIsDj((v) => !v)} />
-                    <RoleToggle label="Roadie" active={newDepIsRoadie} colour={ROADIE_COLOUR} onClick={() => setNewDepIsRoadie((v) => !v)} />
-                  </div>
                   {!hidesVocalPrompt(instruments, newDepInstrumentId, newDepIsDj, newDepIsRoadie) && (
                     <select
                       value={newDepVocalRole}
@@ -769,6 +765,10 @@ export default function GigRoster({ gigId }) {
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   )}
+                  <div className="role-toggle-group">
+                    <RoleToggle label="DJ" active={newDepIsDj} colour={DJ_COLOUR} onClick={() => setNewDepIsDj((v) => !v)} />
+                    <RoleToggle label="Roadie" active={newDepIsRoadie} colour={ROADIE_COLOUR} onClick={() => setNewDepIsRoadie((v) => !v)} />
+                  </div>
                   <p className="field__hint">Their instrument (if any) will be saved so you can reuse them on future gigs.</p>
                   <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
                     <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
