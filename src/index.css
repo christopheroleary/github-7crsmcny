@@ -1019,6 +1019,45 @@ input {
 }
 
 /* ============================================================
+   Admin user activity table
+   ============================================================ */
+
+.activity-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.activity-table table {
+  border-collapse: collapse;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.activity-table th,
+.activity-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.activity-table thead th {
+  background: var(--paper-raised);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 11px;
+}
+
+.activity-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================================
    Band leader gig roster grid
    ============================================================ */
 

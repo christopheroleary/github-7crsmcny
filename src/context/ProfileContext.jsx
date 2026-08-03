@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { getDeviceInfo } from '../utils/deviceInfo.js';
 
 // Applies the user's app-wide UI colour theme (My Profile) via a
 // data-theme attribute on <html> -- separate from --doc-accent/
@@ -29,6 +30,21 @@ function writeCachedProfile(profile, ledBandIds) {
   try {
     localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ profile, ledBandIds }));
   } catch {}
+}
+
+// Lets the admin-only Activity dashboard show device/PWA/notification info
+// per user without logging every render or tab focus -- once confirmed
+// signed in over the network, at most once per half hour per browser.
+const SESSION_LOG_THROTTLE_MS = 30 * 60 * 1000;
+const SESSION_LOG_KEY = 'gig_manager_last_session_log_at';
+
+function maybeLogSession() {
+  try {
+    const last = Number(localStorage.getItem(SESSION_LOG_KEY) || 0);
+    if (Date.now() - last < SESSION_LOG_THROTTLE_MS) return;
+    localStorage.setItem(SESSION_LOG_KEY, String(Date.now()));
+  } catch {}
+  supabase.functions.invoke('log-session', { body: getDeviceInfo() }).catch(() => {});
 }
 
 export function ProfileProvider({ children }) {
@@ -74,6 +90,8 @@ export function ProfileProvider({ children }) {
 
       setProfile(data || null);
       applyUiTheme(data?.ui_theme);
+      // Admin's own usage is deliberately never collected here.
+      if (data && data.role !== 'admin') maybeLogSession();
 
       let leaderIds = [];
       if (data?.role === 'band_leader') {

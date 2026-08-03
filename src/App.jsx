@@ -11,6 +11,7 @@ import MyProfile from './components/MyProfile.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EnquiriesList from './components/EnquiriesList.jsx';
+import UserActivity from './components/UserActivity.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
 import PublicDocumentView from './components/PublicDocumentView.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
@@ -132,6 +133,7 @@ export default function App() {
     ['clients', 'Clients'],
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
+    ['activity', 'Activity'],
   ];
 
   const bandLeaderTabs = [
@@ -190,6 +192,7 @@ export default function App() {
         {view === 'clients' && (isAdmin || isBandLeader) && <ClientsList />}
         {view === 'bands' && (isAdmin || isBandLeader) && <BandsList />}
         {view === 'musicians' && (isAdmin || isBandLeader) && <MusiciansList />}
+        {view === 'activity' && isAdmin && <UserActivity />}
         {view === 'profile' && <MyProfile />}
       </main>
     </div>
