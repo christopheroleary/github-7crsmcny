@@ -521,14 +521,26 @@ input {
 /* Native <select>/date/time controls report their own intrinsic content
    width to the layout -- a <select> sizes to its widest <option> text,
    native date/time pickers carry their own near-fixed width -- rather than
-   shrinking to fit a narrow flex column or phone screen. iOS Safari is
-   especially prone to this, overflowing its container even when the field
-   is empty and holds no long value yet. Applied globally (not just inside
-   .field) since it also hits raw <select>s used outside a form field
-   wrapper, e.g. the "pick an existing song" picker. */
+   shrinking to fit a narrow flex column or phone screen. Plain text-style
+   inputs have the same problem in a flex row: their default min-width:auto
+   refuses to shrink below the browser's intrinsic input width, overflowing
+   a narrow container even with no text typed in yet. iOS Safari is
+   especially prone to both. Applied globally (not just inside .field)
+   since some of these sit outside a form field wrapper entirely, e.g. the
+   setlist's "pick an existing song" select and its neighbouring "type a
+   new song title" input. Checkbox/radio are excluded -- they must keep
+   their native small size, not stretch to fill the row. */
 select,
 input[type="date"],
-input[type="time"] {
+input[type="time"],
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+input[type="search"],
+input:not([type]) {
   width: 100%;
   max-width: 100%;
   min-width: 0;
