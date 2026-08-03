@@ -5,12 +5,12 @@ import { useOfflineGigList } from '../hooks/useOfflineGigList.js';
 import GigForm from './GigForm.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
-import { formatShortDate, formatTicketStub } from '../utils/formatDate.js';
+import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
 import CalendarFeed from './CalendarFeed.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayStr;
 
 // ── Claim status display maps (mirrors MusicianClaim.jsx) ─────────────────────
 const CLAIM_CARD_LABELS = {

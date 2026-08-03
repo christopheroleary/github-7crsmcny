@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { todayStr } from '../utils/formatDate.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ function getKnownCachedIds() {
   }
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayStr;
 
 // ─── Network fetchers ─────────────────────────────────────────────────────────
 

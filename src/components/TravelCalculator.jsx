@@ -108,6 +108,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
       {error && <p className="form-error">{error}</p>}
 
+      <div style={{ overflowX: 'auto' }}>
       <table className="travel-table">
         <thead>
           <tr>
@@ -156,6 +157,7 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
           </tfoot>
         )}
       </table>
+      </div>
 
       {hasAnyMissing && (
         <p className="field__hint" style={{ marginTop: 6 }}>

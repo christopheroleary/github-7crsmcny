@@ -614,6 +614,7 @@ input:not([type]) {
   margin-top: 2px;
   font-size: 13px;
   color: var(--text-muted);
+  overflow-wrap: break-word;
 }
 
 /* ---------- Address autocomplete ---------- */
@@ -785,6 +786,7 @@ input:not([type]) {
 }
 .detail-list dd {
   margin: 0;
+  overflow-wrap: break-word;
 }
 .entity-detail {
   background: var(--paper-raised);
@@ -2108,12 +2110,6 @@ input:not([type]) {
   margin: 0;
 }
 
-@media (max-width: 480px) {
-  .notif-panel {
-    width: calc(100vw - 32px);
-    right: -8px;
-  }
-}
 .gig-card--historic {
   opacity: 0.6;
 }

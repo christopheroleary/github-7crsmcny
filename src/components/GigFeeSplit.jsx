@@ -145,7 +145,8 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         </p>
       )}
 
-      <table className="travel-table" style={{ marginTop: 8 }}>
+      <div style={{ overflowX: 'auto', marginTop: 8 }}>
+      <table className="travel-table">
         <thead>
           <tr><th>Musician</th><th>Role</th><th>Fee</th></tr>
         </thead>
@@ -175,6 +176,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
           })}
         </tbody>
       </table>
+      </div>
 
       <dl className="detail-list" style={{ marginTop: 12 }}>
         <dt>Total fee</dt><dd>£{poundsFromPence(totalFeePence)}</dd>

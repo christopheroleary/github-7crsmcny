@@ -190,7 +190,8 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
               <dt>Total</dt><dd><strong>£{poundsFromPence(total)}</strong></dd>
             </dl>
 
-            <table className="travel-table" style={{ marginTop: 8 }}>
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+            <table className="travel-table">
               <thead>
                 <tr><th>Description</th><th>Qty</th><th>Unit</th><th>Amount</th></tr>
               </thead>
@@ -211,6 +212,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
                 </tr>
               </tfoot>
             </table>
+            </div>
 
             <div className="field" style={{ marginTop: 12 }}>
               <span className="field__label">Client view link</span>
@@ -359,6 +361,7 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
 
       <div className="field" style={{ marginTop: 8 }}>
         <span className="field__label">Line items</span>
+        <div style={{ overflowX: 'auto' }}>
         <table className="travel-table">
           <thead>
             <tr><th>Description</th><th style={{ width: 60 }}>Qty</th><th style={{ width: 100 }}>Unit (£)</th><th style={{ width: 90 }}>Total</th><th></th></tr>
@@ -392,6 +395,7 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
             </tr>
           </tfoot>
         </table>
+        </div>
         <button type="button" className="link-button" style={{ marginTop: 8 }} onClick={addItem}>+ Add line item</button>
       </div>
 

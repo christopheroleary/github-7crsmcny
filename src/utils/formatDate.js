@@ -41,13 +41,23 @@ export function formatFullDate(dateStr) {
     return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   }
 
-  export function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+  // UK-local date, not UTC -- new Date().toISOString() reports the UTC day,
+  // which is still "yesterday" for the first hour after local midnight
+  // during BST (UTC+1). That silently misclassified gigs as upcoming/not-
+  // yet-past for that first hour, the same class of DST bug already fixed
+  // in the gig-day-reminder cron job.
+  function ukToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   }
-  
+
+  export function todayStr() {
+    return ukToday();
+  }
+
   export function twelveMonthsAgoStr() {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 11);
-    d.setDate(1);
-    return d.toISOString().slice(0, 10);
+    const [y, m, d] = ukToday().split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    date.setUTCMonth(date.getUTCMonth() - 11);
+    date.setUTCDate(1);
+    return date.toISOString().slice(0, 10);
   }
