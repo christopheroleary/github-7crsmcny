@@ -32,6 +32,31 @@ function normalizeForMatch(text) {
     .trim();
 }
 
+// Fuse's character-level fuzzy matching is good at typos and near-identical
+// spellings, but scores mid-string word insertions harshly -- "Bet That You
+// Look Good Dancefloor" vs the library's "...On The Dance Floor" scores a
+// poor ~0.63 from Fuse alone (worse than plain edit distance), so it never
+// surfaced as a suggestion at all. Whole-word (token) overlap catches that
+// case well without the false-positive risk plain character edit-distance
+// has on short strings (which would otherwise conflate "Staceys Mum"/
+// "Stacy's Mom" or even "Wonderwall"/"Wonderful"). Taking whichever of the
+// two scores is better catches more real matches without weakening either
+// one's own blind spots.
+const STOPWORDS = new Set(['a', 'an', 'the', 'on', 'in', 'to', 'of', 'and']);
+
+function tokenize(normalizedText) {
+  return (normalizedText || '').split(' ').filter((t) => t && !STOPWORDS.has(t));
+}
+
+function tokenSetDistance(normA, normB) {
+  const a = new Set(tokenize(normA));
+  const b = new Set(tokenize(normB));
+  if (a.size === 0 || b.size === 0) return 1;
+  const intersection = [...a].filter((t) => b.has(t)).length;
+  const union = new Set([...a, ...b]).size;
+  return 1 - intersection / union;
+}
+
 export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedBy, onImported, onCancel }) {
   const [rawText, setRawText] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -39,12 +64,21 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
   const [error, setError] = useState(null);
 
   const songsForMatching = useMemo(
-    () => allSongs.map((s) => ({ ...s, _normTitle: normalizeForMatch(s.title), _normArtist: normalizeForMatch(s.artist || '') })),
+    () =>
+      allSongs.map((s) => ({
+        ...s,
+        _normTitle: normalizeForMatch(s.title),
+        _normArtist: normalizeForMatch(s.artist || ''),
+        _normFull: normalizeForMatch(s.title + ' ' + (s.artist || '')),
+      })),
     [allSongs]
   );
 
+  // threshold: 1 means "return every song, ranked" -- SUGGEST_THRESHOLD and
+  // MATCH_THRESHOLD are applied explicitly below instead of letting Fuse
+  // silently drop candidates before the token-distance blend ever runs.
   const fuse = useMemo(
-    () => new Fuse(songsForMatching, { keys: ['_normTitle', '_normArtist'], threshold: SUGGEST_THRESHOLD, ignoreLocation: true, includeScore: true }),
+    () => new Fuse(songsForMatching, { keys: ['_normTitle', '_normArtist'], threshold: 1, ignoreLocation: true, includeScore: true }),
     [songsForMatching]
   );
 
@@ -52,18 +86,27 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
     const items = parseSongList(rawText);
     const withMatches = items.map((item) => {
       const query = normalizeForMatch([item.title, item.artist].filter(Boolean).join(' '));
-      const results = fuse.search(query).slice(0, 5);
-      const best = results[0];
-      const secondBest = results[1];
+      const fuseResults = fuse.search(query);
+
+      // Auto-match and ambiguity stay strictly on Fuse's own char-level score
+      // -- deliberately not loosened by the token blend below, which is only
+      // for surfacing suggestions, not for silently picking one.
+      const best = fuseResults[0];
+      const secondBest = fuseResults[1];
       const ambiguous = Boolean(
         best && secondBest &&
         best.score <= MATCH_THRESHOLD && secondBest.score <= MATCH_THRESHOLD &&
         (secondBest.score - best.score) < AMBIGUOUS_DELTA
       );
       const matchedSongId = best && !ambiguous && best.score <= MATCH_THRESHOLD ? best.item.id : '';
-      const candidates = results
-        .filter((r) => r.score <= SUGGEST_THRESHOLD)
+
+      const candidates = fuseResults
+        .map((r) => ({ ...r, combined: Math.min(r.score, tokenSetDistance(query, r.item._normFull)) }))
+        .filter((r) => r.combined <= SUGGEST_THRESHOLD)
+        .sort((a, b) => a.combined - b.combined)
+        .slice(0, 5)
         .map((r) => ({ id: r.item.id, title: r.item.title, artist: r.item.artist }));
+
       return { ...item, matchedSongId, candidates, ambiguous, skip: false };
     });
     setParsed(withMatches);
