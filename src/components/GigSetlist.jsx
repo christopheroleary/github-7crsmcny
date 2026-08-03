@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import ImportSetlist from './ImportSetlist.jsx';
 
 export default function GigSetlist({ gigId, bandId }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
@@ -11,6 +12,7 @@ export default function GigSetlist({ gigId, bandId }) {
   const [loading, setLoading] = useState(true);
   const [newSetName, setNewSetName] = useState('');
   const [pickedExistingId, setPickedExistingId] = useState('');
+  const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -35,7 +37,7 @@ export default function GigSetlist({ gigId, bandId }) {
     const { data: links } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
     setAttachedIds((links || []).map((l) => l.setlist_id));
 
-    const { data: songRows } = await supabase.from('songs').select('id, title').order('title');
+    const { data: songRows } = await supabase.from('songs').select('id, title, artist').order('title');
     setSongs(songRows || []);
     setLoading(false);
   }, [gigId, bandId]);
@@ -192,6 +194,23 @@ export default function GigSetlist({ gigId, bandId }) {
             <button type="submit" className="btn btn--primary btn--small">+ Create</button>
           </form>
           {error && <p className="form-error">{error}</p>}
+
+          {!showImport ? (
+            <button type="button" className="link-button" style={{ marginTop: 10 }} onClick={() => setShowImport(true)}>
+              📋 Or paste a setlist from a singer/band
+            </button>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <ImportSetlist
+                bandId={bandId}
+                gigId={gigId}
+                allSongs={songs}
+                newSongCreatedBy={isAdmin ? null : profile?.id}
+                onImported={() => { setShowImport(false); load(); }}
+                onCancel={() => setShowImport(false)}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
