@@ -512,23 +512,36 @@ input {
   flex: 1;
   min-width: 0;
 }
-.field-row .field input[type="date"] {
-  width: 100%;
-}
 @media (max-width: 480px) {
   .field-row {
     flex-direction: column;
   }
 }
-  .field input[type="date"] {
-    width: 100%;
-    text-align: left;
-    color: var(--ink);
-  }
-  .field input[type="date"]::-webkit-date-and-time-value {
-    text-align: left;
-  }
-  
+
+/* Native <select>/date/time controls report their own intrinsic content
+   width to the layout -- a <select> sizes to its widest <option> text,
+   native date/time pickers carry their own near-fixed width -- rather than
+   shrinking to fit a narrow flex column or phone screen. iOS Safari is
+   especially prone to this, overflowing its container even when the field
+   is empty and holds no long value yet. Applied globally (not just inside
+   .field) since it also hits raw <select>s used outside a form field
+   wrapper, e.g. the "pick an existing song" picker. */
+select,
+input[type="date"],
+input[type="time"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.field input[type="date"] {
+  text-align: left;
+  color: var(--ink);
+}
+.field input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 .field textarea,
 .field select {
   width: 100%;
