@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -88,7 +89,7 @@ export default function GigSetlist({ gigId, bandId }) {
     if (!ok) return;
     const { error } = await supabase.from('gig_setlists').delete().eq('gig_id', gigId).eq('setlist_id', setlistId);
     if (error) {
-      alert("Couldn't remove: " + error.message);
+      notify("Couldn't remove: " + error.message);
       return;
     }
     load();
@@ -101,7 +102,7 @@ export default function GigSetlist({ gigId, bandId }) {
     if (!ok) return;
     const { error } = await supabase.from('setlists').delete().eq('id', setlist.id);
     if (error) {
-      alert("Couldn't delete: " + error.message);
+      notify("Couldn't delete: " + error.message);
       return;
     }
     load();
@@ -116,7 +117,7 @@ export default function GigSetlist({ gigId, bandId }) {
         .select()
         .single();
       if (songError) {
-        alert("Couldn't create song: " + songError.message);
+        notify("Couldn't create song: " + songError.message);
         return;
       }
       finalSongId = newSong.id;
@@ -128,7 +129,7 @@ export default function GigSetlist({ gigId, bandId }) {
       .from('setlist_items')
       .insert({ setlist_id: setlist.id, song_id: finalSongId, position: nextPosition });
     if (error) {
-      alert("Couldn't add song: " + error.message);
+      notify("Couldn't add song: " + error.message);
       return;
     }
     load();
@@ -137,7 +138,7 @@ export default function GigSetlist({ gigId, bandId }) {
   async function handleRemoveSong(item) {
     const { error } = await supabase.from('setlist_items').delete().eq('id', item.id);
     if (error) {
-      alert("Couldn't remove song: " + error.message);
+      notify("Couldn't remove song: " + error.message);
       return;
     }
     load();
@@ -166,7 +167,7 @@ export default function GigSetlist({ gigId, bandId }) {
       }))
     );
     if (error) {
-      alert("Couldn't save the new song order: " + error.message);
+      notify("Couldn't save the new song order: " + error.message);
       setBandSetlists(previousSetlists);
     }
   }
@@ -294,7 +295,7 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
     if (!renameValue.trim()) return;
     const { error } = await supabase.from('setlists').update({ name: renameValue }).eq('id', setlist.id);
     if (error) {
-      alert("Couldn't rename set: " + error.message);
+      notify("Couldn't rename set: " + error.message);
       return;
     }
     setRenaming(false);

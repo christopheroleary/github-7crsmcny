@@ -1,9 +1,11 @@
+import { notify } from '../utils/toastService.js';
+
 function formatDate(dateStr) {
     if (!dateStr) return '—';
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   }
-  
+
   function poundsFromPence(pence) {
     return (pence / 100).toFixed(2);
   }
@@ -258,7 +260,7 @@ function formatDate(dateStr) {
       const html = buildPrintHTML({ invoice, items, gig, band, client });
       const printWindow = window.open('', '_blank', 'width=900,height=750');
       if (!printWindow) {
-        alert('Pop-up blocked — please allow pop-ups for this site and try again.');
+        notify('Pop-up blocked — please allow pop-ups for this site and try again.');
         return;
       }
       printWindow.document.open();

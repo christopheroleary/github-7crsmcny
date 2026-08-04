@@ -5,6 +5,7 @@ import ClientForm from './ClientForm.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 export default function ClientsList() {
   const { isAdmin, profile } = useCurrentProfile();
@@ -40,7 +41,7 @@ export default function ClientsList() {
     if (!ok) return;
     const { error } = await supabase.from('clients').delete().eq('id', client.id);
     if (error) {
-      alert(`Couldn't delete: ${error.message}`);
+      notify(`Couldn't delete: ${error.message}`);
       return;
     }
     loadClients();

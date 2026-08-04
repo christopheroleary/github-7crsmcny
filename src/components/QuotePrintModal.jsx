@@ -1,3 +1,5 @@
+import { notify } from '../utils/toastService.js';
+
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr + 'T00:00:00');
@@ -200,7 +202,7 @@ export default function QuotePrintModal({ quote, items, gig, band, client, onClo
     const html = buildPrintHTML({ quote, items, gig, band, client });
     const printWindow = window.open('', '_blank', 'width=900,height=750');
     if (!printWindow) {
-      alert('Pop-up blocked — please allow pop-ups for this site and try again.');
+      notify('Pop-up blocked — please allow pop-ups for this site and try again.');
       return;
     }
     printWindow.document.open();

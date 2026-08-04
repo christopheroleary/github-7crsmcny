@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatFullDate, formatShortDate } from '../utils/formatDate.js';
+import { notify } from '../utils/toastService.js';
 
 // wa.me needs digits-only, international format, no leading 0 or +.
 // UK-specific: 07700 900123 -> 447700900123. Numbers already starting
@@ -23,7 +24,7 @@ function CopyButton({ text, label }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      alert("Couldn't copy — select and copy the text manually.");
+      notify("Couldn't copy — select and copy the text manually.");
     }
   }
 
@@ -123,7 +124,7 @@ export default function GigWhatsAppGroup({ gig }) {
       .update({ whatsapp_invite_link: inviteLink.trim() || null })
       .eq('id', gig.id);
     setSaving(false);
-    if (error) { alert("Couldn't save invite link: " + error.message); return; }
+    if (error) { notify("Couldn't save invite link: " + error.message); return; }
     setSaved(true);
     setEditingLink(false);
     setTimeout(() => setSaved(false), 1500);

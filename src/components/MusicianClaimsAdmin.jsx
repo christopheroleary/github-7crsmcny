@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { confirmAsync } from '../utils/confirmService.js';
+import { promptAsync } from '../utils/promptService.js';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -53,7 +55,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
     }
 
     if (status === 'rejected') {
-      const reason = window.prompt(
+      const reason = await promptAsync(
         'Reason for rejecting this claim (optional, shown to the musician):',
         claim.notes || ''
       );
@@ -63,7 +65,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
 
     const { error } = await supabase.from('musician_claims').update(payload).eq('id', claim.id);
     if (error) {
-      alert("Couldn't update: " + error.message);
+      notify("Couldn't update: " + error.message);
       return;
     }
     load();

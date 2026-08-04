@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -421,7 +422,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     const html = buildMusicianInvoiceHTML({ claim, gig, band, profile });
     const printWindow = window.open('', '_blank', 'width=900,height=750');
     if (!printWindow) {
-      alert('Pop-up blocked — please allow pop-ups for this site and try again.');
+      notify('Pop-up blocked — please allow pop-ups for this site and try again.');
       return;
     }
     printWindow.document.open();

@@ -4,6 +4,7 @@ import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyFood from './NearbyFood.jsx';
 import NearbyFuel from './NearbyFuel.jsx';
+import { notify } from '../utils/toastService.js';
 
 function vocalLabel(role) {
   if (role === 'lead') return 'Lead vocals';
@@ -68,7 +69,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', myEntry.id);
     setConfirming(false);
     if (error) {
-      alert("Couldn't confirm: " + error.message);
+      notify("Couldn't confirm: " + error.message);
       return;
     }
     refresh();

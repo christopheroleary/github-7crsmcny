@@ -4,6 +4,7 @@ import { formatShortDate } from '../utils/formatDate.js';
 import GigForm from './GigForm.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import { notify } from '../utils/toastService.js';
 
 const STATUS_COLOURS = {
   new: 'inquiry', contacted: 'inquiry', converted: 'confirmed', declined: 'cancelled',
@@ -35,7 +36,7 @@ export default function EnquiriesList() {
   async function updateStatus(id, status) {
     const { error } = await supabase.from('enquiries').update({ status }).eq('id', id);
     if (error) {
-      alert("Couldn't update status: " + error.message);
+      notify("Couldn't update status: " + error.message);
       return;
     }
     load();
@@ -43,13 +44,13 @@ export default function EnquiriesList() {
 
   async function saveNotes(id, notes) {
     const { error } = await supabase.from('enquiries').update({ admin_notes: notes }).eq('id', id);
-    if (error) alert("Couldn't save notes: " + error.message);
+    if (error) notify("Couldn't save notes: " + error.message);
   }
 
   async function handleGigSaved(gigId, enquiryId) {
     const { error } = await supabase.from('enquiries').update({ status: 'converted' }).eq('id', enquiryId);
     if (error) {
-      alert("Gig was saved, but couldn't mark the enquiry as converted: " + error.message);
+      notify("Gig was saved, but couldn't mark the enquiry as converted: " + error.message);
     }
     setConvertingEnq(null);
     setExpandedId(null);

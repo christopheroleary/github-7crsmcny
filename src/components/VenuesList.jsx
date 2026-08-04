@@ -5,6 +5,7 @@ import VenueForm from './VenueForm.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 export default function VenuesList() {
   const { isAdmin, profile } = useCurrentProfile();
@@ -40,7 +41,7 @@ export default function VenuesList() {
     if (!ok) return;
     const { error } = await supabase.from('venues').delete().eq('id', venue.id);
     if (error) {
-      alert(`Couldn't delete: ${error.message}`);
+      notify(`Couldn't delete: ${error.message}`);
       return;
     }
     loadVenues();

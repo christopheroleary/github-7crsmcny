@@ -13,6 +13,7 @@ import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
   const { gig, isOffline, syncing, syncedAt, error, refresh } =
@@ -78,7 +79,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     );
     if (!ok) return;
     const { error } = await supabase.from('gigs').delete().eq('id', gigId);
-    if (error) { alert("Couldn't delete: " + error.message); return; }
+    if (error) { notify("Couldn't delete: " + error.message); return; }
     onDeleted?.();
   }
 

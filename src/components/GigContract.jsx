@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -138,7 +139,7 @@ export default function GigContract({ gigId, gigFeeAmount }) {
                     const ok = await confirmAsync('Delete this contract? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('contracts').delete().eq('id', contract.id);
-                    if (error) { alert("Couldn't delete: " + error.message); return; }
+                    if (error) { notify("Couldn't delete: " + error.message); return; }
                     setContract(null);
                   }}>
                     Delete contract

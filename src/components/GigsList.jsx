@@ -10,6 +10,7 @@ import CalendarFeed from './CalendarFeed.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 const today = todayStr;
 
@@ -149,7 +150,7 @@ export default function GigsList() {
     );
     if (!ok) return;
     const { error } = await supabase.from('gigs').delete().eq('id', gig.id);
-    if (error) { alert("Couldn't delete: " + error.message); return; }
+    if (error) { notify("Couldn't delete: " + error.message); return; }
     loadGigs();
   }
 

@@ -7,6 +7,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 export default function BandsList() {
   const { isAdmin, isBandLeader } = useCurrentProfile();
@@ -45,7 +46,7 @@ export default function BandsList() {
     if (!ok) return;
     const { error } = await supabase.from('bands').delete().eq('id', band.id);
     if (error) {
-      alert("Couldn't delete: " + error.message);
+      notify("Couldn't delete: " + error.message);
       return;
     }
     loadBands();

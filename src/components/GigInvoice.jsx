@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -209,7 +210,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                     const ok = await confirmAsync('Delete this invoice? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('invoices').delete().eq('id', invoice.id);
-                    if (error) { alert("Couldn't delete: " + error.message); return; }
+                    if (error) { notify("Couldn't delete: " + error.message); return; }
                     setInvoice(null);
                     setItems([]);
                   }}>

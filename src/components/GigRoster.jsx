@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 const VOCAL_OPTIONS = [
   { value: '', label: 'Vocals — not set' },
@@ -391,19 +392,19 @@ export default function GigRoster({ gigId }) {
     const ok = await confirmAsync(confirmMessage);
     if (!ok) return;
     const { error } = await supabase.from('gig_lineup').delete().eq('id', entry.id);
-    if (error) { alert("Couldn't remove: " + error.message); return; }
+    if (error) { notify("Couldn't remove: " + error.message); return; }
     load();
   }
 
   async function handleConfirm(entry) {
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', entry.id);
-    if (error) { alert("Couldn't confirm: " + error.message); return; }
+    if (error) { notify("Couldn't confirm: " + error.message); return; }
     load();
   }
 
   async function handleUpdateVocalRole(entryId, vocal_role) {
     const { error } = await supabase.from('gig_lineup').update({ vocal_role: vocal_role || null }).eq('id', entryId);
-    if (error) { alert("Couldn't update vocal role: " + error.message); return; }
+    if (error) { notify("Couldn't update vocal role: " + error.message); return; }
     load();
   }
 
@@ -415,7 +416,7 @@ export default function GigRoster({ gigId }) {
     const { error } = await supabase.from('gig_lineup')
       .update({ is_dj: makingDj, vocal_role: makingDj ? null : entry.vocal_role })
       .eq('id', entry.id);
-    if (error) { alert("Couldn't update DJ role: " + error.message); return; }
+    if (error) { notify("Couldn't update DJ role: " + error.message); return; }
     load();
   }
 
@@ -424,7 +425,7 @@ export default function GigRoster({ gigId }) {
     const { error } = await supabase.from('gig_lineup')
       .update({ is_roadie: makingRoadie, vocal_role: makingRoadie ? null : entry.vocal_role })
       .eq('id', entry.id);
-    if (error) { alert("Couldn't update roadie role: " + error.message); return; }
+    if (error) { notify("Couldn't update roadie role: " + error.message); return; }
     load();
   }
 
@@ -435,7 +436,7 @@ export default function GigRoster({ gigId }) {
       await supabase.from('gig_lineup').update({ is_captain: false }).eq('gig_id', gigId).eq('is_captain', true);
     }
     const { error } = await supabase.from('gig_lineup').update({ is_captain: makingCaptain }).eq('id', entry.id);
-    if (error) { alert("Couldn't update captain: " + error.message); return; }
+    if (error) { notify("Couldn't update captain: " + error.message); return; }
     load();
   }
 

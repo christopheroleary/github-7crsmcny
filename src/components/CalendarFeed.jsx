@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 const FEED_BASE = 'https://uzblypxepztdramotjcc.supabase.co/functions/v1/calendar-feed';
 
@@ -56,7 +57,7 @@ export default function CalendarFeed({ profileId }) {
       .update({ calendar_token: newToken })
       .eq('id', profileId);
     if (error) {
-      alert("Couldn't regenerate: " + error.message);
+      notify("Couldn't regenerate: " + error.message);
       setRegenerating(false);
       return;
     }

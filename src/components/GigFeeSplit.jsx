@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -112,7 +113,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     const pence = pounds === '' ? null : Math.round(Number(pounds) * 100);
     const { error: updateError } = await supabase.from('gig_lineup').update({ fee_pence: pence }).eq('id', entryId);
     if (updateError) {
-      alert("Couldn't save fee: " + updateError.message);
+      notify("Couldn't save fee: " + updateError.message);
       return;
     }
     load();

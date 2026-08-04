@@ -6,6 +6,7 @@ import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
@@ -95,7 +96,7 @@ export default function MusiciansList() {
     const ok = await confirmAsync(action + ' ' + musician.full_name + '? ' + consequence);
     if (!ok) return;
     const { error } = await supabase.from('profiles').update({ is_active: !musician.is_active }).eq('id', musician.id);
-    if (error) { alert("Couldn't update: " + error.message); return; }
+    if (error) { notify("Couldn't update: " + error.message); return; }
     load();
   }
 
@@ -269,7 +270,7 @@ function DepNameEditor({ ph, onSaved }) {
       .update({ name: trimmed })
       .eq('id', ph.id);
     setSaving(false);
-    if (error) { alert("Couldn't rename: " + error.message); return; }
+    if (error) { notify("Couldn't rename: " + error.message); return; }
     setEditing(false);
     onSaved();
   }
@@ -359,7 +360,7 @@ function DepDetailsEditor({ ph, onSaved }) {
       .update({ phone: phone || null, email: email || null, address: address || null, latitude: lat, longitude: lon })
       .eq('id', ph.id);
     setSaving(false);
-    if (error) { alert("Couldn't save details: " + error.message); return; }
+    if (error) { notify("Couldn't save details: " + error.message); return; }
     onSaved();
   }
 
@@ -484,7 +485,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
     if (!instrumentId) return;
     const { error } = await supabase.from('placeholder_musician_instruments')
       .insert({ placeholder_id: placeholderId, instrument_id: instrumentId });
-    if (error) { alert("Couldn't add instrument: " + error.message); return; }
+    if (error) { notify("Couldn't add instrument: " + error.message); return; }
     load();
   }
 
@@ -498,13 +499,13 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
     const ok = await confirmAsync('Delete "' + ph.name + '" from the system? This will also remove them from any gig rosters. This cannot be undone.');
     if (!ok) return;
     const { error } = await supabase.from('placeholder_musicians').delete().eq('id', ph.id);
-    if (error) { alert("Couldn't delete: " + error.message); return; }
+    if (error) { notify("Couldn't delete: " + error.message); return; }
     load();
   }
 
   async function handleMerge(ph) {
     const targetId = mergeTargets[ph.id];
-    if (!targetId) { alert('Pick a profile to merge into first.'); return; }
+    if (!targetId) { notify('Pick a profile to merge into first.'); return; }
     const targetName = profiles.find((p) => p.id === targetId)?.full_name;
     const ok = await confirmAsync('Merge all gig history for "' + ph.name + '" into ' + targetName + '? This cannot be undone.');
     if (!ok) return;
@@ -512,7 +513,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
       p_placeholder_id: ph.id,
       p_target_profile_id: targetId,
     });
-    if (error) { alert("Couldn't merge: " + error.message); return; }
+    if (error) { notify("Couldn't merge: " + error.message); return; }
     load();
   }
 

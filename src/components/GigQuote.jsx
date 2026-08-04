@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import QuotePrintModal from './QuotePrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -250,7 +251,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
                     const ok = await confirmAsync('Delete this quote? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('quotes').delete().eq('id', quote.id);
-                    if (error) { alert("Couldn't delete: " + error.message); return; }
+                    if (error) { notify("Couldn't delete: " + error.message); return; }
                     setQuote(null);
                     setItems([]);
                   }}>
