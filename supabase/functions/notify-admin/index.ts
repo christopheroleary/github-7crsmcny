@@ -34,6 +34,15 @@ async function getRecipientIds(bandId?: string | null) {
   return Array.from(new Set([...adminIds, ...leaderIds]));
 }
 
+function formatGigDate(dateStr: string): string {
+  if (!dateStr) return '';
+  // Parsed and formatted as UTC throughout -- gig_date is a plain date with
+  // no time component, and letting it fall through the server's local
+  // timezone risks shifting it a day either way right at midnight.
+  const d = new Date(dateStr + 'T00:00:00Z');
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 async function getSubscriptionsFor(profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data: subs } = await supabase
@@ -96,27 +105,32 @@ Deno.serve(async (req) => {
     if (table === 'gig_lineup') {
       // Musician confirmed or changed confirmation status
       if (type === 'UPDATE' && record.confirmed !== old_record?.confirmed) {
-        // Get musician name and gig/venue info
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', record.profile_id)
-          .single();
+        // A dep/session musician has no profile_id at all -- their name
+        // lives on placeholder_musicians via placeholder_id instead, so
+        // both need checking or a dep confirming always fell back to the
+        // generic "A musician" while a full member's name showed fine.
+        const [{ data: profile }, { data: placeholder }, { data: instrument }, { data: gig }] = await Promise.all([
+          record.profile_id
+            ? supabase.from('profiles').select('full_name').eq('id', record.profile_id).single()
+            : Promise.resolve({ data: null }),
+          record.placeholder_id
+            ? supabase.from('placeholder_musicians').select('name').eq('id', record.placeholder_id).single()
+            : Promise.resolve({ data: null }),
+          record.instrument_id
+            ? supabase.from('instruments').select('name').eq('id', record.instrument_id).single()
+            : Promise.resolve({ data: null }),
+          supabase.from('gigs').select('gig_date, band_id, venues(name)').eq('id', record.gig_id).single(),
+        ]);
 
-        const { data: gig } = await supabase
-          .from('gigs')
-          .select('gig_date, band_id, venues(name)')
-          .eq('id', record.gig_id)
-          .single();
-
-        const musicianName = profile?.full_name || 'A musician';
+        const musicianName = profile?.full_name || placeholder?.name || 'A musician';
         const venueName = (gig as any)?.venues?.name || 'a gig';
-        const gigDate = gig?.gig_date || '';
+        const instrumentName = (instrument as any)?.name || '';
         const action = record.confirmed ? 'confirmed' : 'unconfirmed';
 
         await pushToAdmins({
           title: `${musicianName} ${action} for ${venueName}`,
-          body: `${musicianName} has ${action} their place on the ${gigDate} gig at ${venueName}.`,
+          body: [instrumentName, formatGigDate(gig?.gig_date)].filter(Boolean).join(' · ')
+            || `${musicianName} has ${action} their place at ${venueName}.`,
           tag: 'lineup-' + record.id,
           url: '/gigs',
           gig_id: record.gig_id,
