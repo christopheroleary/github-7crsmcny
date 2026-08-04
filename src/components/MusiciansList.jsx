@@ -7,9 +7,11 @@ import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function MusiciansList() {
-  const { profile: me, isAdmin, isBandLeader } = useCurrentProfile();
+  const { profile: me, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
   const [musicians, setMusicians] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
+  const [gigCountsByProfile, setGigCountsByProfile] = useState({});
+  const [gigCountsByPlaceholder, setGigCountsByPlaceholder] = useState({});
   const [filterInstrumentId, setFilterInstrumentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,10 +24,17 @@ export default function MusiciansList() {
       { data: profiles, error: profilesError },
       { data: links },
       { data: insts },
+      { data: lineupRows },
     ] = await Promise.all([
       supabase.from('profiles').select('id, full_name, phone, role, is_active').order('full_name'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(id, name)'),
       supabase.from('instruments').select('id, name').order('sort_order'),
+      // Confirmed/completed only -- an inquiry gig isn't a real booking yet,
+      // so it shouldn't count toward "this dep has actually played for us".
+      supabase
+        .from('gig_lineup')
+        .select('profile_id, placeholder_id, gig_id, gigs!inner(status, band_id)')
+        .in('gigs.status', ['confirmed', 'completed']),
     ]);
 
     if (profilesError) {
@@ -42,10 +51,33 @@ export default function MusiciansList() {
         .filter((i) => i.name),
     }));
 
+    // Scoped to "the bands this viewer is in charge of" -- admin sees every
+    // band's gigs, a band leader only sees gigs for the band(s) they lead,
+    // so a musician who's only ever played for a band this leader doesn't
+    // run still correctly shows up as "not yet booked" from their POV.
+    const inScope = (row) => isAdmin || ledBandIds.includes(row.gigs?.band_id);
+    const profileGigIds = {};
+    const placeholderGigIds = {};
+    for (const row of lineupRows || []) {
+      if (!inScope(row)) continue;
+      if (row.profile_id) {
+        (profileGigIds[row.profile_id] ??= new Set()).add(row.gig_id);
+      }
+      if (row.placeholder_id) {
+        (placeholderGigIds[row.placeholder_id] ??= new Set()).add(row.gig_id);
+      }
+    }
+    setGigCountsByProfile(
+      Object.fromEntries(Object.entries(profileGigIds).map(([id, set]) => [id, set.size]))
+    );
+    setGigCountsByPlaceholder(
+      Object.fromEntries(Object.entries(placeholderGigIds).map(([id, set]) => [id, set.size]))
+    );
+
     setMusicians(withInstruments);
     setAllInstruments(insts || []);
     setLoading(false);
-  }, []);
+  }, [isAdmin, ledBandIds]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -75,6 +107,65 @@ export default function MusiciansList() {
     'full_name',
     'instruments.name',
   ]);
+
+  // Split rather than just sort, per band leaders' actual complaint: someone
+  // never booked for a band this viewer runs shouldn't sit inline among the
+  // regulars, even alphabetically -- they need their own clearly-separate
+  // "not yet booked" group at the bottom.
+  const bookedMusicians = filtered.filter((m) => (gigCountsByProfile[m.id] || 0) > 0);
+  const unbookedMusicians = filtered.filter((m) => (gigCountsByProfile[m.id] || 0) === 0);
+
+  function renderMusicianItem(m) {
+    const gigCount = gigCountsByProfile[m.id] || 0;
+    return (
+      <li className="simple-list__item" key={m.id}>
+        {editingId === m.id ? (
+          <MusicianEditForm profile={m} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
+        ) : (
+          <>
+            <div className="simple-list__row">
+              <div>
+                <span className="simple-list__title">
+                  {m.full_name}
+                  <span className="status-tag" style={{ marginLeft: 8 }}>{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
+                  {!m.is_active && <span className="status-tag" style={{ marginLeft: 8 }}>inactive</span>}
+                  {m.id === me?.id && <span className="status-tag" style={{ marginLeft: 8 }}>you</span>}
+                </span>
+                <span className="simple-list__subtitle">
+                  {m.instruments.length > 0
+                    ? m.instruments.map((i) => i.name).join(', ')
+                    : 'No instruments set'}
+                </span>
+              </div>
+              <div className="simple-list__actions">
+                <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
+                  {expandedId === m.id ? 'Hide' : 'View'}
+                </button>
+                {isAdmin && m.id !== me?.id && (
+                  <>
+                    <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
+                    <button
+                      className="link-button link-button--danger"
+                      onClick={() => handleToggleActive(m)}
+                    >
+                      {m.is_active ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            {expandedId === m.id && (
+              <dl className="detail-list" style={{ marginTop: 10 }}>
+                <dt>Phone</dt><dd>{m.phone || '—'}</dd>
+                <dt>Role</dt><dd>{m.role}</dd>
+                <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
+              </dl>
+            )}
+          </>
+        )}
+      </li>
+    );
+  }
 
   return (
     <div>
@@ -128,59 +219,30 @@ export default function MusiciansList() {
             : filterInstrumentId ? 'No musicians play that instrument yet.' : 'No musicians yet.'}
         </p>
       ) : (
-        <ul className="simple-list">
-          {filtered.map((m) => (
-            <li className="simple-list__item" key={m.id}>
-              {editingId === m.id ? (
-                <MusicianEditForm profile={m} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
-              ) : (
-                <>
-                  <div className="simple-list__row">
-                    <div>
-                      <span className="simple-list__title">
-                        {m.full_name}
-                        {!m.is_active && <span className="status-tag" style={{ marginLeft: 8 }}>inactive</span>}
-                        {m.id === me?.id && <span className="status-tag" style={{ marginLeft: 8 }}>you</span>}
-                      </span>
-                      <span className="simple-list__subtitle">
-                        {m.instruments.length > 0
-                          ? m.instruments.map((i) => i.name).join(', ')
-                          : 'No instruments set'}
-                      </span>
-                    </div>
-                    <div className="simple-list__actions">
-                      <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
-                        {expandedId === m.id ? 'Hide' : 'View'}
-                      </button>
-                      {isAdmin && m.id !== me?.id && (
-                        <>
-                          <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
-                          <button
-                            className="link-button link-button--danger"
-                            onClick={() => handleToggleActive(m)}
-                          >
-                            {m.is_active ? 'Deactivate' : 'Reactivate'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {expandedId === m.id && (
-                    <dl className="detail-list" style={{ marginTop: 10 }}>
-                      <dt>Phone</dt><dd>{m.phone || '—'}</dd>
-                      <dt>Role</dt><dd>{m.role}</dd>
-                      <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
-                    </dl>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="simple-list">
+            {bookedMusicians.map(renderMusicianItem)}
+          </ul>
+          {unbookedMusicians.length > 0 && (
+            <>
+              <p style={{ fontWeight: 600, marginTop: 24, marginBottom: 8, color: 'var(--text-muted)' }}>
+                Not yet booked ({unbookedMusicians.length})
+              </p>
+              <ul className="simple-list">
+                {unbookedMusicians.map(renderMusicianItem)}
+              </ul>
+            </>
+          )}
+        </>
       )}
 
       {(isAdmin || isBandLeader) && (
-        <PlaceholdersSection filterInstrumentId={filterInstrumentId} isAdmin={isAdmin} me={me} />
+        <PlaceholdersSection
+          filterInstrumentId={filterInstrumentId}
+          isAdmin={isAdmin}
+          me={me}
+          gigCountsByPlaceholder={gigCountsByPlaceholder}
+        />
       )}
     </div>
   );
@@ -348,7 +410,7 @@ function DepDetailsEditor({ ph, onSaved }) {
 
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
-function PlaceholdersSection({ filterInstrumentId, isAdmin, me }) {
+function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlaceholder }) {
   const [placeholders, setPlaceholders] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
@@ -469,6 +531,84 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me }) {
     'instruments.name',
   ]);
 
+  // Same split as the main musicians list, and for the same reason this
+  // feature exists at all: a grown deps list mixes in people who've never
+  // actually played for us alongside the regulars, unless they're pulled
+  // out into their own group.
+  const bookedDeps = filteredActive.filter((p) => (gigCountsByPlaceholder[p.id] || 0) > 0);
+  const unbookedDeps = filteredActive.filter((p) => (gigCountsByPlaceholder[p.id] || 0) === 0);
+
+  function renderDepItem(ph) {
+    const gigCount = gigCountsByPlaceholder[ph.id] || 0;
+    return (
+      <li className="simple-list__item" key={ph.id}>
+        <div className="simple-list__row" style={{ alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <DepNameEditor ph={ph} onSaved={load} />
+              <span className="status-tag">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
+            </span>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {ph.instruments.map((inst) => (
+                <span className="tag" key={inst.id}>
+                  {inst.name}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInstrument(ph.id, inst.id)}
+                    aria-label={'Remove ' + inst.name}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <select
+                value=""
+                style={{ fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
+                onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
+              >
+                <option value="">+ Add instrument…</option>
+                {allInstruments
+                  .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
+                  .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+
+            <button
+              className="link-button"
+              style={{ fontSize: 12, marginTop: 6 }}
+              onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}
+            >
+              {expandedDepId === ph.id ? 'Hide details' : (ph.phone || ph.email || ph.address ? 'View details' : '+ Add contact details')}
+            </button>
+            {expandedDepId === ph.id && <DepDetailsEditor ph={ph} onSaved={load} />}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <select
+                  value={mergeTargets[ph.id] || ''}
+                  onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
+                  style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+                >
+                  <option value="">Merge into real account…</option>
+                  {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                </select>
+                <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
+              </div>
+            )}
+            {(isAdmin || ph.created_by === me?.id) && (
+              <button className="link-button link-button--danger" style={{ fontSize: 12 }} onClick={() => handleDeleteDep(ph)}>
+                Delete dep
+              </button>
+            )}
+          </div>
+        </div>
+      </li>
+    );
+  }
+
   // Only blank out on the true initial load — re-fetches after add/remove/
   // rename actions keep showing the existing list instead of unmounting the
   // whole section, which was resetting scroll position back to the top.
@@ -534,72 +674,21 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me }) {
       ) : filteredActive.length === 0 ? (
         <p className="state-message">{query ? `No deps match "${query}".` : 'No deps play that instrument.'}</p>
       ) : (
-        <ul className="simple-list">
-          {filteredActive.map((ph) => (
-            <li className="simple-list__item" key={ph.id}>
-              <div className="simple-list__row" style={{ alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <DepNameEditor ph={ph} onSaved={load} />
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    {ph.instruments.map((inst) => (
-                      <span className="tag" key={inst.id}>
-                        {inst.name}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveInstrument(ph.id, inst.id)}
-                          aria-label={'Remove ' + inst.name}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <select
-                      value=""
-                      style={{ fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
-                      onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
-                    >
-                      <option value="">+ Add instrument…</option>
-                      {allInstruments
-                        .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
-                        .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                    </select>
-                  </div>
-
-                  <button
-                    className="link-button"
-                    style={{ fontSize: 12, marginTop: 6 }}
-                    onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}
-                  >
-                    {expandedDepId === ph.id ? 'Hide details' : (ph.phone || ph.email || ph.address ? 'View details' : '+ Add contact details')}
-                  </button>
-                  {expandedDepId === ph.id && <DepDetailsEditor ph={ph} onSaved={load} />}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-                  {isAdmin && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <select
-                        value={mergeTargets[ph.id] || ''}
-                        onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
-                        style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
-                      >
-                        <option value="">Merge into real account…</option>
-                        {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                      </select>
-                      <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
-                    </div>
-                  )}
-                  {(isAdmin || ph.created_by === me?.id) && (
-                    <button className="link-button link-button--danger" style={{ fontSize: 12 }} onClick={() => handleDeleteDep(ph)}>
-                      Delete dep
-                    </button>
-                  )}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="simple-list">
+            {bookedDeps.map(renderDepItem)}
+          </ul>
+          {unbookedDeps.length > 0 && (
+            <>
+              <p style={{ fontWeight: 600, marginTop: 24, marginBottom: 8, color: 'var(--text-muted)' }}>
+                Not yet booked ({unbookedDeps.length})
+              </p>
+              <ul className="simple-list">
+                {unbookedDeps.map(renderDepItem)}
+              </ul>
+            </>
+          )}
+        </>
       )}
 
       {merged.length > 0 && (
