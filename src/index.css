@@ -199,6 +199,36 @@ input {
   background: var(--paper-raised);
 }
 
+.btn--danger {
+  background: var(--rust);
+  color: var(--paper-raised);
+}
+
+.btn--danger:hover {
+  opacity: 0.9;
+}
+
+.confirm-panel {
+  max-width: 380px;
+}
+
+.confirm-panel__message {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.confirm-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-panel__actions .btn {
+  width: auto;
+}
+
 /* ---------- App shell ---------- */
 
 .app-shell {

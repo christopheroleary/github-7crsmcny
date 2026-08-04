@@ -5,6 +5,7 @@ import AddressAutocomplete from './AddressAutocomplete.jsx';
 import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 const UI_THEMES = [
   { id: 'default', label: 'Classic', swatch: '#c8862e' },
@@ -246,8 +247,8 @@ export default function MyProfile() {
           <button
             type="button"
             className="btn btn--ghost btn--small"
-            onClick={() => {
-              if (window.confirm('Refresh the app and clear its cache? Any unsaved changes will be lost.')) {
+            onClick={async () => {
+              if (await confirmAsync('Refresh the app and clear its cache? Any unsaved changes will be lost.')) {
                 forceRefreshApp();
               }
             }}

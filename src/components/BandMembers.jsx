@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function BandMembers({ bandId, isAdmin }) {
   const { profile: me } = useCurrentProfile();
@@ -149,7 +150,7 @@ export default function BandMembers({ bandId, isAdmin }) {
 
   async function handleRemove(member) {
     const name = member.profiles?.full_name || member.placeholder_musicians?.name || 'this member';
-    const ok = window.confirm('Remove ' + name + ' from this band?');
+    const ok = await confirmAsync('Remove ' + name + ' from this band?');
     if (!ok) return;
     const { error } = await supabase.from('band_members').delete().eq('id', member.id);
     if (error) { alert("Couldn't remove: " + error.message); return; }

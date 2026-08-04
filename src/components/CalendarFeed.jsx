@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { confirmAsync } from '../utils/confirmService.js';
 
 const FEED_BASE = 'https://uzblypxepztdramotjcc.supabase.co/functions/v1/calendar-feed';
 
@@ -44,7 +45,7 @@ export default function CalendarFeed({ profileId }) {
   }
 
   async function handleRegenerate() {
-    const ok = window.confirm(
+    const ok = await confirmAsync(
       'Regenerate your calendar link? Your current link will stop working and you\'ll need to re-subscribe in your calendar app.'
     );
     if (!ok) return;

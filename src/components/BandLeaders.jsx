@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function BandLeaders({ bandId }) {
   const [leaders, setLeaders] = useState([]);
@@ -43,7 +44,7 @@ export default function BandLeaders({ bandId }) {
 
   async function handleRemove(leaderRow) {
     const name = leaderRow.profiles?.full_name || 'this leader';
-    const ok = window.confirm('Remove ' + name + ' as a leader of this band?');
+    const ok = await confirmAsync('Remove ' + name + ' as a leader of this band?');
     if (!ok) return;
     const { error } = await supabase.from('band_leaders').delete().eq('id', leaderRow.id);
     if (error) { alert("Couldn't remove: " + error.message); return; }

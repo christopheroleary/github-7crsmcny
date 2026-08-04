@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 
 const VOCAL_OPTIONS = [
   { value: '', label: 'Vocals — not set' },
@@ -204,13 +205,13 @@ export default function GigRoster({ gigId }) {
   // Warns (doesn't block) when adding another musician on an instrument that's
   // already filled to its requested quantity — e.g. a 2nd bass player when
   // only 1 was asked for.
-  function confirmIfOverfilled(instrumentId) {
+  async function confirmIfOverfilled(instrumentId) {
     const req = requirements.find((r) => r.instrument_id === instrumentId);
     if (!req) return true;
     const currentCount = lineup.filter((l) => l.instrument_id === instrumentId).length;
     if (currentCount < req.quantity) return true;
     const instName = req.instruments?.name || 'this instrument';
-    return window.confirm(
+    return confirmAsync(
       instName + ' already has ' + currentCount + ' of ' + req.quantity + ' requested filled. Add another anyway?'
     );
   }
@@ -228,7 +229,7 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (newInstrumentId && !confirmIfOverfilled(newInstrumentId)) {
+    if (newInstrumentId && !(await confirmIfOverfilled(newInstrumentId))) {
       setAdding(false);
       return;
     }
@@ -266,7 +267,7 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (placeholderInstrumentId && !confirmIfOverfilled(placeholderInstrumentId)) {
+    if (placeholderInstrumentId && !(await confirmIfOverfilled(placeholderInstrumentId))) {
       setAddingPlaceholder(false);
       return;
     }
@@ -330,7 +331,7 @@ export default function GigRoster({ gigId }) {
       return;
     }
 
-    if (newDepInstrumentId && !confirmIfOverfilled(newDepInstrumentId)) {
+    if (newDepInstrumentId && !(await confirmIfOverfilled(newDepInstrumentId))) {
       setAddingPlaceholder(false);
       return;
     }
@@ -387,7 +388,7 @@ export default function GigRoster({ gigId }) {
       }
     }
 
-    const ok = window.confirm(confirmMessage);
+    const ok = await confirmAsync(confirmMessage);
     if (!ok) return;
     const { error } = await supabase.from('gig_lineup').delete().eq('id', entry.id);
     if (error) { alert("Couldn't remove: " + error.message); return; }

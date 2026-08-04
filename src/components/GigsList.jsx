@@ -9,6 +9,7 @@ import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate
 import CalendarFeed from './CalendarFeed.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 const today = todayStr;
 
@@ -143,7 +144,7 @@ export default function GigsList() {
   // ── Delete (admin only) ──────────────────────────────────────────────────────
   async function handleDelete(gig, e) {
     e.stopPropagation();
-    const ok = window.confirm(
+    const ok = await confirmAsync(
       'Delete this gig? This also permanently deletes its lineup, setlist, and invoice records.'
     );
     if (!ok) return;

@@ -14,6 +14,7 @@ import EnquiriesList from './components/EnquiriesList.jsx';
 import UserActivity from './components/UserActivity.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
 import PublicDocumentView from './components/PublicDocumentView.jsx';
+import ConfirmHost from './components/ConfirmHost.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 
 function UserIcon() {
@@ -195,6 +196,7 @@ export default function App() {
         {view === 'activity' && isAdmin && <UserActivity />}
         {view === 'profile' && <MyProfile />}
       </main>
+      <ConfirmHost />
     </div>
   );
 }

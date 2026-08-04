@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ClientForm from './ClientForm.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function ClientsList() {
   const { isAdmin, profile } = useCurrentProfile();
@@ -35,7 +36,7 @@ export default function ClientsList() {
   }
 
   async function handleDelete(client) {
-    const ok = window.confirm(`Delete "${client.name}"? This can't be undone.`);
+    const ok = await confirmAsync(`Delete "${client.name}"? This can't be undone.`);
     if (!ok) return;
     const { error } = await supabase.from('clients').delete().eq('id', client.id);
     if (error) {

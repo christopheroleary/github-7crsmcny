@@ -6,6 +6,7 @@ import BandLeaders from './BandLeaders.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function BandsList() {
   const { isAdmin, isBandLeader } = useCurrentProfile();
@@ -38,7 +39,7 @@ export default function BandsList() {
   }
 
   async function handleDelete(band) {
-    const ok = window.confirm(
+    const ok = await confirmAsync(
       'Delete "' + band.name + '"? This also detaches it from any gigs and deletes its setlist library. This cannot be undone.'
     );
     if (!ok) return;

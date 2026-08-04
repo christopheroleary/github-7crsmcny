@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -83,7 +84,7 @@ export default function GigSetlist({ gigId, bandId }) {
   }
 
   async function handleDetach(setlistId) {
-    const ok = window.confirm("Remove this set from tonight's gig? It stays in the band's library for reuse elsewhere.");
+    const ok = await confirmAsync("Remove this set from tonight's gig? It stays in the band's library for reuse elsewhere.");
     if (!ok) return;
     const { error } = await supabase.from('gig_setlists').delete().eq('gig_id', gigId).eq('setlist_id', setlistId);
     if (error) {
@@ -94,7 +95,7 @@ export default function GigSetlist({ gigId, bandId }) {
   }
 
   async function handleDeleteTemplate(setlist) {
-    const ok = window.confirm(
+    const ok = await confirmAsync(
       'Permanently delete "' + setlist.name + '" from the band library? This removes it from every gig that uses it, not just this one. This cannot be undone.'
     );
     if (!ok) return;

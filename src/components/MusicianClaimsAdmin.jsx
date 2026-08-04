@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { confirmAsync } from '../utils/confirmService.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -46,7 +47,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
       if (!onRoster) {
         const name = claim.profiles?.full_name || 'This musician';
         const action = status === 'paid' ? 'mark it paid' : 'approve it';
-        const ok = window.confirm(name + ' is no longer on this gig\'s roster. Still ' + action + '?');
+        const ok = await confirmAsync(name + ' is no longer on this gig\'s roster. Still ' + action + '?');
         if (!ok) return;
       }
     }

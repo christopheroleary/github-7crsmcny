@@ -12,6 +12,7 @@ import GigQuote from './GigQuote.jsx';
 import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
   const { gig, isOffline, syncing, syncedAt, error, refresh } =
@@ -72,7 +73,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
   // ── Delete ────────────────────────────────────────────────────────────────
   async function handleDelete() {
-    const ok = window.confirm(
+    const ok = await confirmAsync(
       'Delete this gig? This also permanently deletes its lineup, setlist, and invoice records. This cannot be undone.'
     );
     if (!ok) return;

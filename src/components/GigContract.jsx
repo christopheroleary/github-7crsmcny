@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -134,7 +135,7 @@ export default function GigContract({ gigId, gigFeeAmount }) {
               {!locked && (
                 <>
                   <button className="btn btn--ghost" onClick={async () => {
-                    const ok = window.confirm('Delete this contract? This cannot be undone.');
+                    const ok = await confirmAsync('Delete this contract? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('contracts').delete().eq('id', contract.id);
                     if (error) { alert("Couldn't delete: " + error.message); return; }

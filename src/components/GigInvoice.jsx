@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -205,7 +206,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
               {invoice.status !== 'paid' && (
                 <>
                   <button className="btn btn--ghost" onClick={async () => {
-                    const ok = window.confirm('Delete this invoice? This cannot be undone.');
+                    const ok = await confirmAsync('Delete this invoice? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('invoices').delete().eq('id', invoice.id);
                     if (error) { alert("Couldn't delete: " + error.message); return; }

@@ -5,6 +5,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
@@ -91,7 +92,7 @@ export default function MusiciansList() {
     const consequence = musician.is_active
       ? "They'll be hidden from active rosters but their history is kept."
       : "They'll reappear in roster selections.";
-    const ok = window.confirm(action + ' ' + musician.full_name + '? ' + consequence);
+    const ok = await confirmAsync(action + ' ' + musician.full_name + '? ' + consequence);
     if (!ok) return;
     const { error } = await supabase.from('profiles').update({ is_active: !musician.is_active }).eq('id', musician.id);
     if (error) { alert("Couldn't update: " + error.message); return; }
@@ -494,7 +495,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
   }
 
   async function handleDeleteDep(ph) {
-    const ok = window.confirm('Delete "' + ph.name + '" from the system? This will also remove them from any gig rosters. This cannot be undone.');
+    const ok = await confirmAsync('Delete "' + ph.name + '" from the system? This will also remove them from any gig rosters. This cannot be undone.');
     if (!ok) return;
     const { error } = await supabase.from('placeholder_musicians').delete().eq('id', ph.id);
     if (error) { alert("Couldn't delete: " + error.message); return; }
@@ -505,7 +506,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
     const targetId = mergeTargets[ph.id];
     if (!targetId) { alert('Pick a profile to merge into first.'); return; }
     const targetName = profiles.find((p) => p.id === targetId)?.full_name;
-    const ok = window.confirm('Merge all gig history for "' + ph.name + '" into ' + targetName + '? This cannot be undone.');
+    const ok = await confirmAsync('Merge all gig history for "' + ph.name + '" into ' + targetName + '? This cannot be undone.');
     if (!ok) return;
     const { error } = await supabase.rpc('merge_placeholder_musician', {
       p_placeholder_id: ph.id,
