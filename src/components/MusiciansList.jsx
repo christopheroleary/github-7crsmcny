@@ -123,36 +123,32 @@ export default function MusiciansList() {
           <MusicianEditForm profile={m} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
         ) : (
           <>
-            <div className="simple-list__row">
-              <div>
-                <span className="simple-list__title">
-                  {m.full_name}
-                  <span className="status-tag" style={{ marginLeft: 8 }}>{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
-                  {!m.is_active && <span className="status-tag" style={{ marginLeft: 8 }}>inactive</span>}
-                  {m.id === me?.id && <span className="status-tag" style={{ marginLeft: 8 }}>you</span>}
-                </span>
-                <span className="simple-list__subtitle">
-                  {m.instruments.length > 0
-                    ? m.instruments.map((i) => i.name).join(', ')
-                    : 'No instruments set'}
-                </span>
-              </div>
-              <div className="simple-list__actions">
-                <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
-                  {expandedId === m.id ? 'Hide' : 'View'}
-                </button>
-                {isAdmin && m.id !== me?.id && (
-                  <>
-                    <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
-                    <button
-                      className="link-button link-button--danger"
-                      onClick={() => handleToggleActive(m)}
-                    >
-                      {m.is_active ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                  </>
-                )}
-              </div>
+            <div className="musician-card__title">
+              <span className="simple-list__title">{m.full_name}</span>
+              <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
+              {!m.is_active && <span className="status-tag">inactive</span>}
+              {m.id === me?.id && <span className="status-tag">you</span>}
+            </div>
+            <span className="simple-list__subtitle">
+              {m.instruments.length > 0
+                ? m.instruments.map((i) => i.name).join(', ')
+                : 'No instruments set'}
+            </span>
+            <div className="musician-card__actions">
+              <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
+                {expandedId === m.id ? 'Hide' : 'View'}
+              </button>
+              {isAdmin && m.id !== me?.id && (
+                <>
+                  <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
+                  <button
+                    className="link-button link-button--danger"
+                    onClick={() => handleToggleActive(m)}
+                  >
+                    {m.is_active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </>
+              )}
             </div>
             {expandedId === m.id && (
               <dl className="detail-list" style={{ marginTop: 10 }}>
@@ -542,69 +538,61 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
     const gigCount = gigCountsByPlaceholder[ph.id] || 0;
     return (
       <li className="simple-list__item" key={ph.id}>
-        <div className="simple-list__row" style={{ alignItems: 'flex-start' }}>
-          <div style={{ flex: 1 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <DepNameEditor ph={ph} onSaved={load} />
-              <span className="status-tag">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
-            </span>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {ph.instruments.map((inst) => (
-                <span className="tag" key={inst.id}>
-                  {inst.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveInstrument(ph.id, inst.id)}
-                    aria-label={'Remove ' + inst.name}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              <select
-                value=""
-                style={{ fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
-                onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
-              >
-                <option value="">+ Add instrument…</option>
-                {allInstruments
-                  .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
-                  .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-              </select>
-            </div>
-
-            <button
-              className="link-button"
-              style={{ fontSize: 12, marginTop: 6 }}
-              onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}
-            >
-              {expandedDepId === ph.id ? 'Hide details' : (ph.phone || ph.email || ph.address ? 'View details' : '+ Add contact details')}
-            </button>
-            {expandedDepId === ph.id && <DepDetailsEditor ph={ph} onSaved={load} />}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-            {isAdmin && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <select
-                  value={mergeTargets[ph.id] || ''}
-                  onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
-                  style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
-                >
-                  <option value="">Merge into real account…</option>
-                  {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                </select>
-                <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
-              </div>
-            )}
-            {(isAdmin || ph.created_by === me?.id) && (
-              <button className="link-button link-button--danger" style={{ fontSize: 12 }} onClick={() => handleDeleteDep(ph)}>
-                Delete dep
-              </button>
-            )}
-          </div>
+        <div className="musician-card__title">
+          <DepNameEditor ph={ph} onSaved={load} />
+          <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
         </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          {ph.instruments.map((inst) => (
+            <span className="tag" key={inst.id}>
+              {inst.name}
+              <button
+                type="button"
+                onClick={() => handleRemoveInstrument(ph.id, inst.id)}
+                aria-label={'Remove ' + inst.name}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <select
+            value=""
+            style={{ width: 170, fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
+            onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
+          >
+            <option value="">+ Add instrument…</option>
+            {allInstruments
+              .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
+              .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+        </div>
+
+        <div className="musician-card__actions">
+          <button className="link-button" onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}>
+            {expandedDepId === ph.id ? 'Hide details' : (ph.phone || ph.email || ph.address ? 'View details' : '+ Add contact details')}
+          </button>
+          {isAdmin && (
+            <>
+              <select
+                value={mergeTargets[ph.id] || ''}
+                onChange={(e) => setMergeTargets((prev) => ({ ...prev, [ph.id]: e.target.value }))}
+                style={{ width: 200, fontSize: 12, padding: '4px 6px', border: '1px solid var(--line)', borderRadius: 6 }}
+              >
+                <option value="">Merge into real account…</option>
+                {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </select>
+              <button className="link-button" onClick={() => handleMerge(ph)}>Merge</button>
+            </>
+          )}
+          {(isAdmin || ph.created_by === me?.id) && (
+            <button className="link-button link-button--danger" onClick={() => handleDeleteDep(ph)}>
+              Delete dep
+            </button>
+          )}
+        </div>
+
+        {expandedDepId === ph.id && <DepDetailsEditor ph={ph} onSaved={load} />}
       </li>
     );
   }

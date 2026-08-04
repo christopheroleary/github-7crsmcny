@@ -617,6 +617,39 @@ input:not([type]) {
   overflow-wrap: break-word;
 }
 
+/* ---------- Musicians / deps cards ----------
+   Deliberately page-scoped rather than reusing .simple-list__row's
+   space-between layout: that layout tries to sit actions beside the
+   title/subtitle, which works fine when content is always short (as on
+   most other .simple-list pages) but on the Musicians page it doesn't --
+   a long instrument list wraps to a second line for some people and not
+   others, and every time it wraps, the actions block gets bumped onto its
+   own line too and left-aligns instead of staying put on the right. Same
+   person, same button, different spot depending on wrap -- the whole
+   complaint. Title/content/actions are full-width stacked rows here
+   instead, so the actions row is always in the same place regardless of
+   how long anyone's name or instrument list happens to be. */
+.musician-card__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.musician-card__meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.musician-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+
 /* ---------- Address autocomplete ---------- */
 .address-autocomplete {
   position: relative;
