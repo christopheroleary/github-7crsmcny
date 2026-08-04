@@ -119,17 +119,18 @@ Deno.serve(async (req) => {
           record.instrument_id
             ? supabase.from('instruments').select('name').eq('id', record.instrument_id).single()
             : Promise.resolve({ data: null }),
-          supabase.from('gigs').select('gig_date, band_id, venues(name)').eq('id', record.gig_id).single(),
+          supabase.from('gigs').select('gig_date, band_id, venues(name), bands(name)').eq('id', record.gig_id).single(),
         ]);
 
         const musicianName = profile?.full_name || placeholder?.name || 'A musician';
         const venueName = (gig as any)?.venues?.name || 'a gig';
+        const bandName = (gig as any)?.bands?.name || '';
         const instrumentName = (instrument as any)?.name || '';
         const action = record.confirmed ? 'confirmed' : 'unconfirmed';
 
         await pushToAdmins({
           title: `${musicianName} ${action} for ${venueName}`,
-          body: [instrumentName, formatGigDate(gig?.gig_date)].filter(Boolean).join(' · ')
+          body: [instrumentName, formatGigDate(gig?.gig_date), bandName].filter(Boolean).join(' · ')
             || `${musicianName} has ${action} their place at ${venueName}.`,
           tag: 'lineup-' + record.id,
           url: '/gigs',
