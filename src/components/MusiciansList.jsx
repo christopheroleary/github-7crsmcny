@@ -166,7 +166,7 @@ export default function MusiciansList() {
   return (
     <div>
       <div className="section-header">
-        <h2 className="section-header__title">Musicians</h2>
+        <h2 className="section-header__title">Musicians ({bookedMusicians.length})</h2>
       </div>
 
       {/* Instrument filter */}
@@ -543,30 +543,38 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
           <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
-          {ph.instruments.map((inst) => (
-            <span className="tag" key={inst.id}>
-              {inst.name}
-              <button
-                type="button"
-                onClick={() => handleRemoveInstrument(ph.id, inst.id)}
-                aria-label={'Remove ' + inst.name}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <select
-            value=""
-            style={{ width: 170, fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
-            onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
-          >
-            <option value="">+ Add instrument…</option>
-            {allInstruments
-              .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
-              .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-        </div>
+        {ph.instruments.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            {ph.instruments.map((inst) => (
+              <span className="tag" key={inst.id}>
+                {inst.name}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveInstrument(ph.id, inst.id)}
+                  aria-label={'Remove ' + inst.name}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Always its own row, never sharing a line with the tags above --
+            otherwise this select's position (and how much of the row it
+            visually takes up) shifts depending on how many tags happen to
+            precede it, which read as "randomly sized" even though the
+            control itself was always the same width. */}
+        <select
+          value=""
+          style={{ width: 180, marginTop: 6, fontSize: 12, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)' }}
+          onChange={(e) => handleAddInstrument(ph.id, e.target.value)}
+        >
+          <option value="">+ Add instrument…</option>
+          {allInstruments
+            .filter((i) => !ph.instruments.find((pi) => pi.id === i.id))
+            .map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
 
         <div className="musician-card__actions">
           <button className="link-button" onClick={() => setExpandedDepId(expandedDepId === ph.id ? null : ph.id)}>
@@ -605,7 +613,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
   return (
     <div style={{ marginTop: 32 }}>
       <div className="section-header">
-        <h2 className="section-header__title">Deps &amp; session musicians</h2>
+        <h2 className="section-header__title">Deps &amp; session musicians ({bookedDeps.length})</h2>
         {!showAddForm && (
           <button className="btn btn--primary btn--small" onClick={() => { setShowAddForm(true); setAddError(null); }}>
             + Add new dep
