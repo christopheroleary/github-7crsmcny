@@ -125,9 +125,9 @@ export default function MusiciansList() {
           <>
             <div className="musician-card__title">
               <span className="simple-list__title">{m.full_name}</span>
-              <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
               {!m.is_active && <span className="status-tag">inactive</span>}
               {m.id === me?.id && <span className="status-tag">you</span>}
+              <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
             </div>
             <span className="simple-list__subtitle">
               {m.instruments.length > 0

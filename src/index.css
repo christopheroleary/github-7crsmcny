@@ -636,6 +636,7 @@ input:not([type]) {
   gap: 8px;
 }
 .musician-card__meta {
+  margin-left: auto;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
