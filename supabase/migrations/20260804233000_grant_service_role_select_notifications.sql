@@ -1,0 +1,14 @@
+-- service_role was missing a plain SELECT grant on this table (a lower
+-- layer than RLS -- service_role bypasses RLS but still needs the grant
+-- to touch the table at all). Had INSERT already (every notify-* edge
+-- function writes here fine) but never SELECT.
+--
+-- Real consequence: gig-day-reminder's duplicate-send guard does
+--   select id from notifications where gig_id = ... and title ilike 'Gig day:%' limit 1
+-- and only skips re-notifying if that returns a row. With SELECT denied,
+-- the query silently errored (error was never checked, same pattern as
+-- the placeholder_musicians bug), `existing` came back undefined, and the
+-- "already sent" check could never actually trigger -- every cron run
+-- landing in the 9:30am London reminder window would have been free to
+-- resend "Gig day" pushes/notifications for a gig already reminded.
+grant select on public.notifications to service_role;
