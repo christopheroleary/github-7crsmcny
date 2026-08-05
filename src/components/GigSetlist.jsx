@@ -399,20 +399,22 @@ function SortableSongItem({
   return (
     <li ref={setNodeRef} style={style} className="setlist-song">
       <div className="setlist-song__row">
-        <span
-          className="setlist-song__handle"
-          title={isAdmin ? 'Drag to reorder' : undefined}
-          style={{ touchAction: 'none', cursor: isAdmin ? 'grab' : 'default' }}
-          {...(isAdmin ? attributes : {})}
-          {...(isAdmin ? listeners : {})}
-        >
-          ⠿
-        </span>
-        <span className="setlist-song__number">{idx + 1}</span>
-        <span className="setlist-song__title">
-          {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
-          {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
-        </span>
+        <div className="setlist-song__main">
+          <span
+            className="setlist-song__handle"
+            title={isAdmin ? 'Drag to reorder' : undefined}
+            style={{ touchAction: 'none', cursor: isAdmin ? 'grab' : 'default' }}
+            {...(isAdmin ? attributes : {})}
+            {...(isAdmin ? listeners : {})}
+          >
+            ⠿
+          </span>
+          <span className="setlist-song__number">{idx + 1}</span>
+          <span className="setlist-song__title">
+            {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
+            {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
+          </span>
+        </div>
         <div className="setlist-song__actions">
           {song?.reference_url && (
             <button className="link-button" onClick={() => setShowPlayerId(showPlayerId === item.id ? null : item.id)}>
@@ -459,11 +461,13 @@ function SongRowPreview({ item }) {
   return (
     <li className="setlist-song setlist-song--overlay">
       <div className="setlist-song__row">
-        <span className="setlist-song__handle" style={{ cursor: 'grabbing' }}>⠿</span>
-        <span className="setlist-song__title">
-          {song ? song.title : 'Song details unavailable'}
-          {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
-        </span>
+        <div className="setlist-song__main">
+          <span className="setlist-song__handle" style={{ cursor: 'grabbing' }}>⠿</span>
+          <span className="setlist-song__title">
+            {song ? song.title : 'Song details unavailable'}
+            {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
+          </span>
+        </div>
       </div>
     </li>
   );

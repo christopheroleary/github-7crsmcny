@@ -1070,6 +1070,17 @@ input:not([type]) {
   gap: 10px;
   flex-wrap: wrap;
 }
+/* Tighter gap than .setlist-song__row's own so the title starts right after
+   the drag handle -- reclaims horizontal room for the song title/key on
+   narrow screens instead of spending it on whitespace before the text even
+   starts. Only the gap before .setlist-song__actions stays wider. */
+.setlist-song__main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
 .setlist-song__handle {
   cursor: grab;
   color: var(--text-muted);
@@ -1080,12 +1091,13 @@ input:not([type]) {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-muted);
-  min-width: 18px;
+  min-width: 14px;
   text-align: right;
   flex-shrink: 0;
 }
 .setlist-song__title {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
   display: flex;
