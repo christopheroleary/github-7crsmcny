@@ -11,12 +11,13 @@ import GigInvoice from './GigInvoice.jsx';
 import GigQuote from './GigQuote.jsx';
 import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
+import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
-  const { gig, isOffline, syncing, syncedAt, error, refresh } =
+  const { gig, lineup, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
 
   const [editing, setEditing] = useState(false);
@@ -24,6 +25,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   // remount and pick up the newly-created invoice it wouldn't otherwise
   // know exists (they're sibling components, each loading on mount only).
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
+  const [showViewAsPicker, setShowViewAsPicker] = useState(false);
+  const [viewAsProfileId, setViewAsProfileId] = useState(null);
 
   // Scroll to the section a notification pointed at (e.g. straight to the
   // roster or the claims list) once the gig has actually rendered, rather
@@ -72,6 +75,30 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     );
   }
 
+  // ── View as musician ─────────────────────────────────────────────────────
+  // Real accounts only (profile_id set) -- deps/placeholders have no login to
+  // view as. Renders the exact same day-sheet a musician sees, live and
+  // interactive (confirming/claiming here really does write as that
+  // musician), rather than a separate read-only mock -- admins already have
+  // an equivalent confirm action in the roster below, so this isn't granting
+  // any new power, just making it easy to see what someone else sees.
+  if (viewAsProfileId) {
+    const viewAsName = lineup.find((l) => l.profile_id === viewAsProfileId)?.profiles?.full_name || 'this musician';
+    return (
+      <div>
+        <div className="offline-banner">
+          👁 Viewing this gig as <strong>{viewAsName}</strong> — this is exactly what they see.
+        </div>
+        <GigDetailBandMember
+          gigId={gigId}
+          myProfileId={viewAsProfileId}
+          onBack={() => setViewAsProfileId(null)}
+          backLabel="← Exit musician view"
+        />
+      </div>
+    );
+  }
+
   // ── Delete ────────────────────────────────────────────────────────────────
   async function handleDelete() {
     const ok = await confirmAsync(
@@ -117,6 +144,11 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       venue.latitude + ',' + venue.longitude
     : null;
 
+  // Real accounts only -- deps/placeholders have no login to view as.
+  const realMusicians = Array.from(
+    new Map(lineup.filter((l) => l.profile_id).map((l) => [l.profile_id, l])).values()
+  );
+
   return (
     <div className="entity-detail">
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
@@ -142,6 +174,42 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
           </button>
         )}
       </div>
+
+      {!isOffline && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '4px 0 12px' }}>
+          <button className="btn btn--primary btn--small" onClick={() => setEditing(true)}>Edit gig</button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={() => setShowViewAsPicker((v) => !v)}
+          >
+            👁 View as musician
+          </button>
+        </div>
+      )}
+
+      {showViewAsPicker && (
+        <div className="inline-subform" style={{ marginBottom: 12 }}>
+          {realMusicians.length === 0 ? (
+            <p className="field__hint">No musicians with real accounts are booked on this gig yet.</p>
+          ) : (
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  setViewAsProfileId(e.target.value);
+                  setShowViewAsPicker(false);
+                }
+              }}
+            >
+              <option value="">Choose a musician…</option>
+              {realMusicians.map((l) => (
+                <option key={l.profile_id} value={l.profile_id}>{l.profiles?.full_name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       <div className="section-header">
         <h2 className="section-header__title">{venue?.name ?? 'No venue set'}</h2>
@@ -294,13 +362,10 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
       <div className="form-actions">
         {!isOffline && (
-          <>
-            <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
-            <button className="btn btn--primary" onClick={() => setEditing(true)}>Edit gig</button>
-          </>
+          <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
         )}
         {isOffline && (
-          <p className="field__hint">Connect to edit or delete this gig.</p>
+          <p className="field__hint">Connect to delete this gig.</p>
         )}
       </div>
     </div>

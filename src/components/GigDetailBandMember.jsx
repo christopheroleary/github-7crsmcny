@@ -5,11 +5,32 @@ import MusicianClaim from './MusicianClaim.jsx';
 import NearbyFood from './NearbyFood.jsx';
 import NearbyFuel from './NearbyFuel.jsx';
 import { notify } from '../utils/toastService.js';
+import { toWhatsAppNumber } from '../utils/phone.js';
 
 function vocalLabel(role) {
   if (role === 'lead') return 'Lead vocals';
   if (role === 'backing') return 'Backing vocals';
   return null;
+}
+
+// Compact call/text/WhatsApp links for a roster row -- deliberately just a
+// few characters each so this can sit on the same line as the musician's
+// name without pushing the row wide enough to wrap the Confirmed/Pending
+// badge onto its own line (the previous full phone-number string, appended
+// after the instrument line, did exactly that).
+function RosterPhoneLinks({ phone }) {
+  const wa = toWhatsAppNumber(phone);
+  return (
+    <span className="day-sheet__roster-phone" onClick={(e) => e.stopPropagation()}>
+      <a href={'tel:' + phone} title={'Call ' + phone}>Call</a>
+      <a href={'sms:' + phone} title={'Text ' + phone}>Text</a>
+      {wa && (
+        <a href={'https://wa.me/' + wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
+          WhatsApp
+        </a>
+      )}
+    </span>
+  );
 }
 
 function formatTime(t) {
@@ -39,7 +60,7 @@ function formatSyncTime(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled }) {
+export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled, backLabel = '← Back to my gigs' }) {
   const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
   const [confirming, setConfirming] = useState(false);
   const [showLyricsId, setShowLyricsId] = useState(null);
@@ -83,7 +104,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   if (!gig && error) {
     return (
       <div>
-        <button className="link-button" onClick={onBack}>← Back to my gigs</button>
+        <button className="link-button" onClick={onBack}>{backLabel}</button>
         <div className="day-sheet__section" style={{ marginTop: 16 }}>
           <p className="state-message state-message--error" style={{ padding: 0 }}>{error}</p>
         </div>
@@ -135,7 +156,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
 
   return (
     <div className="day-sheet">
-      <button className="link-button" onClick={onBack}>← Back to my gigs</button>
+      <button className="link-button" onClick={onBack}>{backLabel}</button>
 
       {/* Sync status bar */}
       <div className={'sync-bar ' + (isOffline ? 'sync-bar--offline' : 'sync-bar--online')}>
@@ -343,10 +364,12 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
                     ★ Captain
                   </span>
                 )}
+                {l.profiles?.share_phone_on_daysheet && l.profiles?.phone && (
+                  <RosterPhoneLinks phone={l.profiles.phone} />
+                )}
               </span>
               <span className="day-sheet__roster-instrument">
                 {[l.instruments?.name, l.is_dj && 'DJ', l.is_roadie && 'Roadie', vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
-                {l.profiles?.share_phone_on_daysheet && l.profiles?.phone && ' · ' + l.profiles.phone}
               </span>
             </div>
             <span className={'status-tag status-tag--' + (l.confirmed ? 'confirmed' : 'inquiry')}>
