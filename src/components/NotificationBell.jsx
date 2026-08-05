@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { notify } from '../utils/toastService.js';
 
 export default function NotificationBell({ onNavigate }) {
   const { profile } = useCurrentProfile();
@@ -89,13 +90,17 @@ export default function NotificationBell({ onNavigate }) {
 
   async function markRead(notification) {
     if (!notification.read) {
-      await supabase
+      const { error } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('id', notification.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
-      );
+      if (error) {
+        notify("Couldn't mark as read: " + error.message);
+      } else {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+        );
+      }
     }
     setOpen(false);
     if (onNavigate) {
@@ -106,18 +111,20 @@ export default function NotificationBell({ onNavigate }) {
   async function markAllRead() {
     const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
     if (unreadIds.length === 0) return;
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .in('id', unreadIds);
+    if (error) { notify("Couldn't mark all as read: " + error.message); return; }
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   async function clearAll() {
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .delete()
       .eq('profile_id', profile.id);
+    if (error) { notify("Couldn't clear notifications: " + error.message); return; }
     setNotifications([]);
   }
 
