@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+
+const RESET_COOLDOWN_SECONDS = 60;
 
 export default function Login() {
   const inviteParams = new URLSearchParams(window.location.search);
@@ -12,16 +14,40 @@ export default function Login() {
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Client-side-only throttle on the reset-link button -- not a security
+  // boundary (Supabase's server-side rate limits on /auth/v1/recover are
+  // what actually protects the endpoint), just stops the same browser tab
+  // from spam-clicking it.
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setInfo(null);
+
+    if (mode === 'forgotPassword' && resendCooldown > 0) return;
+
     setSubmitting(true);
 
     if (mode === 'signIn') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
+    } else if (mode === 'forgotPassword') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) {
+        setError(error.message);
+      } else {
+        setInfo("If an account exists for that email, we've sent a link to reset your password.");
+        setResendCooldown(RESET_COOLDOWN_SECONDS);
+      }
     } else {
       const { error } = await supabase.auth.signUp({
         email,
@@ -38,11 +64,13 @@ export default function Login() {
     setSubmitting(false);
   }
 
+  const title = mode === 'signIn' ? 'Sign in' : mode === 'signUp' ? 'Create account' : 'Reset password';
+
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <p className="login-card__eyebrow">Gig Manager</p>
-        <h1 className="login-card__title">{mode === 'signIn' ? 'Sign in' : 'Create account'}</h1>
+        <h1 className="login-card__title">{title}</h1>
 
         {mode === 'signUp' && (
           <label className="field">
@@ -56,29 +84,58 @@ export default function Login() {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </label>
 
-        <label className="field">
-          <span className="field__label">Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-        </label>
+        {mode !== 'forgotPassword' && (
+          <label className="field">
+            <span className="field__label">Password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </label>
+        )}
+
+        {mode === 'signIn' && (
+          <button
+            type="button"
+            className="login-card__toggle"
+            style={{ marginBottom: 18 }}
+            onClick={() => {
+              setMode('forgotPassword');
+              setError(null);
+              setInfo(null);
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
 
         {error && <p className="login-card__error">{error}</p>}
         {info && <p className="login-card__info">{info}</p>}
 
-        <button className="btn btn--primary" type="submit" disabled={submitting}>
-          {submitting ? 'Please wait…' : mode === 'signIn' ? 'Sign in' : 'Create account'}
+        <button
+          className="btn btn--primary"
+          type="submit"
+          disabled={submitting || (mode === 'forgotPassword' && resendCooldown > 0)}
+        >
+          {submitting
+            ? 'Please wait…'
+            : mode === 'forgotPassword' && resendCooldown > 0
+              ? `Resend in ${resendCooldown}s`
+              : mode === 'signIn'
+                ? 'Sign in'
+                : mode === 'forgotPassword'
+                  ? 'Send reset link'
+                  : 'Create account'}
         </button>
 
         <button
           type="button"
           className="login-card__toggle"
           onClick={() => {
-            setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+            setMode(mode === 'signUp' ? 'signIn' : mode === 'forgotPassword' ? 'signIn' : 'signUp');
             setError(null);
             setInfo(null);
           }}

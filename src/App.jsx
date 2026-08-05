@@ -14,6 +14,7 @@ import EnquiriesList from './components/EnquiriesList.jsx';
 import UserActivity from './components/UserActivity.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
 import PublicDocumentView from './components/PublicDocumentView.jsx';
+import ResetPassword from './components/ResetPassword.jsx';
 import ConfirmHost from './components/ConfirmHost.jsx';
 import ToastHost from './components/ToastHost.jsx';
 import PromptHost from './components/PromptHost.jsx';
@@ -55,6 +56,11 @@ export default function App() {
 
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  // Clicking the emailed reset link signs the browser into a temporary
+  // recovery session and fires this event -- without catching it, that
+  // session would fall straight through to the normal signed-in app instead
+  // of prompting for a new password.
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const { isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
   // localStorage, not sessionStorage: a PWA fully exited (e.g. backgrounded
   // at a venue with no signal, then killed by the OS) loses sessionStorage
@@ -90,6 +96,7 @@ export default function App() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       if (event === 'SIGNED_IN') checkForServiceWorkerUpdate();
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -126,6 +133,7 @@ export default function App() {
   }, [session, profileLoading]);
 
   if (sessionLoading || profileLoading) return <div className="page-loading">Loading…</div>;
+  if (passwordRecovery) return <ResetPassword onDone={() => setPasswordRecovery(false)} />;
   if (!session) return <Login />;
 
   const adminTabs = [
