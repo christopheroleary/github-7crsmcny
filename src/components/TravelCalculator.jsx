@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { notify } from '../utils/toastService.js';
 
 const METERS_PER_MILE = 1609.344;
 
@@ -74,10 +75,11 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
         if (miles == null) continue;
         const roundTrip = miles * 2;
         const costPence = Math.round(roundTrip * rate);
-        await supabase
+        const { error } = await supabase
           .from('gig_lineup')
           .update({ travel_miles: Math.round(roundTrip * 10) / 10, travel_cost_pence: costPence })
           .eq('id', entry.id);
+        if (error) notify("Couldn't save travel cost for " + (entry.profiles?.full_name || entry.placeholder_musicians?.name || 'a musician') + ": " + error.message);
       } catch {
         // silently skip if routing fails for one musician
       }
@@ -89,10 +91,11 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
   async function toggleLiftShare(entry) {
     const nextLiftShare = !entry.lift_share;
-    await supabase
+    const { error } = await supabase
       .from('gig_lineup')
       .update(nextLiftShare ? { lift_share: true, travel_cost_pence: 0 } : { lift_share: false })
       .eq('id', entry.id);
+    if (error) { notify("Couldn't update lift share: " + error.message); return; }
     load();
   }
 
