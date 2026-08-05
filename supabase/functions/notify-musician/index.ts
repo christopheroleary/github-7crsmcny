@@ -11,6 +11,19 @@ webpush.setVapidDetails('mailto:' + VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+// amount_pence used to live directly on musician_claims; since itemising
+// claims (fee/travel/etc. as separate lines) it lives on
+// musician_claim_items instead, so this needs a follow-up query to sum the
+// total rather than reading it straight off the webhook record.
+async function claimTotalLabel(claimId: string): Promise<string> {
+  const { data: items } = await supabase
+    .from('musician_claim_items')
+    .select('amount_pence')
+    .eq('claim_id', claimId);
+  const totalPence = (items || []).reduce((sum, r) => sum + r.amount_pence, 0);
+  return '£' + (totalPence / 100).toFixed(2);
+}
+
 async function getSubscriptions(profileId: string) {
   const { data } = await supabase
     .from('push_subscriptions')
@@ -168,7 +181,7 @@ Deno.serve(async (req) => {
 
       const venue = (gig as any)?.venues?.name || 'a gig';
       const date = (gig as any)?.gig_date || '';
-      const amount = '£' + (record.amount_pence / 100).toFixed(2);
+      const amount = await claimTotalLabel(record.id);
 
       const isApproved = newStatus === 'approved';
       const title = isApproved

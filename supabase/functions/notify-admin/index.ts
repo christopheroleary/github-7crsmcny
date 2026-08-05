@@ -43,6 +43,27 @@ function formatGigDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
+// amount_pence/description used to live directly on musician_claims; since
+// itemising claims (fee/travel/etc. as separate lines) they live on
+// musician_claim_items instead, so building a notification needs this
+// follow-up query rather than reading straight off the webhook record.
+async function claimSummary(claimId: string): Promise<{ amountLabel: string; description: string }> {
+  const { data: items } = await supabase
+    .from('musician_claim_items')
+    .select('description, amount_pence')
+    .eq('claim_id', claimId)
+    .order('sort_order');
+  const rows = items || [];
+  const totalPence = rows.reduce((sum, r) => sum + r.amount_pence, 0);
+  const amountLabel = '£' + (totalPence / 100).toFixed(2);
+  const description = rows.length === 0
+    ? ''
+    : rows.length === 1
+      ? rows[0].description
+      : rows[0].description + ' + ' + (rows.length - 1) + ' more';
+  return { amountLabel, description };
+}
+
 async function getSubscriptionsFor(profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data: subs } = await supabase
@@ -155,12 +176,12 @@ Deno.serve(async (req) => {
           .single();
 
         const musicianName = profile?.full_name || 'A musician';
-        const amount = '£' + (record.amount_pence / 100).toFixed(2);
+        const { amountLabel, description } = await claimSummary(record.id);
         const venueName = (gig as any)?.venues?.name || 'a gig';
 
         await pushToAdmins({
           title: `New payment claim from ${musicianName}`,
-          body: `${musicianName} submitted a ${amount} claim for ${venueName} — ${record.description}.`,
+          body: `${musicianName} submitted a ${amountLabel} claim for ${venueName}` + (description ? ` — ${description}.` : '.'),
           tag: 'claim-' + record.id,
           url: '/gigs',
           gig_id: record.gig_id,
@@ -183,12 +204,12 @@ Deno.serve(async (req) => {
           .single();
 
         const musicianName = profile?.full_name || 'A musician';
-        const amount = '£' + (record.amount_pence / 100).toFixed(2);
+        const { amountLabel, description } = await claimSummary(record.id);
         const venueName = (gig as any)?.venues?.name || 'a gig';
 
         await pushToAdmins({
           title: `${musicianName} resubmitted their claim`,
-          body: `${musicianName} amended and resubmitted a ${amount} claim for ${venueName} — ${record.description}.`,
+          body: `${musicianName} amended and resubmitted a ${amountLabel} claim for ${venueName}` + (description ? ` — ${description}.` : '.'),
           tag: 'claim-' + record.id,
           url: '/gigs',
           gig_id: record.gig_id,

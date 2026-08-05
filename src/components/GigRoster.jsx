@@ -375,15 +375,16 @@ export default function GigRoster({ gigId }) {
     if (entry.profile_id) {
       const { data: claims } = await supabase
         .from('musician_claims')
-        .select('status, amount_pence')
+        .select('status, musician_claim_items(amount_pence)')
         .eq('gig_id', gigId)
         .eq('profile_id', entry.profile_id)
         .in('status', ['approved', 'paid']);
 
       if (claims?.length) {
         const claim = claims[0];
+        const totalPence = (claim.musician_claim_items || []).reduce((sum, i) => sum + i.amount_pence, 0);
         confirmMessage =
-          name + ' has a ' + claim.status + ' claim of £' + (claim.amount_pence / 100).toFixed(2) +
+          name + ' has a ' + claim.status + ' claim of £' + (totalPence / 100).toFixed(2) +
           " for this gig. Removing them from the roster will NOT change that claim — you'll need to " +
           'handle it separately. Remove anyway?';
       }

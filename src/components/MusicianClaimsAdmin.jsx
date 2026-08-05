@@ -4,6 +4,14 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { promptAsync } from '../utils/promptService.js';
 import { notify } from '../utils/toastService.js';
 
+function sortedItems(claim) {
+  return [...(claim.musician_claim_items || [])].sort((a, b) => a.sort_order - b.sort_order);
+}
+
+function claimTotalPence(claim) {
+  return sortedItems(claim).reduce((sum, i) => sum + i.amount_pence, 0);
+}
+
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
 }
@@ -23,7 +31,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
     setLoading(true);
     const { data } = await supabase
       .from('musician_claims')
-      .select('*, profiles(full_name)')
+      .select('*, profiles(full_name), musician_claim_items(*)')
       .eq('gig_id', gigId)
       .order('created_at');
     setClaims(data || []);
@@ -79,7 +87,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
     </div>
   );
 
-  const total = claims.filter((c) => c.status !== 'rejected').reduce((sum, c) => sum + c.amount_pence, 0);
+  const total = claims.filter((c) => c.status !== 'rejected').reduce((sum, c) => sum + claimTotalPence(c), 0);
 
   return (
     <div className="roster-section">
@@ -89,10 +97,14 @@ export default function MusicianClaimsAdmin({ gigId }) {
           <li className="simple-list__item" key={claim.id}>
             <div className="simple-list__row">
               <div>
-                <span className="simple-list__title">{claim.profiles?.full_name}</span>
-                <span className="simple-list__subtitle">
-                  {claim.description} — <strong>£{poundsFromPence(claim.amount_pence)}</strong>
+                <span className="simple-list__title">
+                  {claim.profiles?.full_name} — <strong>£{poundsFromPence(claimTotalPence(claim))}</strong>
                 </span>
+                {sortedItems(claim).map((item) => (
+                  <span className="simple-list__subtitle" key={item.id}>
+                    {item.category} · {item.description} — £{poundsFromPence(item.amount_pence)}
+                  </span>
+                ))}
                 {claim.notes && <span className="simple-list__subtitle">{claim.notes}</span>}
               </div>
               <div className="simple-list__actions">

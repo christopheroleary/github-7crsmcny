@@ -1,9 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
+import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
+}
+
+function sortedItems(claim) {
+  return [...(claim?.musician_claim_items || [])].sort((a, b) => a.sort_order - b.sort_order);
+}
+
+function claimTotalPence(claim) {
+  return sortedItems(claim).reduce((sum, i) => sum + i.amount_pence, 0);
 }
 
 function formatDate(dateStr) {
@@ -43,7 +52,7 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
 
   const emailTo = band?.contact_email || '';
   const invNumber = claimInvoiceNumber(claim?.created_at);
-  const amount = poundsFromPence(claim?.amount_pence);
+  const amount = poundsFromPence(claimTotalPence(claim));
   const musicianName = profile?.full_name || profile?.name || 'Musician';
 
   const subject = `Invoice ${invNumber} - ${musicianName}`;
@@ -138,7 +147,8 @@ function ClaimEmailButton({ band, claim, profile, onDownloadPdf, claimInvoiceNum
 function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const invNumber = claimInvoiceNumber(claim.created_at);
   const isPaid = claim.status === 'paid';
-  const total = claim.amount_pence;
+  const items = sortedItems(claim);
+  const total = claimTotalPence(claim);
 
   const issuedDate = claim.created_at ? claim.created_at.slice(0, 10) : null;
   const paidDate   = isPaid && claim.updated_at ? claim.updated_at.slice(0, 10) : null;
@@ -321,12 +331,13 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
       </tr>
     </thead>
     <tbody>
-      <tr class="alt">
-        <td class="desc">${claim.description}</td>
+      ${items.map((item, i) => `
+      <tr class="${i % 2 === 1 ? 'alt' : ''}">
+        <td class="desc">${item.description}<br/><span style="color:#999;font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;">${item.category}</span></td>
         <td class="num">1</td>
-        <td class="num">£${poundsFromPence(total)}</td>
-        <td class="num">£${poundsFromPence(total)}</td>
-      </tr>
+        <td class="num">£${poundsFromPence(item.amount_pence)}</td>
+        <td class="num">£${poundsFromPence(item.amount_pence)}</td>
+      </tr>`).join('')}
     </tbody>
   </table>
 
@@ -371,8 +382,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
   const [profile, setProfile]   = useState(null);
   const [loading, setLoading]   = useState(true);
   const [editing, setEditing]   = useState(false);
-  const [description, setDescription] = useState('');
-  const [amountPounds, setAmountPounds] = useState('');
+  const [items, setItems]       = useState([]);
   const [notes, setNotes]       = useState('');
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState(null);
@@ -387,7 +397,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       { data: profileData },
       authResult,
     ] = await Promise.all([
-      supabase.from('musician_claims').select('*').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
+      supabase.from('musician_claims').select('*, musician_claim_items(*)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gig_lineup').select('travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gigs').select('gig_date, start_time, end_time, band_id, venues(name, address)').eq('id', gigId).maybeSingle(),
       supabase.from('profiles').select('full_name, phone, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
@@ -434,60 +444,101 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     };
   }
 
+  // A new claim starts pre-seeded with a Fee line and, if travel was already
+  // calculated for this gig, a separate Travel line for it -- fee and travel
+  // are different tax categories for the musician's own records, so they
+  // shouldn't be forced into one lump amount the way a single-field claim
+  // used to require.
   function startCreate() {
-    const travelPounds = myLineup?.travel_cost_pence
-      ? (myLineup.travel_cost_pence / 100).toFixed(2)
-      : '';
-    setDescription(
-      'Performance fee' +
-        (myLineup?.instruments?.name ? ' — ' + myLineup.instruments.name : '')
-    );
-    setAmountPounds('');
-    setNotes(travelPounds ? 'Includes £' + travelPounds + ' travel' : '');
+    const newItems = [
+      {
+        category: 'Fee',
+        description: 'Performance fee' + (myLineup?.instruments?.name ? ' — ' + myLineup.instruments.name : ''),
+        amountPounds: '',
+      },
+    ];
+    if (myLineup?.travel_cost_pence) {
+      newItems.push({
+        category: 'Travel / mileage',
+        description: 'Travel',
+        amountPounds: (myLineup.travel_cost_pence / 100).toFixed(2),
+      });
+    }
+    setItems(newItems);
+    setNotes('');
     setEditing(true);
     setError(null);
   }
+
+  function startEdit() {
+    setItems(
+      sortedItems(claim).map((i) => ({
+        category: i.category,
+        description: i.description,
+        amountPounds: (i.amount_pence / 100).toFixed(2),
+      }))
+    );
+    setNotes(claim.notes || '');
+    setEditing(true);
+    setError(null);
+  }
+
+  function updateItem(index, patch) {
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, { category: CLAIM_CATEGORIES[0], description: '', amountPounds: '' }]);
+  }
+
+  function removeItem(index) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const draftTotalPence = items.reduce((sum, it) => {
+    const p = Math.round(Number(it.amountPounds) * 100);
+    return sum + (Number.isFinite(p) && p > 0 ? p : 0);
+  }, 0);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
-    const amountPence = Math.round(Number(amountPounds) * 100);
-    if (!amountPence || amountPence <= 0) {
-      setError('Please enter a valid amount.');
+    if (items.length === 0) {
+      setError('Add at least one line.');
       setSaving(false);
       return;
     }
 
-    const payload = {
-      gig_id: gigId,
-      profile_id: myProfileId,
-      amount_pence: amountPence,
-      description,
-      notes: notes || null,
-    };
-
-    const { error: saveError } = claim
-      ? await supabase
-          .from('musician_claims')
-          .update({
-            amount_pence: amountPence,
-            description,
-            notes: notes || null,
-            created_at: new Date().toISOString(),
-            // Resubmitting a rejected claim puts it back in the admin's queue.
-            status: 'pending',
-          })
-          .eq('id', claim.id)
-      : await supabase.from('musician_claims').insert(payload);
-
-    setSaving(false);
-    if (saveError) {
-      setError(saveError.message);
-      return;
+    const parsedItems = [];
+    for (const it of items) {
+      if (!it.description.trim()) {
+        setError('Every line needs a description.');
+        setSaving(false);
+        return;
+      }
+      const amountPence = Math.round(Number(it.amountPounds) * 100);
+      if (!amountPence || amountPence <= 0) {
+        setError('Every line needs a valid amount.');
+        setSaving(false);
+        return;
+      }
+      parsedItems.push({ category: it.category, description: it.description.trim(), amount_pence: amountPence });
     }
 
+    // A single RPC call (one transaction) rather than a header insert/update
+    // followed by a separate items insert -- notify-admin/notify-musician
+    // fire the instant the header row commits, and reading
+    // musician_claim_items in a still-separate follow-up request raced that
+    // webhook, showing "£0.00" when it fired before the items existed yet.
+    const claimId = claim?.id;
+    const { error: rpcError } = claimId
+      ? await supabase.rpc('update_musician_claim', { p_claim_id: claimId, p_notes: notes || null, p_items: parsedItems })
+      : await supabase.rpc('create_musician_claim', { p_gig_id: gigId, p_notes: notes || null, p_items: parsedItems });
+    if (rpcError) { setError(rpcError.message); setSaving(false); return; }
+
+    setSaving(false);
     setEditing(false);
     load();
 
@@ -508,8 +559,8 @@ export default function MusicianClaim({ gigId, myProfileId }) {
         <>
           {myLineup?.travel_cost_pence && (
             <p className="field__hint">
-              Your calculated travel cost is £{poundsFromPence(myLineup.travel_cost_pence)} — you
-              can include this in your claim.
+              Your calculated travel cost is £{poundsFromPence(myLineup.travel_cost_pence)} — this
+              will be added as its own line when you start a claim.
             </p>
           )}
           <button
@@ -525,13 +576,15 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       {claim && !editing && (
         <>
           <div className="claim-card">
+            {sortedItems(claim).map((item) => (
+              <div className="claim-card__row" key={item.id}>
+                <span className="claim-card__label">{item.category}</span>
+                <span>{item.description} — <strong>£{poundsFromPence(item.amount_pence)}</strong></span>
+              </div>
+            ))}
             <div className="claim-card__row">
-              <span className="claim-card__label">Amount</span>
-              <span className="claim-card__amount">£{poundsFromPence(claim.amount_pence)}</span>
-            </div>
-            <div className="claim-card__row">
-              <span className="claim-card__label">Description</span>
-              <span>{claim.description}</span>
+              <span className="claim-card__label">Total</span>
+              <span className="claim-card__amount">£{poundsFromPence(claimTotalPence(claim))}</span>
             </div>
             {claim.notes && (
               <div className="claim-card__row">
@@ -552,13 +605,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
               <button
                 className="link-button"
                 style={{ marginTop: '12px' }}
-                onClick={() => {
-                  setDescription(claim.description);
-                  setAmountPounds((claim.amount_pence / 100).toFixed(2));
-                  setNotes(claim.notes || '');
-                  setEditing(true);
-                  setError(null);
-                }}
+                onClick={startEdit}
               >
                 {claim.status === 'rejected' ? 'Amend & resubmit' : 'Edit claim'}
               </button>
@@ -579,34 +626,55 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
       {editing && (
         <form className="inline-subform" onSubmit={handleSubmit}>
-          <label className="field">
-            <span className="field__label">Description</span>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Total amount (£)</span>
-            <input
-              type="number"
-              step="0.01"
-              value={amountPounds}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setAmountPounds(v);
-              }}
-              placeholder="e.g. 150.00"
-              required
-            />
-            {myLineup?.travel_cost_pence && (
-              <span className="field__hint">
-                Your travel is £{poundsFromPence(myLineup.travel_cost_pence)} — include this in
-                your total if applicable.
-              </span>
-            )}
-          </label>
+          {items.map((item, i) => (
+            <div
+              key={i}
+              style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 10 }}
+            >
+              <label className="field" style={{ flex: '1 1 150px', marginBottom: 0 }}>
+                <span className="field__label">Category</span>
+                <select value={item.category} onChange={(e) => updateItem(i, { category: e.target.value })}>
+                  {CLAIM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="field" style={{ flex: '2 1 200px', marginBottom: 0 }}>
+                <span className="field__label">Description</span>
+                <input value={item.description} onChange={(e) => updateItem(i, { description: e.target.value })} required />
+              </label>
+              <label className="field" style={{ flex: '0 1 110px', marginBottom: 0 }}>
+                <span className="field__label">Amount (£)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={item.amountPounds}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) updateItem(i, { amountPounds: v });
+                  }}
+                  placeholder="0.00"
+                  required
+                />
+              </label>
+              <button
+                type="button"
+                className="link-button link-button--danger"
+                style={{ marginBottom: 10 }}
+                onClick={() => removeItem(i)}
+                aria-label="Remove line"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button type="button" className="btn btn--ghost btn--small" onClick={addItem} style={{ marginBottom: 12 }}>
+            + Add line
+          </button>
+
+          <p style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Total: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(draftTotalPence)}</strong>
+          </p>
+
           <label className="field">
             <span className="field__label">Notes (optional)</span>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
