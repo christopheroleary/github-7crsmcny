@@ -12,13 +12,19 @@ export default function BandLeaders({ bandId }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: leaderRows }, { data: bandLeaderProfiles }] = await Promise.all([
+    // band_leaders has two FKs to profiles (profile_id and added_by), so the
+    // embed must name which one -- an unqualified profiles(...) is ambiguous
+    // to PostgREST (PGRST201) and errors out. That error was never checked
+    // here, so leaderRows silently came back undefined and every band showed
+    // "No leaders assigned yet" regardless of what was actually assigned.
+    const [{ data: leaderRows, error: leadersError }, { data: bandLeaderProfiles }] = await Promise.all([
       supabase
         .from('band_leaders')
-        .select('id, profile_id, profiles(full_name)')
+        .select('id, profile_id, profiles!band_leaders_profile_id_fkey(full_name)')
         .eq('band_id', bandId),
       supabase.from('profiles').select('id, full_name').eq('role', 'band_leader').order('full_name'),
     ]);
+    if (leadersError) notify("Couldn't load leaders: " + leadersError.message);
     setLeaders(leaderRows || []);
     setCandidates(bandLeaderProfiles || []);
     setLoading(false);
