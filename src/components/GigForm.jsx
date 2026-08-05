@@ -9,6 +9,19 @@ function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
 }
 
+// Presets describe a dress-code style rather than a specific garment (e.g.
+// not "Suit" or "Dress"), so the same list reads correctly regardless of
+// what any given musician is wearing.
+const DRESS_CODE_PRESETS = [
+  'Black tie / Formal',
+  'Smart casual',
+  'All black stagewear',
+  'Band-branded stagewear',
+  'Casual / Comfortable',
+  'Themed / Costume',
+  "Client's own dress code",
+];
+
 export default function GigForm({ gig, onSaved, onCancel }) {
   const { profile: me } = useCurrentProfile();
   const isEdit = Boolean(gig) && !gig._isConvert;
@@ -54,7 +67,12 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const [parkingNotes, setParkingNotes] = useState(gig?.parking_notes || '');
   const [notes, setNotes] = useState(gig?.notes || '');
   const [setsInfo, setSetsInfo] = useState(gig?.sets_info || '');
-  const [dressCode, setDressCode] = useState(gig?.dress_code || '');
+  const [dressCodePreset, setDressCodePreset] = useState(
+    gig?.dress_code ? (DRESS_CODE_PRESETS.includes(gig.dress_code) ? gig.dress_code : '__other__') : ''
+  );
+  const [dressCodeOther, setDressCodeOther] = useState(
+    gig?.dress_code && !DRESS_CODE_PRESETS.includes(gig.dress_code) ? gig.dress_code : ''
+  );
   const [venueWifi, setVenueWifi] = useState(gig?.venue_wifi || '');
 
   // DJ details
@@ -198,7 +216,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       parking_notes: parkingNotes || null,
       notes: notes || null,
       sets_info: setsInfo || null,
-      dress_code: dressCode || null,
+      dress_code: (dressCodePreset === '__other__' ? dressCodeOther.trim() : dressCodePreset) || null,
       venue_wifi: venueWifi || null,
       needs_dj: needsDj,
       dj_song_rules: djSongRules || null,
@@ -470,12 +488,20 @@ export default function GigForm({ gig, onSaved, onCancel }) {
 
       <label className="field">
         <span className="field__label">Dress code (optional)</span>
-        <textarea
-          value={dressCode}
-          onChange={(e) => setDressCode(e.target.value)}
-          rows={2}
-          placeholder="e.g. Black shirt, black suit trousers (no jeans), black shoes, no tie, no jacket"
-        />
+        <select value={dressCodePreset} onChange={(e) => setDressCodePreset(e.target.value)}>
+          <option value="">— Not set —</option>
+          {DRESS_CODE_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+          <option value="__other__">Other (specify)…</option>
+        </select>
+        {dressCodePreset === '__other__' && (
+          <textarea
+            value={dressCodeOther}
+            onChange={(e) => setDressCodeOther(e.target.value)}
+            rows={2}
+            placeholder="e.g. Freddie Mercury-style stagewear — white vest, gold armband, moustache"
+            style={{ marginTop: 8 }}
+          />
+        )}
       </label>
 
       <label className="field">
