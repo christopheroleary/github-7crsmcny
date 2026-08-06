@@ -2,23 +2,23 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
-import { EXPENSE_CATEGORIES } from '../utils/expenseCategories.js';
-import { SA103_EXPENSE_BOX } from '../utils/sa103Boxes.js';
+import { INCOME_CATEGORIES } from '../utils/incomeCategories.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
 }
 
-// Reused for both the musician's own profile page and the admin's per-
-// musician view on the Musicians list -- profileId is always explicit
-// rather than assumed to be "me", so the same component works either way.
-export default function MyExpenses({ profileId }) {
-  const [expenses, setExpenses] = useState([]);
+// Mirrors MyExpenses.jsx exactly -- same reusable-via-profileId shape, same
+// reasoning for admin visibility -- just the other side of the ledger:
+// money in that didn't come through a gig claim (selling gear, teaching,
+// a one-off session, royalties).
+export default function MyIncome({ profileId }) {
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState(todayStr());
-  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [category, setCategory] = useState(INCOME_CATEGORIES[0]);
   const [description, setDescription] = useState('');
   const [amountPounds, setAmountPounds] = useState('');
   const [saving, setSaving] = useState(false);
@@ -27,11 +27,11 @@ export default function MyExpenses({ profileId }) {
   const load = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
-      .from('expenses')
+      .from('income')
       .select('*')
       .eq('profile_id', profileId)
       .order('date', { ascending: false });
-    setExpenses(data || []);
+    setRows(data || []);
     setLoading(false);
   }, [profileId]);
 
@@ -41,7 +41,7 @@ export default function MyExpenses({ profileId }) {
 
   function startAdd() {
     setDate(todayStr());
-    setCategory(EXPENSE_CATEGORIES[0]);
+    setCategory(INCOME_CATEGORIES[0]);
     setDescription('');
     setAmountPounds('');
     setError(null);
@@ -65,7 +65,7 @@ export default function MyExpenses({ profileId }) {
       return;
     }
 
-    const { error: saveError } = await supabase.from('expenses').insert({
+    const { error: saveError } = await supabase.from('income').insert({
       profile_id: profileId,
       date,
       category,
@@ -83,12 +83,12 @@ export default function MyExpenses({ profileId }) {
     load();
   }
 
-  async function handleDelete(expense) {
+  async function handleDelete(row) {
     const ok = await confirmAsync(
-      `Delete "${expense.description}" (£${poundsFromPence(expense.amount_pence)})? This cannot be undone.`
+      `Delete "${row.description}" (£${poundsFromPence(row.amount_pence)})? This cannot be undone.`
     );
     if (!ok) return;
-    const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
+    const { error } = await supabase.from('income').delete().eq('id', row.id);
     if (error) {
       notify("Couldn't delete: " + error.message);
       return;
@@ -98,34 +98,33 @@ export default function MyExpenses({ profileId }) {
 
   if (loading) return null;
 
-  const total = expenses.reduce((sum, e) => sum + e.amount_pence, 0);
+  const total = rows.reduce((sum, r) => sum + r.amount_pence, 0);
 
   return (
     <div className="day-sheet__section">
-      <h3 className="day-sheet__section-title">Expenses</h3>
+      <h3 className="day-sheet__section-title">Other income</h3>
       <p className="field__hint" style={{ marginBottom: 12 }}>
-        Personal business costs — equipment, subscriptions, accountancy fees, and so on — for your own tax records.
-        Not tied to any gig or claim.
+        Money in that isn't from a gig claim — selling gear, teaching, a one-off session, royalties.
       </p>
 
-      {expenses.length === 0 && !adding && (
-        <p className="field__hint">No expenses logged yet.</p>
+      {rows.length === 0 && !adding && (
+        <p className="field__hint">No other income logged yet.</p>
       )}
 
-      {expenses.length > 0 && (
+      {rows.length > 0 && (
         <ul className="simple-list">
-          {expenses.map((exp) => (
-            <li className="simple-list__item" key={exp.id}>
+          {rows.map((row) => (
+            <li className="simple-list__item" key={row.id}>
               <div className="simple-list__row">
                 <div>
                   <span className="simple-list__title">
-                    {exp.description} — £{poundsFromPence(exp.amount_pence)}
+                    {row.description} — £{poundsFromPence(row.amount_pence)}
                   </span>
                   <span className="simple-list__subtitle">
-                    {exp.category}{SA103_EXPENSE_BOX[exp.category] ? ` (${SA103_EXPENSE_BOX[exp.category]})` : ''} · {formatShortDate(exp.date)}
+                    {row.category} · {formatShortDate(row.date)}
                   </span>
                 </div>
-                <button className="link-button link-button--danger" onClick={() => handleDelete(exp)}>
+                <button className="link-button link-button--danger" onClick={() => handleDelete(row)}>
                   Delete
                 </button>
               </div>
@@ -134,7 +133,7 @@ export default function MyExpenses({ profileId }) {
         </ul>
       )}
 
-      {expenses.length > 0 && (
+      {rows.length > 0 && (
         <p style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
           Total: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(total)}</strong>
         </p>
@@ -142,7 +141,7 @@ export default function MyExpenses({ profileId }) {
 
       {!adding && (
         <button className="btn btn--ghost btn--small" style={{ marginTop: 12 }} onClick={startAdd}>
-          + Add expense
+          + Add income
         </button>
       )}
 
@@ -156,9 +155,7 @@ export default function MyExpenses({ profileId }) {
             <label className="field" style={{ flex: '1 1 180px' }}>
               <span className="field__label">Category</span>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}{SA103_EXPENSE_BOX[c] ? ` (${SA103_EXPENSE_BOX[c]})` : ''}</option>
-                ))}
+                {INCOME_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
           </div>
@@ -167,7 +164,7 @@ export default function MyExpenses({ profileId }) {
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Website hosting renewal"
+              placeholder="e.g. Sold old PA speakers"
               required
             />
           </label>
@@ -191,7 +188,7 @@ export default function MyExpenses({ profileId }) {
               Cancel
             </button>
             <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
-              {saving ? 'Saving…' : 'Add expense'}
+              {saving ? 'Saving…' : 'Add income'}
             </button>
           </div>
         </form>

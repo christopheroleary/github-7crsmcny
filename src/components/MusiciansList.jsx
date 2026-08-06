@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
 import MyExpenses from './MyExpenses.jsx';
+import MyIncome from './MyIncome.jsx';
+import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
@@ -21,6 +23,8 @@ export default function MusiciansList() {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [expandedExpensesId, setExpandedExpensesId] = useState(null);
+  const [expandedIncomeId, setExpandedIncomeId] = useState(null);
+  const [expandedOutstandingId, setExpandedOutstandingId] = useState(null);
   const [expandedTaxId, setExpandedTaxId] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
@@ -147,9 +151,25 @@ export default function MusiciansList() {
               {isAdmin && (
                 <button
                   className="link-button"
+                  onClick={() => setExpandedOutstandingId(expandedOutstandingId === m.id ? null : m.id)}
+                >
+                  {expandedOutstandingId === m.id ? 'Hide outstanding' : 'Outstanding'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  className="link-button"
                   onClick={() => setExpandedExpensesId(expandedExpensesId === m.id ? null : m.id)}
                 >
                   {expandedExpensesId === m.id ? 'Hide expenses' : 'Expenses'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  className="link-button"
+                  onClick={() => setExpandedIncomeId(expandedIncomeId === m.id ? null : m.id)}
+                >
+                  {expandedIncomeId === m.id ? 'Hide other income' : 'Other income'}
                 </button>
               )}
               {isAdmin && (
@@ -179,7 +199,9 @@ export default function MusiciansList() {
                 <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
               </dl>
             )}
+            {isAdmin && expandedOutstandingId === m.id && <OutstandingClaims profileId={m.id} />}
             {isAdmin && expandedExpensesId === m.id && <MyExpenses profileId={m.id} />}
+            {isAdmin && expandedIncomeId === m.id && <MyIncome profileId={m.id} />}
             {isAdmin && expandedTaxId === m.id && <TaxRecords profileId={m.id} />}
           </>
         )}

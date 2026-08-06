@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { taxYearOptions } from '../utils/taxYear.js';
+import { SA103_EXPENSE_BOX, SA103_TURNOVER_BOX, SA103_OTHER_INCOME_BOX } from '../utils/sa103Boxes.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -35,13 +36,14 @@ export default function TaxRecords({ profileId }) {
   const [income, setIncome] = useState([]);
   const [outstandingPence, setOutstandingPence] = useState(0);
   const [expenseRows, setExpenseRows] = useState([]);
+  const [otherIncomeRows, setOtherIncomeRows] = useState([]);
 
   const period = options.find((o) => o.startYear === startYear) || options[0];
 
   const load = useCallback(async () => {
     setLoading(true);
 
-    const [{ data: claims }, { data: expenses }] = await Promise.all([
+    const [{ data: claims }, { data: expenses }, { data: otherIncome }] = await Promise.all([
       supabase
         .from('musician_claims')
         .select('id, status, gigs(gig_date, venues(name)), musician_claim_items(category, description, amount_pence)')
@@ -49,6 +51,13 @@ export default function TaxRecords({ profileId }) {
         .in('status', ['paid', 'approved']),
       supabase
         .from('expenses')
+        .select('*')
+        .eq('profile_id', profileId)
+        .gte('date', period.start)
+        .lte('date', period.end)
+        .order('date'),
+      supabase
+        .from('income')
         .select('*')
         .eq('profile_id', profileId)
         .gte('date', period.start)
@@ -73,6 +82,7 @@ export default function TaxRecords({ profileId }) {
     setIncome(paidItems);
     setOutstandingPence(outstanding);
     setExpenseRows(expenses || []);
+    setOtherIncomeRows(otherIncome || []);
     setLoading(false);
   }, [profileId, period.start, period.end]);
 
@@ -83,15 +93,20 @@ export default function TaxRecords({ profileId }) {
   if (loading) return null;
 
   const incomeTotal = income.reduce((sum, i) => sum + i.amount_pence, 0);
+  const otherIncomeTotal = otherIncomeRows.reduce((sum, r) => sum + r.amount_pence, 0);
   const expenseTotal = expenseRows.reduce((sum, e) => sum + e.amount_pence, 0);
   const incomeByCategory = groupSum(income);
+  const otherIncomeByCategory = groupSum(otherIncomeRows);
   const expenseByCategory = groupSum(expenseRows);
-  const hasData = income.length > 0 || expenseRows.length > 0;
+  const hasData = income.length > 0 || expenseRows.length > 0 || otherIncomeRows.length > 0;
 
   function handleExport() {
     const lines = [['Date', 'Type', 'Category', 'Description', 'Amount (GBP)'].join(',')];
     income.forEach((i) =>
-      lines.push([i.date, 'Income', i.category, csvEscape(i.description + ' — ' + i.venue), poundsFromPence(i.amount_pence)].join(','))
+      lines.push([i.date, 'Gig income', i.category, csvEscape(i.description + ' — ' + i.venue), poundsFromPence(i.amount_pence)].join(','))
+    );
+    otherIncomeRows.forEach((r) =>
+      lines.push([r.date, 'Other income', r.category, csvEscape(r.description), poundsFromPence(r.amount_pence)].join(','))
     );
     expenseRows.forEach((e) =>
       lines.push([e.date, 'Expense', e.category, csvEscape(e.description), poundsFromPence(e.amount_pence)].join(','))
@@ -125,8 +140,12 @@ export default function TaxRecords({ profileId }) {
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
         <div>
-          <p className="field__label" style={{ margin: '0 0 2px' }}>Income (paid claims)</p>
+          <p className="field__label" style={{ margin: '0 0 2px' }}>Gig income (paid claims)</p>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(incomeTotal)}</p>
+        </div>
+        <div>
+          <p className="field__label" style={{ margin: '0 0 2px' }}>Other income</p>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(otherIncomeTotal)}</p>
         </div>
         <div>
           <p className="field__label" style={{ margin: '0 0 2px' }}>Expenses logged</p>
@@ -142,7 +161,11 @@ export default function TaxRecords({ profileId }) {
 
       <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ minWidth: 180 }}>
-          <p className="field__label">Income by category</p>
+          <p className="field__label">Gig income by category</p>
+          <p className="field__hint" style={{ margin: '0 0 6px' }}>
+            All counts as Turnover — {SA103_TURNOVER_BOX.full} full form / {SA103_TURNOVER_BOX.short} short form,
+            regardless of category (HMRC doesn't split income the way it splits expenses).
+          </p>
           {Object.keys(incomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(incomeByCategory).map(([cat, pence]) => (
             <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
@@ -151,11 +174,26 @@ export default function TaxRecords({ profileId }) {
           ))}
         </div>
         <div style={{ minWidth: 180 }}>
+          <p className="field__label">Other income by category</p>
+          <p className="field__hint" style={{ margin: '0 0 6px' }}>
+            {SA103_OTHER_INCOME_BOX.full} full form / {SA103_OTHER_INCOME_BOX.short} short form.
+          </p>
+          {Object.keys(otherIncomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
+          {Object.entries(otherIncomeByCategory).map(([cat, pence]) => (
+            <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+              <span>{cat}</span><span>£{poundsFromPence(pence)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ minWidth: 180 }}>
           <p className="field__label">Expenses by category</p>
+          <p className="field__hint" style={{ margin: '0 0 6px' }}>
+            Full-form (SA103F) box shown per category. Short form (SA103S) totals these into one figure, Box 20.
+          </p>
           {Object.keys(expenseByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(expenseByCategory).map(([cat, pence]) => (
             <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span>{cat}</span><span>£{poundsFromPence(pence)}</span>
+              <span>{cat}{SA103_EXPENSE_BOX[cat] ? ` (${SA103_EXPENSE_BOX[cat]})` : ''}</span><span>£{poundsFromPence(pence)}</span>
             </div>
           ))}
         </div>
