@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 
-const PANEL_WIDTH = 230;
 const VIEWPORT_MARGIN = 12;
+const PANEL_MAX_WIDTH = 230;
 
 // Click-to-toggle rather than hover-only so it works the same on touch and
 // mouse -- a hover tooltip is simply unreachable on a phone.
 export default function InfoTooltip({ text }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
   const wrapRef = useRef(null);
-  const [panelStyle, setPanelStyle] = useState(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -19,21 +20,32 @@ export default function InfoTooltip({ text }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Position is computed against the viewport (not the trigger's offset
-  // parent) and clamped to stay on-screen -- a panel anchored with a plain
-  // `left: 0` relative to its trigger overflows the right edge whenever the
-  // icon sits in the right half of a narrow (mobile-width) column, which is
-  // exactly where most of these triggers live.
+  useEffect(() => {
+    if (!open) setPos(null);
+  }, [open]);
+
+  // Measure-then-position: the panel first mounts off-screen (real content,
+  // real dimensions, just not yet placed), this reads its actual rendered
+  // size, then positions it -- both horizontally AND vertically clamped to
+  // the viewport, flipping above the trigger when there isn't room below.
+  // Runs before paint (useLayoutEffect), so nothing visibly jumps.
   useLayoutEffect(() => {
-    if (!open || !wrapRef.current) return;
-    const rect = wrapRef.current.getBoundingClientRect();
-    const width = Math.min(PANEL_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
-    let left = rect.left;
-    if (left + width > window.innerWidth - VIEWPORT_MARGIN) {
-      left = window.innerWidth - VIEWPORT_MARGIN - width;
-    }
+    if (!open || !wrapRef.current || !panelRef.current) return;
+    const triggerRect = wrapRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const width = Math.min(PANEL_MAX_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
+
+    let left = triggerRect.left;
+    if (left + width > window.innerWidth - VIEWPORT_MARGIN) left = window.innerWidth - VIEWPORT_MARGIN - width;
     if (left < VIEWPORT_MARGIN) left = VIEWPORT_MARGIN;
-    setPanelStyle({ position: 'fixed', top: rect.bottom + 6, left, width });
+
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+    const fitsBelow = spaceBelow >= panelRect.height + VIEWPORT_MARGIN;
+    const top = fitsBelow
+      ? triggerRect.bottom + 6
+      : Math.max(VIEWPORT_MARGIN, triggerRect.top - 6 - panelRect.height);
+
+    setPos({ top, left, width });
   }, [open]);
 
   return (
@@ -47,8 +59,18 @@ export default function InfoTooltip({ text }) {
       >
         i
       </button>
-      {open && panelStyle && (
-        <span className="info-tooltip__panel" style={panelStyle}>{text}</span>
+      {open && (
+        <span
+          ref={panelRef}
+          className="info-tooltip__panel"
+          style={
+            pos
+              ? { position: 'fixed', top: pos.top, left: pos.left, width: pos.width }
+              : { position: 'fixed', top: 0, left: 0, width: PANEL_MAX_WIDTH, visibility: 'hidden' }
+          }
+        >
+          {text}
+        </span>
       )}
     </span>
   );
