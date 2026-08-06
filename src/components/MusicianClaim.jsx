@@ -398,7 +398,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       authResult,
     ] = await Promise.all([
       supabase.from('musician_claims').select('*, musician_claim_items(*)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
-      supabase.from('gig_lineup').select('travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
+      supabase.from('gig_lineup').select('fee_pence, travel_cost_pence, instrument_id, instruments(name)').eq('gig_id', gigId).eq('profile_id', myProfileId).maybeSingle(),
       supabase.from('gigs').select('gig_date, start_time, end_time, band_id, venues(name, address)').eq('id', gigId).maybeSingle(),
       supabase.from('profiles').select('full_name, phone, bank_name, bank_account_name, bank_sort_code, bank_account_number').eq('id', myProfileId).maybeSingle(),
       supabase.auth.getUser(),
@@ -454,7 +454,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
       {
         category: 'Fee',
         description: 'Performance fee' + (myLineup?.instruments?.name ? ' — ' + myLineup.instruments.name : ''),
-        amountPounds: '',
+        amountPounds: myLineup?.fee_pence ? (myLineup.fee_pence / 100).toFixed(2) : '',
       },
     ];
     if (myLineup?.travel_cost_pence) {
@@ -557,7 +557,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
       {!claim && !editing && (
         <>
-          {myLineup?.travel_cost_pence && (
+          {myLineup?.travel_cost_pence > 0 && (
             <p className="field__hint">
               Your calculated travel cost is £{poundsFromPence(myLineup.travel_cost_pence)} — this
               will be added as its own line when you start a claim.

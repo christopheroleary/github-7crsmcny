@@ -25,15 +25,29 @@ const STATUS_COLORS = {
 
 export default function MusicianClaimsAdmin({ gigId }) {
   const [claims, setClaims] = useState([]);
+  const [expectedByProfile, setExpectedByProfile] = useState({});
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('musician_claims')
-      .select('*, profiles(full_name), musician_claim_items(*)')
-      .eq('gig_id', gigId)
-      .order('created_at');
+    const [{ data }, { data: lineup }] = await Promise.all([
+      supabase
+        .from('musician_claims')
+        .select('*, profiles(full_name), musician_claim_items(*)')
+        .eq('gig_id', gigId)
+        .order('created_at'),
+      // What the roster/fee-split view actually allocated this musician for
+      // this gig -- fee_pence + travel_cost_pence -- to compare against what
+      // they claimed. A musician no longer on the roster (removed after
+      // claiming) has no entry here, so the comparison is simply skipped
+      // for them rather than showing a misleading "expected £0" diff.
+      supabase.from('gig_lineup').select('profile_id, fee_pence, travel_cost_pence').eq('gig_id', gigId),
+    ]);
+    const expected = {};
+    (lineup || []).forEach((l) => {
+      expected[l.profile_id] = (l.fee_pence || 0) + (l.travel_cost_pence || 0);
+    });
+    setExpectedByProfile(expected);
     setClaims(data || []);
     setLoading(false);
   }, [gigId]);
@@ -106,6 +120,18 @@ export default function MusicianClaimsAdmin({ gigId }) {
                   </span>
                 ))}
                 {claim.notes && <span className="simple-list__subtitle">{claim.notes}</span>}
+                {expectedByProfile[claim.profile_id] != null && (() => {
+                  const diff = claimTotalPence(claim) - expectedByProfile[claim.profile_id];
+                  return diff === 0 ? (
+                    <span className="status-tag status-tag--confirmed" style={{ marginTop: 4 }}>
+                      Matches expected (£0.00 diff)
+                    </span>
+                  ) : (
+                    <span className="status-tag status-tag--cancelled" style={{ marginTop: 4 }}>
+                      ⚠ £{poundsFromPence(Math.abs(diff))} {diff > 0 ? 'over' : 'under'} expected
+                    </span>
+                  );
+                })()}
               </div>
               <div className="simple-list__actions">
                 <span className={'status-tag status-tag--' + STATUS_COLORS[claim.status]}>
