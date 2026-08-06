@@ -102,7 +102,7 @@ export default function MyExpenses({ profileId }) {
 
   return (
     <div className="day-sheet__section">
-      <h3 className="day-sheet__section-title">Expenses</h3>
+      <h3 className="day-sheet__section-title">Other expenses</h3>
       <p className="field__hint" style={{ marginBottom: 12 }}>
         Personal business costs — equipment, subscriptions, accountancy fees, and so on — for your own tax records.
         Not tied to any gig or claim.

@@ -161,7 +161,7 @@ export default function MusiciansList() {
                   className="link-button"
                   onClick={() => setExpandedExpensesId(expandedExpensesId === m.id ? null : m.id)}
                 >
-                  {expandedExpensesId === m.id ? 'Hide expenses' : 'Expenses'}
+                  {expandedExpensesId === m.id ? 'Hide other expenses' : 'Other expenses'}
                 </button>
               )}
               {isAdmin && (

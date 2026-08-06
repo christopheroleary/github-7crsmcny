@@ -112,7 +112,7 @@ export default function TaxRecords({ profileId }) {
       lines.push([r.date, 'Other income', r.category, csvEscape(r.description), poundsFromPence(r.amount_pence)].join(','))
     );
     expenseRows.forEach((e) =>
-      lines.push([e.date, 'Expense', e.category, csvEscape(e.description), poundsFromPence(e.amount_pence)].join(','))
+      lines.push([e.date, 'Other expense', e.category, csvEscape(e.description), poundsFromPence(e.amount_pence)].join(','))
     );
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -157,7 +157,7 @@ export default function TaxRecords({ profileId }) {
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(otherIncomeTotal)}</p>
         </div>
         <div>
-          <p className="field__label" style={{ margin: '0 0 2px' }}>Expenses logged</p>
+          <p className="field__label" style={{ margin: '0 0 2px' }}>Other expenses logged</p>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(expenseTotal)}</p>
         </div>
       </div>
@@ -195,7 +195,7 @@ export default function TaxRecords({ profileId }) {
           ))}
         </div>
         <div style={{ minWidth: 180 }}>
-          <p className="field__label">Expenses by category</p>
+          <p className="field__label">Other expenses by category</p>
           <p className="field__hint" style={{ margin: '0 0 6px' }}>
             Full-form (SA103F) box shown per category. Short form (SA103S) totals these into one figure, Box 20.
           </p>
