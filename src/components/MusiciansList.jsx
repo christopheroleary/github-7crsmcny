@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
+import MyExpenses from './MyExpenses.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -18,6 +19,7 @@ export default function MusiciansList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedExpensesId, setExpandedExpensesId] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const load = useCallback(async () => {
@@ -140,6 +142,14 @@ export default function MusiciansList() {
               <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
                 {expandedId === m.id ? 'Hide' : 'View'}
               </button>
+              {isAdmin && (
+                <button
+                  className="link-button"
+                  onClick={() => setExpandedExpensesId(expandedExpensesId === m.id ? null : m.id)}
+                >
+                  {expandedExpensesId === m.id ? 'Hide expenses' : 'Expenses'}
+                </button>
+              )}
               {isAdmin && m.id !== me?.id && (
                 <>
                   <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
@@ -159,6 +169,7 @@ export default function MusiciansList() {
                 <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
               </dl>
             )}
+            {isAdmin && expandedExpensesId === m.id && <MyExpenses profileId={m.id} />}
           </>
         )}
       </li>

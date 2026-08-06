@@ -4,6 +4,7 @@ import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
+import MyExpenses from './MyExpenses.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
 
@@ -268,6 +269,7 @@ export default function MyProfile() {
       </form>
 
       {userId && <ProfilePaymentDetails profileId={userId} />}
+      {userId && <MyExpenses profileId={userId} />}
     </>
   );
 }
