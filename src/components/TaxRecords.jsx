@@ -101,7 +101,10 @@ export default function TaxRecords({ profileId }) {
   const hasData = income.length > 0 || expenseRows.length > 0 || otherIncomeRows.length > 0;
 
   function handleExport() {
-    const lines = [['Date', 'Type', 'Category', 'Description', 'Amount (GBP)'].join(',')];
+    const lines = [
+      '# These figures reflect what has been marked paid in Gig Manager. If you were paid a different amount, or paid outside the app, your real records may differ -- always check against your bank statement before filing.',
+      ['Date', 'Type', 'Category', 'Description', 'Amount (GBP)'].join(','),
+    ];
     income.forEach((i) =>
       lines.push([i.date, 'Gig income', i.category, csvEscape(i.description + ' — ' + i.venue), poundsFromPence(i.amount_pence)].join(','))
     );
@@ -127,6 +130,12 @@ export default function TaxRecords({ profileId }) {
         Income from paid claims and expenses logged for the tax year below — your own records for
         Self Assessment / Making Tax Digital. Not a tax calculation, just organised data ready to export.
       </p>
+
+      <div className="offline-banner">
+        ⚠ These figures reflect what's been marked <strong>paid</strong> in this system. If you were paid a
+        different amount, or paid outside the app, your real records may differ — always check against your
+        bank statement before filing.
+      </div>
 
       <select
         value={startYear}
