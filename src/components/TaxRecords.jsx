@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { taxYearOptions } from '../utils/taxYear.js';
 import { SA103_EXPENSE_BOX, SA103_TURNOVER_BOX, SA103_OTHER_INCOME_BOX } from '../utils/sa103Boxes.js';
+import InfoTooltip from './InfoTooltip.jsx';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -147,18 +148,18 @@ export default function TaxRecords({ profileId }) {
         ))}
       </select>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div>
+      <div className="tax-stats">
+        <div className="tax-stat">
           <p className="field__label" style={{ margin: '0 0 2px' }}>Gig income (paid claims)</p>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(incomeTotal)}</p>
+          <p className="tax-stat__amount">£{poundsFromPence(incomeTotal)}</p>
         </div>
-        <div>
+        <div className="tax-stat">
           <p className="field__label" style={{ margin: '0 0 2px' }}>Other income</p>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(otherIncomeTotal)}</p>
+          <p className="tax-stat__amount">£{poundsFromPence(otherIncomeTotal)}</p>
         </div>
-        <div>
+        <div className="tax-stat">
           <p className="field__label" style={{ margin: '0 0 2px' }}>Other expenses logged</p>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>£{poundsFromPence(expenseTotal)}</p>
+          <p className="tax-stat__amount">£{poundsFromPence(expenseTotal)}</p>
         </div>
       </div>
 
@@ -168,41 +169,41 @@ export default function TaxRecords({ profileId }) {
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div style={{ minWidth: 180 }}>
-          <p className="field__label">Gig income by category</p>
-          <p className="field__hint" style={{ margin: '0 0 6px' }}>
-            All counts as Turnover — {SA103_TURNOVER_BOX.full} full form / {SA103_TURNOVER_BOX.short} short form,
-            regardless of category (HMRC doesn't split income the way it splits expenses).
+      <div className="tax-breakdown">
+        <div className="tax-breakdown__col">
+          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+            Gig income by category
+            <InfoTooltip text={`All counts as Turnover — ${SA103_TURNOVER_BOX.full} full form / ${SA103_TURNOVER_BOX.short} short form, regardless of category. HMRC doesn't split income by type the way it splits expenses.`} />
           </p>
           {Object.keys(incomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(incomeByCategory).map(([cat, pence]) => (
-            <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span>{cat}</span><span>£{poundsFromPence(pence)}</span>
+            <div key={cat} className="tax-breakdown__row">
+              <span>{cat}</span><span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
         </div>
-        <div style={{ minWidth: 180 }}>
-          <p className="field__label">Other income by category</p>
-          <p className="field__hint" style={{ margin: '0 0 6px' }}>
-            {SA103_OTHER_INCOME_BOX.full} full form / {SA103_OTHER_INCOME_BOX.short} short form.
+        <div className="tax-breakdown__col">
+          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+            Other income by category
+            <InfoTooltip text={`${SA103_OTHER_INCOME_BOX.full} full form / ${SA103_OTHER_INCOME_BOX.short} short form.`} />
           </p>
           {Object.keys(otherIncomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(otherIncomeByCategory).map(([cat, pence]) => (
-            <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span>{cat}</span><span>£{poundsFromPence(pence)}</span>
+            <div key={cat} className="tax-breakdown__row">
+              <span>{cat}</span><span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
         </div>
-        <div style={{ minWidth: 180 }}>
-          <p className="field__label">Other expenses by category</p>
-          <p className="field__hint" style={{ margin: '0 0 6px' }}>
-            Full-form (SA103F) box shown per category. Short form (SA103S) totals these into one figure, Box 20.
+        <div className="tax-breakdown__col">
+          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+            Other expenses by category
+            <InfoTooltip text="Full-form (SA103F) box shown per category. Short form (SA103S) totals these into one figure, Box 20." />
           </p>
           {Object.keys(expenseByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(expenseByCategory).map(([cat, pence]) => (
-            <div key={cat} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span>{cat}{SA103_EXPENSE_BOX[cat] ? ` (${SA103_EXPENSE_BOX[cat]})` : ''}</span><span>£{poundsFromPence(pence)}</span>
+            <div key={cat} className="tax-breakdown__row">
+              <span>{cat}{SA103_EXPENSE_BOX[cat] ? ` (${SA103_EXPENSE_BOX[cat]})` : ''}</span>
+              <span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
         </div>
