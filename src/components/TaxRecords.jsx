@@ -100,6 +100,8 @@ export default function TaxRecords({ profileId }) {
   const otherIncomeByCategory = groupSum(otherIncomeRows);
   const expenseByCategory = groupSum(expenseRows);
   const hasData = income.length > 0 || expenseRows.length > 0 || otherIncomeRows.length > 0;
+  const totalIncome = incomeTotal + otherIncomeTotal;
+  const netPence = totalIncome - expenseTotal;
 
   function handleExport() {
     const lines = [
@@ -148,65 +150,73 @@ export default function TaxRecords({ profileId }) {
         ))}
       </select>
 
-      <div className="tax-stats">
-        <div className="tax-stat">
-          <p className="field__label" style={{ margin: '0 0 2px' }}>Gig income (paid claims)</p>
-          <p className="tax-stat__amount">£{poundsFromPence(incomeTotal)}</p>
-        </div>
-        <div className="tax-stat">
-          <p className="field__label" style={{ margin: '0 0 2px' }}>Other income</p>
-          <p className="tax-stat__amount">£{poundsFromPence(otherIncomeTotal)}</p>
-        </div>
-        <div className="tax-stat">
-          <p className="field__label" style={{ margin: '0 0 2px' }}>Other expenses logged</p>
-          <p className="tax-stat__amount">£{poundsFromPence(expenseTotal)}</p>
-        </div>
-      </div>
-
       {outstandingPence > 0 && (
         <p className="field__hint" style={{ marginBottom: 16 }}>
-          £{poundsFromPence(outstandingPence)} approved for this period but not yet marked paid — not included above.
+          £{poundsFromPence(outstandingPence)} approved for this period but not yet marked paid — not included below.
         </p>
       )}
 
-      <div className="tax-breakdown">
-        <div className="tax-breakdown__col">
-          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-            Gig income by category
-            <InfoTooltip text={`All counts as Turnover — ${SA103_TURNOVER_BOX.full} full form / ${SA103_TURNOVER_BOX.short} short form, regardless of category. HMRC doesn't split income by type the way it splits expenses.`} />
+      <div className="tax-ledger">
+        <div className="tax-ledger__col">
+          <p className="tax-ledger__col-title">
+            Income <span className="tax-ledger__col-tag">Credit</span>
+          </p>
+
+          <p className="tax-ledger__group-title">
+            Gig income (paid claims)
+            <InfoTooltip text={`Counts as Turnover — ${SA103_TURNOVER_BOX.full} full form / ${SA103_TURNOVER_BOX.short} short form, regardless of category. HMRC doesn't split income by type the way it splits expenses.`} />
           </p>
           {Object.keys(incomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(incomeByCategory).map(([cat, pence]) => (
-            <div key={cat} className="tax-breakdown__row">
-              <span>{cat}</span><span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
+            <div key={'gig-' + cat} className="tax-ledger__row">
+              <span>{cat}</span><span className="tax-ledger__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
-        </div>
-        <div className="tax-breakdown__col">
-          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-            Other income by category
+
+          <p className="tax-ledger__group-title" style={{ marginTop: 14 }}>
+            Other income
             <InfoTooltip text={`${SA103_OTHER_INCOME_BOX.full} full form / ${SA103_OTHER_INCOME_BOX.short} short form.`} />
           </p>
           {Object.keys(otherIncomeByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(otherIncomeByCategory).map(([cat, pence]) => (
-            <div key={cat} className="tax-breakdown__row">
-              <span>{cat}</span><span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
+            <div key={'other-' + cat} className="tax-ledger__row">
+              <span>{cat}</span><span className="tax-ledger__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
+
+          <div className="tax-ledger__total">
+            <span>Total income</span><span className="tax-ledger__amount">£{poundsFromPence(totalIncome)}</span>
+          </div>
         </div>
-        <div className="tax-breakdown__col">
-          <p className="field__label" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-            Other expenses by category
+
+        <div className="tax-ledger__col">
+          <p className="tax-ledger__col-title">
+            Expenses <span className="tax-ledger__col-tag tax-ledger__col-tag--debit">Debit</span>
+          </p>
+
+          <p className="tax-ledger__group-title">
+            Other expenses
             <InfoTooltip text="Full-form (SA103F) box shown per category. Short form (SA103S) totals these into one figure, Box 20." />
           </p>
           {Object.keys(expenseByCategory).length === 0 && <p className="field__hint">None this year.</p>}
           {Object.entries(expenseByCategory).map(([cat, pence]) => (
-            <div key={cat} className="tax-breakdown__row">
+            <div key={cat} className="tax-ledger__row">
               <span>{cat}{SA103_EXPENSE_BOX[cat] ? ` (${SA103_EXPENSE_BOX[cat]})` : ''}</span>
-              <span className="tax-breakdown__amount">£{poundsFromPence(pence)}</span>
+              <span className="tax-ledger__amount">£{poundsFromPence(pence)}</span>
             </div>
           ))}
+
+          <div className="tax-ledger__total">
+            <span>Total expenses</span><span className="tax-ledger__amount">£{poundsFromPence(expenseTotal)}</span>
+          </div>
         </div>
+      </div>
+
+      <div className={'tax-net' + (netPence < 0 ? ' tax-net--negative' : '')}>
+        <span>Net (income − expenses)</span>
+        <span className="tax-ledger__amount">
+          {netPence < 0 ? '−' : ''}£{poundsFromPence(Math.abs(netPence))}
+        </span>
       </div>
 
       <button className="btn btn--ghost btn--small" onClick={handleExport} disabled={!hasData}>
