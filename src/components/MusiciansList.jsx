@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
 import MyExpenses from './MyExpenses.jsx';
+import TaxRecords from './TaxRecords.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -20,6 +21,7 @@ export default function MusiciansList() {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [expandedExpensesId, setExpandedExpensesId] = useState(null);
+  const [expandedTaxId, setExpandedTaxId] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const load = useCallback(async () => {
@@ -150,6 +152,14 @@ export default function MusiciansList() {
                   {expandedExpensesId === m.id ? 'Hide expenses' : 'Expenses'}
                 </button>
               )}
+              {isAdmin && (
+                <button
+                  className="link-button"
+                  onClick={() => setExpandedTaxId(expandedTaxId === m.id ? null : m.id)}
+                >
+                  {expandedTaxId === m.id ? 'Hide tax records' : 'Tax records'}
+                </button>
+              )}
               {isAdmin && m.id !== me?.id && (
                 <>
                   <button className="link-button" onClick={() => setEditingId(m.id)}>Edit</button>
@@ -170,6 +180,7 @@ export default function MusiciansList() {
               </dl>
             )}
             {isAdmin && expandedExpensesId === m.id && <MyExpenses profileId={m.id} />}
+            {isAdmin && expandedTaxId === m.id && <TaxRecords profileId={m.id} />}
           </>
         )}
       </li>
