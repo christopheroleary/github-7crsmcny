@@ -216,6 +216,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
               {myEntry.travel_cost_pence != null && ' + £' + (myEntry.travel_cost_pence / 100).toFixed(2) + ' travel'}
             </p>
           )}
+          {myEntry.confirmed && myEntry.confirmed_fee_pence != null && myEntry.fee_pence < myEntry.confirmed_fee_pence && (
+            <p className="status-tag status-tag--cancelled" style={{ marginTop: 8, display: 'inline-block' }}>
+              ⚠ Your fee was reduced from £{(myEntry.confirmed_fee_pence / 100).toFixed(2)} to £{(myEntry.fee_pence / 100).toFixed(2)} since you confirmed
+            </p>
+          )}
         </div>
       )}
 

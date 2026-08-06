@@ -170,7 +170,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -566,6 +566,11 @@ export default function GigRoster({ gigId }) {
                   <span className={entry.confirmed ? 'status-tag status-tag--confirmed' : 'status-tag status-tag--inquiry'}>
                     {entry.confirmed ? 'Confirmed' : 'Pending'}
                   </span>
+                  {entry.confirmed && entry.confirmed_fee_pence != null && entry.fee_pence < entry.confirmed_fee_pence && (
+                    <span className="status-tag status-tag--cancelled" title={'Confirmed at £' + (entry.confirmed_fee_pence / 100).toFixed(2)}>
+                      ⚠ Fee cut £{((entry.confirmed_fee_pence - entry.fee_pence) / 100).toFixed(2)}
+                    </span>
+                  )}
                   {!entry.confirmed && (isMe || isAdmin) && (
                     <button className="link-button" onClick={() => handleConfirm(entry)}>Confirm</button>
                   )}
