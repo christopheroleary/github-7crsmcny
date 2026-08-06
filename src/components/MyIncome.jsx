@@ -4,6 +4,8 @@ import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { INCOME_CATEGORIES } from '../utils/incomeCategories.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -96,6 +98,8 @@ export default function MyIncome({ profileId }) {
     load();
   }
 
+  const { query, setQuery, results: filteredRows } = useFuzzySearch(rows, ['description', 'category']);
+
   if (loading) return null;
 
   const total = rows.reduce((sum, r) => sum + r.amount_pence, 0);
@@ -107,46 +111,14 @@ export default function MyIncome({ profileId }) {
         Money in that isn't from a gig claim — selling gear, teaching, a one-off session, royalties.
       </p>
 
-      {rows.length === 0 && !adding && (
-        <p className="field__hint">No other income logged yet.</p>
-      )}
-
-      {rows.length > 0 && (
-        <ul className="simple-list">
-          {rows.map((row) => (
-            <li className="simple-list__item" key={row.id}>
-              <div className="simple-list__row">
-                <div>
-                  <span className="simple-list__title">
-                    {row.description} — £{poundsFromPence(row.amount_pence)}
-                  </span>
-                  <span className="simple-list__subtitle">
-                    {row.category} · {formatShortDate(row.date)}
-                  </span>
-                </div>
-                <button className="link-button link-button--danger" onClick={() => handleDelete(row)}>
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {rows.length > 0 && (
-        <p style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-          Total: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(total)}</strong>
-        </p>
-      )}
-
       {!adding && (
-        <button className="btn btn--ghost btn--small" style={{ marginTop: 12 }} onClick={startAdd}>
+        <button className="btn btn--ghost btn--small" style={{ marginBottom: 12 }} onClick={startAdd}>
           + Add income
         </button>
       )}
 
       {adding && (
-        <form className="inline-subform" onSubmit={handleSubmit} style={{ marginTop: 12 }}>
+        <form className="inline-subform" onSubmit={handleSubmit} style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">Date</span>
@@ -192,6 +164,50 @@ export default function MyIncome({ profileId }) {
             </button>
           </div>
         </form>
+      )}
+
+      {rows.length === 0 && <p className="field__hint">No other income logged yet.</p>}
+
+      {rows.length > 5 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search other income…"
+          resultCount={filteredRows.length}
+          totalCount={rows.length}
+        />
+      )}
+
+      {rows.length > 0 && filteredRows.length === 0 && (
+        <p className="field__hint">No income matches "{query}".</p>
+      )}
+
+      {filteredRows.length > 0 && (
+        <ul className="simple-list" style={{ marginTop: 8 }}>
+          {filteredRows.map((row) => (
+            <li className="simple-list__item" key={row.id}>
+              <div className="simple-list__row">
+                <div>
+                  <span className="simple-list__title">
+                    {row.description} — £{poundsFromPence(row.amount_pence)}
+                  </span>
+                  <span className="simple-list__subtitle">
+                    {row.category} · {formatShortDate(row.date)}
+                  </span>
+                </div>
+                <button className="link-button link-button--danger" onClick={() => handleDelete(row)}>
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {rows.length > 0 && (
+        <p style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
+          Total: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(total)}</strong>
+        </p>
       )}
     </div>
   );
