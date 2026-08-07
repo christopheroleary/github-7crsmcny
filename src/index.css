@@ -102,6 +102,61 @@ input {
   box-shadow: 0 1px 2px rgba(30, 27, 22, 0.04);
 }
 
+.login-card--wide {
+  max-width: 480px;
+}
+
+.setup-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.setup-step:first-of-type {
+  border-top: none;
+}
+.setup-step strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.setup-step p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+.setup-step__badge {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.setup-step--done .setup-step__badge {
+  background: rgba(31, 61, 58, 0.12);
+  border-color: transparent;
+  color: var(--teal);
+}
+.setup-step--disabled {
+  opacity: 0.7;
+}
+.setup-step__list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.setup-step__list li {
+  margin-bottom: 6px;
+}
+
 .login-card__eyebrow {
   font-family: var(--font-mono);
   font-size: 12px;

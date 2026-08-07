@@ -18,7 +18,9 @@ import ResetPassword from './components/ResetPassword.jsx';
 import ConfirmHost from './components/ConfirmHost.jsx';
 import ToastHost from './components/ToastHost.jsx';
 import PromptHost from './components/PromptHost.jsx';
+import PwaSetupGuide from './components/PwaSetupGuide.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
+import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
 
 function UserIcon() {
   return (
@@ -67,6 +69,7 @@ export default function App() {
   // on relaunch — this needs to survive that so the user lands back on the
   // gig they were on instead of defaulting to Dashboard.
   const [view, setView] = useState(() => localStorage.getItem('gig_view') || 'dashboard');
+  const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
 
   function updateView(v) {
     localStorage.setItem('gig_view', v);
@@ -135,6 +138,16 @@ export default function App() {
   if (sessionLoading || profileLoading) return <div className="page-loading">Loading…</div>;
   if (passwordRecovery) return <ResetPassword onDone={() => setPasswordRecovery(false)} />;
   if (!session) return <Login />;
+
+  if (showPwaSetup) {
+    return (
+      <div className="login-page">
+        <div className="login-card login-card--wide">
+          <PwaSetupGuide onContinue={dismissPwaSetup} />
+        </div>
+      </div>
+    );
+  }
 
   const adminTabs = [
     ['dashboard', 'Dashboard'],

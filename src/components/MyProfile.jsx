@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
-import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
+import PwaSetupGuide from './PwaSetupGuide.jsx';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
 import MyMileage from './MyMileage.jsx';
@@ -232,10 +232,6 @@ export default function MyProfile() {
           <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
         </label>
 
-        <div className="field">
-          <span className="field__label">Notifications</span>
-          <NotificationSetup />
-        </div>
 
         <div className="field">
           <span className="field__label">App feels out of date?</span>
@@ -261,6 +257,11 @@ export default function MyProfile() {
           </button>
         </div>
       </form>
+
+      <div className="day-sheet__section">
+        <h3 className="day-sheet__section-title">App setup</h3>
+        <PwaSetupGuide showHeader={false} />
+      </div>
 
       {userId && <ProfilePaymentDetails profileId={userId} />}
       {userId && <MyAvailability profileId={userId} />}
