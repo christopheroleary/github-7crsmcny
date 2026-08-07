@@ -238,21 +238,6 @@ export default function MyProfile() {
         </label>
 
 
-        <div className="field">
-          <span className="field__label">App feels out of date?</span>
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            onClick={async () => {
-              if (await confirmAsync('Refresh the app and clear its cache? Any unsaved changes will be lost.')) {
-                forceRefreshApp();
-              }
-            }}
-          >
-            Refresh app
-          </button>
-        </div>
-
         {error && <p className="form-error">{error}</p>}
         {saved && <p className="form-success">Saved.</p>}
 
@@ -286,7 +271,21 @@ export default function MyProfile() {
         </p>
       </div>
 
-      <p style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: '16px 0 0' }}>
+      <div className="field" style={{ textAlign: 'center', margin: '16px 0 0' }}>
+        <button
+          type="button"
+          className="btn btn--ghost btn--small"
+          onClick={async () => {
+            if (await confirmAsync('Refresh the app and clear its cache? Any unsaved changes will be lost.')) {
+              forceRefreshApp();
+            }
+          }}
+        >
+          App feels out of date? Refresh app
+        </button>
+      </div>
+
+      <p style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 0' }}>
         Version {APP_VERSION}{buildTimeLabel ? ' · built ' + buildTimeLabel : ''}
       </p>
     </>
