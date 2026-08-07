@@ -6,6 +6,13 @@ function detectOs(ua, platform) {
   // Modern iPadOS reports as "Macintosh" but exposes multi-touch, unlike a
   // real Mac -- this is the standard sniff to tell the two apart.
   if (/iPad/.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iPadOS';
+  // Must come before the generic /Linux/ check below -- ChromeOS's UA
+  // string is "X11; CrOS ..." which doesn't contain the literal word
+  // "Linux" the way a desktop Linux distro's does, so without this a
+  // Chromebook silently fell through to 'Unknown' and got the wrong
+  // install instructions (PWA install on ChromeOS works, just via its own
+  // menu wording, distinct from generic desktop Chrome).
+  if (/CrOS/.test(ua)) return 'ChromeOS';
   if (/Android/.test(ua)) return 'Android';
   if (/Windows/.test(ua)) return 'Windows';
   if (/Macintosh|Mac OS X/.test(ua)) return 'macOS';

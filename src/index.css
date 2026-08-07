@@ -106,24 +106,41 @@ input {
   max-width: 480px;
 }
 
-.setup-step {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-}
-.setup-step:first-of-type {
-  border-top: none;
-}
-.setup-step strong {
-  display: block;
-  margin-bottom: 4px;
-}
-.setup-step p {
+.setup-wizard p {
   color: var(--text-muted);
   font-size: 14px;
   margin: 0 0 10px;
+}
+.setup-wizard .btn {
+  margin-top: 4px;
+}
+.setup-wizard__progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.setup-wizard__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.setup-wizard__dot--active {
+  background: var(--amber);
+  width: 20px;
+  border-radius: 4px;
+}
+.setup-wizard__dot--done {
+  background: var(--teal);
+}
+.setup-step__done-msg {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.setup-step__done-msg strong {
+  display: block;
+  margin-bottom: 4px;
 }
 .setup-step__badge {
   flex-shrink: 0;
@@ -139,22 +156,13 @@ input {
   font-weight: 700;
   color: var(--text-muted);
 }
-.setup-step--done .setup-step__badge {
+.setup-step__badge--done {
   background: rgba(31, 61, 58, 0.12);
   border-color: transparent;
   color: var(--teal);
 }
 .setup-step--disabled {
   opacity: 0.7;
-}
-.setup-step__list {
-  margin: 0 0 10px;
-  padding-left: 20px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.setup-step__list li {
-  margin-bottom: 6px;
 }
 
 .login-card__eyebrow {

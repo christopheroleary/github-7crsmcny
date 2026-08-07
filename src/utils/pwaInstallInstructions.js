@@ -1,73 +1,85 @@
-// Manual "add to home screen" steps for platforms Chrome's native
-// beforeinstallprompt doesn't cover.
+// Points at each platform's own official documentation instead of trying
+// to maintain an in-house copy of steps that drift out of date every time
+// Apple/Google/Microsoft reshuffle their UI (which is exactly what made
+// the original hand-written iOS steps wrong). A short one-line summary
+// stays here for a quick glance; the official link is the source of truth
+// for the actual walkthrough, screenshots included.
 //
-// iOS: since iOS/iPadOS 16.4, every browser there -- not just Safari -- can
-// add a web app to the Home Screen from its own Share menu, because every
-// iOS browser (Chrome, Edge, Firefox included) is required to run on
-// Apple's WebKit engine and Apple extended the same Add-to-Home-Screen
-// mechanism to all of them (see webkit.org/blog/13878, "Third-party
-// browser support for Add to Home Screen"). So this is one set of steps
-// for any iOS browser, not a Safari-only redirect.
-// The Share icon's own location has moved around across iOS versions too
-// (iOS 26 tucked it behind a "•••" button instead of showing it directly),
-// so the steps mention both rather than assuming one exact layout.
+// iOS: since iOS/iPadOS 16.4, every browser there -- not just Safari --
+// can add a web app to the Home Screen from its own Share menu, because
+// every iOS browser is required to run on Apple's WebKit engine and Apple
+// extended the mechanism to third parties (webkit.org/blog/13878,
+// "Third-party browser support for Add to Home Screen"). Apple's own
+// iPhone/iPad guides are written from Safari, which still works
+// identically from any other iOS browser's Share menu.
 export function installInstructions({ os, browser }) {
-  if (os === 'iOS' || os === 'iPadOS') {
+  if (os === 'iOS') {
     return {
-      steps: [
-        'Tap the Share icon (square with an arrow ↑). If you don\'t see it, tap "•••" (more) first, then "Share".',
-        'Scroll down the menu and tap "Add to Home Screen".',
-        'Tap "Add".',
-        'Close this browser tab, then open Gig Manager from the new icon on your Home Screen.',
-      ],
+      summary: 'Share icon (or "•••" then Share) → Add to Home Screen.',
+      officialUrl: 'https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios',
+      officialLabel: 'Apple Support: Add a website to your Home Screen',
       note: browser !== 'Safari'
-        ? "This works from most browsers on iPhone/iPad, including this one. If \"Add to Home Screen\" doesn't appear in the share menu, try the same steps in Safari instead."
+        ? 'This works the same way from most iPhone browsers, this one included -- not just Safari.'
         : undefined,
+    };
+  }
+  if (os === 'iPadOS') {
+    return {
+      summary: 'Share icon (or "•••" then Share) → Add to Home Screen.',
+      officialUrl: 'https://support.apple.com/guide/ipad/open-as-web-app-ipad8f1f7a29/ipados',
+      officialLabel: 'Apple Support: Turn a website into an app (iPad)',
+      note: browser !== 'Safari'
+        ? 'This works the same way from most iPad browsers, this one included -- not just Safari.'
+        : undefined,
+    };
+  }
+
+  if (os === 'ChromeOS') {
+    return {
+      summary: 'Address bar → install icon, or the ⋮ menu → "Install page as app".',
+      officialUrl: 'https://support.google.com/chromebook/answer/9658361',
+      officialLabel: 'Google Support: Use web apps on your Chromebook',
     };
   }
 
   if (os === 'Android') {
     if (browser === 'Chrome') {
       return {
-        steps: [
-          'Tap the ⋮ menu in the top right of Chrome.',
-          'Tap "Install app" (some versions show "Add to Home screen").',
-          'Tap "Install" to confirm.',
-          'Open Gig Manager from its new icon.',
-        ],
+        summary: 'Tap ⋮ → "Install app" (some versions show "Add to Home screen").',
+        officialUrl: 'https://support.google.com/chrome/answer/9658361',
+        officialLabel: 'Google Support: Use web apps',
       };
     }
     return {
-      steps: [
-        'Open the browser\'s menu (usually ⋮ or ☰).',
-        'Look for "Add to Home screen" or "Install app".',
-        'Confirm, then open Gig Manager from its new icon.',
-      ],
+      summary: 'Open your browser\'s menu and look for "Add to Home screen" or "Install app".',
     };
   }
 
   // Desktop
   if (browser === 'Safari') {
     return {
-      steps: [
-        'Open the File menu and choose "Add to Dock…".',
-        'Click "Add".',
-      ],
+      summary: 'File menu → "Add to Dock…" (macOS Sonoma and later).',
+      officialUrl: 'https://support.apple.com/guide/safari/add-to-dock-ibrw9e991864/mac',
+      officialLabel: 'Apple Support: Turn a website into an app (Mac)',
     };
   }
   if (browser === 'Firefox') {
     return {
-      note: "Firefox doesn't support installing this as an app, but notifications still work fine directly in the browser — just do the next step below.",
-      steps: [],
+      note: "Firefox doesn't support installing this as an app, but notifications still work fine directly in the browser -- just do the next step.",
     };
   }
-  // Chrome/Edge desktop fallback, for when the native install prompt isn't
-  // available (e.g. already dismissed once this session).
+  if (browser === 'Edge') {
+    return {
+      summary: 'Settings and more (…) → Apps → "Install this site as an app".',
+      officialUrl: 'https://support.microsoft.com/en-us/edge/install-manage-or-uninstall-apps-in-microsoft-edge',
+      officialLabel: 'Microsoft Support: Install apps in Microsoft Edge',
+    };
+  }
+  // Chrome desktop fallback, for when the native install prompt isn't
+  // available (e.g. already dismissed once this browser session).
   return {
-    steps: [
-      'Click the install icon (a monitor with a ↓, or a ⊕) at the right of the address bar.',
-      'If you don\'t see it, open the ⋮ menu and choose "Install Gig Manager…" (Chrome) or "Apps → Install this site as an app" (Edge).',
-      'Click "Install".',
-    ],
+    summary: 'Install icon at the right of the address bar, or ⋮ menu → "Install Gig Manager…".',
+    officialUrl: 'https://support.google.com/chrome/answer/9658361',
+    officialLabel: 'Google Support: Use web apps',
   };
 }
