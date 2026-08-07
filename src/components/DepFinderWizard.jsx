@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
 import { formatShortDate } from '../utils/formatDate.js';
+import { toWhatsAppNumber } from '../utils/phone.js';
 
 const DAY_KEYS = ['avail_sun', 'avail_mon', 'avail_tue', 'avail_wed', 'avail_thu', 'avail_fri', 'avail_sat'];
 
@@ -32,6 +33,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
   const [distancesReady, setDistancesReady] = useState(false);
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [addingId, setAddingId] = useState(null);
+  const [maxMiles, setMaxMiles] = useState('');
 
   const load = useCallback(async () => {
     if (!instrumentId) return;
@@ -52,11 +54,11 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       supabase.from('gig_lineup').select('profile_id, placeholder_id').eq('gig_id', gigId),
       supabase
         .from('profile_instruments')
-        .select('profile_id, profiles(id, full_name, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat)')
+        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat)')
         .eq('instrument_id', instrumentId),
       supabase
         .from('placeholder_musician_instruments')
-        .select('placeholder_id, placeholder_musicians(id, name, latitude, longitude, address, merged_into)')
+        .select('placeholder_id, placeholder_musicians(id, name, phone, latitude, longitude, address, merged_into)')
         .eq('instrument_id', instrumentId),
     ]);
 
@@ -101,6 +103,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         kind: 'profile',
         id: p.id,
         name: p.full_name,
+        phone: p.phone,
         lat: p.home_latitude,
         lon: p.home_longitude,
         busy: busyProfileIds.has(p.id),
@@ -112,6 +115,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         kind: 'placeholder',
         id: p.id,
         name: p.name,
+        phone: p.phone,
         lat: p.latitude,
         lon: p.longitude,
         busy: busyPlaceholderIds.has(p.id),
@@ -169,14 +173,22 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
     setCandidates((cs) => cs.filter((c) => c.id !== candidate.id));
   }
 
+  function outsideRadius(c) {
+    if (maxMiles === '') return false;
+    const limit = Number(maxMiles);
+    return !Number.isNaN(limit) && c.distanceMiles != null && c.distanceMiles > limit;
+  }
+
   function isAvailable(c) {
     if (c.busy) return false;
+    if (outsideRadius(c)) return false;
     if (c.kind === 'placeholder') return true;
     return c.weekdayAvailable !== false && !c.blackedOut;
   }
 
   function reasonLabel(c) {
     if (c.busy) return 'Already on another gig that day';
+    if (outsideRadius(c)) return 'Outside ' + maxMiles + ' mi radius';
     if (c.blackedOut) return 'Marked unavailable this date';
     if (c.weekdayAvailable === false) return 'Not usually free that day of the week';
     return null;
@@ -192,6 +204,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
   const unavailable = sorted.filter((c) => !isAvailable(c));
 
   function renderRow(c) {
+    const wa = toWhatsAppNumber(c.phone);
     return (
       <li className="simple-list__item" key={c.kind + c.id}>
         <div className="simple-list__row">
@@ -203,6 +216,18 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
                   dep
                 </span>
               )}
+              {wa && (
+                <a
+                  href={'https://wa.me/' + wa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-button"
+                  style={{ marginLeft: 8 }}
+                  title={'WhatsApp ' + c.name}
+                >
+                  💬 WhatsApp
+                </a>
+              )}
             </span>
             <span className="simple-list__subtitle">
               {distanceLabel(c)}
@@ -210,9 +235,17 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
               {reasonLabel(c) && ' · ' + reasonLabel(c)}
             </span>
           </div>
-          <button className="btn btn--primary btn--small" onClick={() => handleAdd(c)} disabled={addingId === c.id}>
-            {addingId === c.id ? 'Adding…' : '+ Add'}
-          </button>
+          <div className="simple-list__actions">
+            <button
+              type="button"
+              className="btn btn--primary btn--small"
+              style={{ width: 'auto' }}
+              onClick={() => handleAdd(c)}
+              disabled={addingId === c.id}
+            >
+              {addingId === c.id ? 'Adding…' : '+ Add'}
+            </button>
+          </div>
         </div>
       </li>
     );
@@ -230,12 +263,25 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
           {!venueOk(venue) && ' · venue has no map pin, can\'t rank by distance'}
         </p>
 
-        <label className="field" style={{ marginBottom: 16 }}>
-          <span className="field__label">Instrument</span>
-          <select value={instrumentId} onChange={(e) => setInstrumentId(e.target.value)}>
-            {(instruments || []).map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-        </label>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          <label className="field" style={{ flex: '1 1 200px', marginBottom: 0 }}>
+            <span className="field__label">Instrument</span>
+            <select value={instrumentId} onChange={(e) => setInstrumentId(e.target.value)}>
+              {(instruments || []).map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+          </label>
+          <label className="field" style={{ flex: '0 1 140px', marginBottom: 0 }}>
+            <span className="field__label">Within (miles)</span>
+            <input
+              type="number"
+              min="1"
+              inputMode="numeric"
+              value={maxMiles}
+              onChange={(e) => setMaxMiles(e.target.value)}
+              placeholder="No limit"
+            />
+          </label>
+        </div>
 
         {loading && <p className="state-message">Searching…</p>}
 

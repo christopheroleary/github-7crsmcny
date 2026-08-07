@@ -9,6 +9,7 @@ import MyIncome from './MyIncome.jsx';
 import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import MyAvailability from './MyAvailability.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
 
@@ -152,9 +153,7 @@ export default function MyProfile() {
               style={{ width: 'auto' }}
             />
             <span className="field__label" style={{ marginBottom: 0 }}>Share my phone number with bandmates</span>
-          </span>
-          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
-            Shows your number to other confirmed musicians on the gig day sheet. Off by default.
+            <InfoTooltip text="Shows your number to other confirmed musicians on the gig day sheet. Off by default." />
           </span>
         </label>
 
@@ -167,14 +166,15 @@ export default function MyProfile() {
               style={{ width: 'auto' }}
             />
             <span className="field__label" style={{ marginBottom: 0 }}>Available for dep work</span>
-          </span>
-          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
-            Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default.
+            <InfoTooltip text="Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default." />
           </span>
         </label>
 
         <div className="field">
-          <span className="field__label">App colour theme</span>
+          <span className="field__label">
+            App colour theme
+            <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
+          </span>
           <div style={{ display: 'flex', gap: 10 }}>
             {UI_THEMES.map((t) => (
               <button
@@ -198,14 +198,13 @@ export default function MyProfile() {
               />
             ))}
           </div>
-          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
-            Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own
-            document theme instead (set on the band, under Bands).
-          </span>
         </div>
 
         <label className="field">
-          <span className="field__label">Home address (used for travel cost calculations)</span>
+          <span className="field__label">
+            Home address
+            <InfoTooltip text="Used for travel cost calculations, and to rank you by distance when admin is looking for a dep." />
+          </span>
           <AddressAutocomplete
             value={homeAddress}
             onChange={(text) => {

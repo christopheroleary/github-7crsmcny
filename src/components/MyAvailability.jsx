@@ -3,15 +3,18 @@ import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
+import InfoTooltip from './InfoTooltip.jsx';
 
+// UK week order (Monday first) for display -- unrelated to Date.getDay()'s
+// fixed 0=Sunday indexing used elsewhere to look these columns up by date.
 const DAYS = [
-  { key: 'avail_sun', label: 'Sun' },
   { key: 'avail_mon', label: 'Mon' },
   { key: 'avail_tue', label: 'Tue' },
   { key: 'avail_wed', label: 'Wed' },
   { key: 'avail_thu', label: 'Thu' },
   { key: 'avail_fri', label: 'Fri' },
   { key: 'avail_sat', label: 'Sat' },
+  { key: 'avail_sun', label: 'Sun' },
 ];
 
 const MAX_RANGE_DAYS = 60;
@@ -135,11 +138,10 @@ export default function MyAvailability({ profileId }) {
 
   return (
     <div className="day-sheet__section">
-      <h3 className="day-sheet__section-title">Availability</h3>
-      <p className="field__hint" style={{ marginBottom: 12 }}>
-        Tap the days you're generally free to be booked, and add specific dates you're away for. This is what
-        admin sees when looking for a dep — takes a few seconds, saves right away.
-      </p>
+      <h3 className="day-sheet__section-title">
+        Availability
+        <InfoTooltip text="Tap the days you're generally free to be booked, and add specific dates you're away for. This is what admin sees when looking for a dep — takes a few seconds, saves right away." />
+      </h3>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {DAYS.map((d) => (
