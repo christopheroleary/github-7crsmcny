@@ -13,6 +13,7 @@ import MyAvailability from './MyAvailability.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { APP_VERSION, APP_BUILD_TIME } from '../utils/buildInfo.js';
 
 const UI_THEMES = [
   { id: 'default', label: 'Classic', swatch: '#c8862e' },
@@ -123,6 +124,10 @@ export default function MyProfile() {
   }
 
   if (loading) return <p className="state-message">Loading profile…</p>;
+
+  const buildTimeLabel = APP_BUILD_TIME
+    ? new Date(APP_BUILD_TIME).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
 
   return (
     <>
@@ -280,6 +285,10 @@ export default function MyProfile() {
           — never shared outside the app, and not visible to band leaders or other musicians.
         </p>
       </div>
+
+      <p style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: '16px 0 0' }}>
+        Version {APP_VERSION}{buildTimeLabel ? ' · built ' + buildTimeLabel : ''}
+      </p>
     </>
   );
 }

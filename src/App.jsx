@@ -19,6 +19,8 @@ import ConfirmHost from './components/ConfirmHost.jsx';
 import ToastHost from './components/ToastHost.jsx';
 import PromptHost from './components/PromptHost.jsx';
 import PwaSetupGuide from './components/PwaSetupGuide.jsx';
+import FeedbackModal from './components/FeedbackModal.jsx';
+import FeedbackInbox from './components/FeedbackInbox.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
 
@@ -70,6 +72,7 @@ export default function App() {
   // gig they were on instead of defaulting to Dashboard.
   const [view, setView] = useState(() => localStorage.getItem('gig_view') || 'dashboard');
   const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
+  const [showFeedback, setShowFeedback] = useState(false);
 
   function updateView(v) {
     localStorage.setItem('gig_view', v);
@@ -158,6 +161,7 @@ export default function App() {
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
     ['activity', 'Activity'],
+    ['feedback', 'Feedback'],
   ];
 
   const bandLeaderTabs = [
@@ -183,6 +187,14 @@ export default function App() {
         <div className="app-header__right">
         <NotificationBell onNavigate={handleNavigate} />
           <button
+            className="notif-bell__btn"
+            onClick={() => setShowFeedback(true)}
+            title="Send feedback"
+            aria-label="Send feedback"
+          >
+            💬
+          </button>
+          <button
             className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
             onClick={() => updateView('profile')}
             title="My profile"
@@ -195,6 +207,8 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} page={view} />}
 
       <nav className="tab-nav">
         {tabs.map(([key, label]) => (
@@ -217,6 +231,7 @@ export default function App() {
         {view === 'bands' && (isAdmin || isBandLeader) && <BandsList />}
         {view === 'musicians' && (isAdmin || isBandLeader) && <MusiciansList />}
         {view === 'activity' && isAdmin && <UserActivity />}
+        {view === 'feedback' && isAdmin && <FeedbackInbox />}
         {view === 'profile' && <MyProfile />}
       </main>
       <ConfirmHost />
