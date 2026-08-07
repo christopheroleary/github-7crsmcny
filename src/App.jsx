@@ -21,6 +21,7 @@ import PromptHost from './components/PromptHost.jsx';
 import PwaSetupGuide from './components/PwaSetupGuide.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import FeedbackInbox from './components/FeedbackInbox.jsx';
+import SongsList from './components/SongsList.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
 
@@ -160,6 +161,7 @@ export default function App() {
     ['clients', 'Clients'],
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
+    ['repertoire', 'Repertoire'],
     ['activity', 'Activity'],
     ['feedback', 'Feedback'],
   ];
@@ -230,6 +232,7 @@ export default function App() {
         {view === 'clients' && (isAdmin || isBandLeader) && <ClientsList />}
         {view === 'bands' && (isAdmin || isBandLeader) && <BandsList />}
         {view === 'musicians' && (isAdmin || isBandLeader) && <MusiciansList />}
+        {view === 'repertoire' && isAdmin && <SongsList />}
         {view === 'activity' && isAdmin && <UserActivity />}
         {view === 'feedback' && isAdmin && <FeedbackInbox />}
         {view === 'profile' && <MyProfile />}

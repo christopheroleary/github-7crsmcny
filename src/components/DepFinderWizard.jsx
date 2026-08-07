@@ -34,6 +34,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [addingId, setAddingId] = useState(null);
   const [maxMiles, setMaxMiles] = useState('');
+  const [setlistTotal, setSetlistTotal] = useState(0);
 
   const load = useCallback(async () => {
     if (!instrumentId) return;
@@ -72,9 +73,23 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       .map((l) => l.placeholder_musicians)
       .filter((p) => p && !p.merged_into && !bookedPlaceholderIds.has(p.id));
 
+    // Which setlist(s) are attached to this gig, so candidates can be
+    // ranked by how much of the actual setlist they already know -- not
+    // just whether they're free and nearby.
+    const { data: gigSetlists } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
+    const setlistIds = (gigSetlists || []).map((gs) => gs.setlist_id);
+    let setlistSongIds = [];
+    if (setlistIds.length > 0) {
+      const { data: items } = await supabase.from('setlist_items').select('song_id').in('setlist_id', setlistIds);
+      setlistSongIds = [...new Set((items || []).map((i) => i.song_id).filter(Boolean))];
+    }
+    setSetlistTotal(setlistSongIds.length);
+
     let busyProfileIds = new Set();
     let busyPlaceholderIds = new Set();
     let blackedOutProfileIds = new Set();
+    const knownByProfile = {};
+    const knownByPlaceholder = {};
 
     if (date && (profileCandidates.length > 0 || placeholderCandidates.length > 0)) {
       const { data: busyRows } = await supabase
@@ -96,6 +111,23 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       }
     }
 
+    if (setlistSongIds.length > 0) {
+      const [{ data: ks }, { data: pks }] = await Promise.all([
+        profileCandidates.length > 0
+          ? supabase.from('known_songs').select('profile_id, song_id').in('song_id', setlistSongIds).in('profile_id', profileCandidates.map((p) => p.id))
+          : Promise.resolve({ data: [] }),
+        placeholderCandidates.length > 0
+          ? supabase.from('placeholder_known_songs').select('placeholder_id, song_id').in('song_id', setlistSongIds).in('placeholder_id', placeholderCandidates.map((p) => p.id))
+          : Promise.resolve({ data: [] }),
+      ]);
+      (ks || []).forEach((r) => {
+        (knownByProfile[r.profile_id] ??= new Set()).add(r.song_id);
+      });
+      (pks || []).forEach((r) => {
+        (knownByPlaceholder[r.placeholder_id] ??= new Set()).add(r.song_id);
+      });
+    }
+
     const availKey = date ? availKeyForDate(date) : null;
 
     const built = [
@@ -110,6 +142,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         weekdayAvailable: availKey ? Boolean(p[availKey]) : null,
         blackedOut: blackedOutProfileIds.has(p.id),
         distanceMiles: null,
+        songsKnown: setlistSongIds.length > 0 ? (knownByProfile[p.id]?.size || 0) : null,
       })),
       ...placeholderCandidates.map((p) => ({
         kind: 'placeholder',
@@ -122,6 +155,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         weekdayAvailable: null,
         blackedOut: false,
         distanceMiles: null,
+        songsKnown: setlistSongIds.length > 0 ? (knownByPlaceholder[p.id]?.size || 0) : null,
       })),
     ];
 
@@ -195,6 +229,15 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
   }
 
   const sorted = [...candidates].sort((a, b) => {
+    // Setlist match is the primary sort when this gig has one attached --
+    // knowing the actual songs matters more than being slightly closer.
+    // Distance remains the tiebreaker, and the only sort key at all when
+    // there's no setlist to compare against.
+    if (setlistTotal > 0) {
+      const aFrac = (a.songsKnown || 0) / setlistTotal;
+      const bFrac = (b.songsKnown || 0) / setlistTotal;
+      if (aFrac !== bFrac) return bFrac - aFrac;
+    }
     if (a.distanceMiles == null && b.distanceMiles == null) return a.name.localeCompare(b.name);
     if (a.distanceMiles == null) return 1;
     if (b.distanceMiles == null) return -1;
@@ -232,6 +275,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
             <span className="simple-list__subtitle">
               {distanceLabel(c)}
               {c.kind === 'placeholder' && ' · no availability data'}
+              {setlistTotal > 0 && ' · 🎵 ' + (c.songsKnown || 0) + '/' + setlistTotal + ' setlist songs known'}
               {reasonLabel(c) && ' · ' + reasonLabel(c)}
             </span>
           </div>
@@ -261,6 +305,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         <p className="field__hint" style={{ marginBottom: 12 }}>
           {gigDate ? formatShortDate(gigDate) : ''}{venue?.name ? ' · ' + venue.name : ''}
           {!venueOk(venue) && ' · venue has no map pin, can\'t rank by distance'}
+          {!loading && setlistTotal === 0 && ' · no setlist attached, can\'t rank by songs known'}
         </p>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>

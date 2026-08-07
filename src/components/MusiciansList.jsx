@@ -4,6 +4,8 @@ import MusicianEditForm from './MusicianEditForm.jsx';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
 import MyMileage from './MyMileage.jsx';
+import MyRepertoire from './MyRepertoire.jsx';
+import PlaceholderRepertoire from './PlaceholderRepertoire.jsx';
 import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
@@ -26,6 +28,7 @@ export default function MusiciansList() {
   const [expandedExpensesId, setExpandedExpensesId] = useState(null);
   const [expandedIncomeId, setExpandedIncomeId] = useState(null);
   const [expandedMileageId, setExpandedMileageId] = useState(null);
+  const [expandedRepertoireId, setExpandedRepertoireId] = useState(null);
   const [expandedOutstandingId, setExpandedOutstandingId] = useState(null);
   const [expandedTaxId, setExpandedTaxId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -185,6 +188,14 @@ export default function MusiciansList() {
               {isAdmin && (
                 <button
                   className="link-button"
+                  onClick={() => setExpandedRepertoireId(expandedRepertoireId === m.id ? null : m.id)}
+                >
+                  {expandedRepertoireId === m.id ? 'Hide repertoire' : 'Repertoire'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  className="link-button"
                   onClick={() => setExpandedTaxId(expandedTaxId === m.id ? null : m.id)}
                 >
                   {expandedTaxId === m.id ? 'Hide tax records' : 'Tax records'}
@@ -213,6 +224,7 @@ export default function MusiciansList() {
             {isAdmin && expandedExpensesId === m.id && <MyExpenses profileId={m.id} />}
             {isAdmin && expandedIncomeId === m.id && <MyIncome profileId={m.id} />}
             {isAdmin && expandedMileageId === m.id && <MyMileage profileId={m.id} />}
+            {isAdmin && expandedRepertoireId === m.id && <MyRepertoire profileId={m.id} />}
             {isAdmin && expandedTaxId === m.id && <TaxRecords profileId={m.id} />}
           </>
         )}
@@ -407,6 +419,7 @@ function DepDetailsEditor({ ph, onSaved }) {
   const [lat, setLat] = useState(ph.latitude ?? null);
   const [lon, setLon] = useState(ph.longitude ?? null);
   const [saving, setSaving] = useState(false);
+  const [showRepertoire, setShowRepertoire] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -456,7 +469,11 @@ function DepDetailsEditor({ ph, onSaved }) {
         >
           ✉ Invite to sign up
         </button>
+        <button className="btn btn--ghost btn--small" onClick={() => setShowRepertoire((v) => !v)}>
+          {showRepertoire ? 'Hide repertoire' : 'Repertoire'}
+        </button>
       </div>
+      {showRepertoire && <PlaceholderRepertoire placeholderId={ph.id} />}
     </div>
   );
 }

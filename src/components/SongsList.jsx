@@ -1,0 +1,158 @@
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '../supabaseClient';
+import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
+import SongEditFields from './SongEditFields.jsx';
+import SearchBox from './SearchBox.jsx';
+import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+
+// Admin-only master repertoire -- every song in the system in one place,
+// quick to search and edit, rather than only reachable by drilling into
+// whichever setlist happens to already contain it.
+export default function SongsList() {
+  const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newArtist, setNewArtist] = useState('');
+  const [newKey, setNewKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('songs').select('*').order('title');
+    setSongs(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function startAdd() {
+    setNewTitle('');
+    setNewArtist('');
+    setNewKey('');
+    setError(null);
+    setAdding(true);
+  }
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const { data, error: saveError } = await supabase
+      .from('songs')
+      .insert({ title: newTitle.trim(), artist: newArtist.trim() || null, original_key: newKey.trim() || null })
+      .select()
+      .single();
+    setSaving(false);
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+    setAdding(false);
+    await load();
+    setEditingId(data.id);
+  }
+
+  async function handleDelete(song) {
+    const ok = await confirmAsync(`Delete "${song.title}"? This cannot be undone.`);
+    if (!ok) return;
+    const { error: deleteError } = await supabase.from('songs').delete().eq('id', song.id);
+    if (deleteError) {
+      notify(
+        deleteError.code === '23503'
+          ? "Can't delete — this song is still used in a setlist. Remove it from every setlist first."
+          : "Couldn't delete: " + deleteError.message
+      );
+      return;
+    }
+    load();
+  }
+
+  const { query, setQuery, results: filtered } = useFuzzySearch(songs, ['title', 'artist']);
+
+  if (loading) return <p className="state-message">Loading repertoire…</p>;
+
+  return (
+    <div>
+      <div className="section-header">
+        <h2 className="section-header__title">Repertoire ({songs.length})</h2>
+        {!adding && (
+          <button className="btn btn--primary btn--small" onClick={startAdd}>
+            + Add song
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <form onSubmit={handleAdd} className="inline-subform" style={{ marginBottom: 16 }}>
+          <input placeholder="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required autoFocus />
+          <input placeholder="Artist" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} />
+          <input placeholder="Key (e.g. G)" value={newKey} onChange={(e) => setNewKey(e.target.value)} style={{ maxWidth: 100 }} />
+          {error && <p className="form-error">{error}</p>}
+          <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setAdding(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
+              {saving ? 'Saving…' : 'Save song'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {songs.length > 5 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search repertoire…"
+          resultCount={filtered.length}
+          totalCount={songs.length}
+        />
+      )}
+
+      {songs.length === 0 && <p className="state-message">No songs yet — add one above.</p>}
+      {songs.length > 0 && filtered.length === 0 && <p className="state-message">No songs match "{query}".</p>}
+
+      <ul className="simple-list">
+        {filtered.map((song) => (
+          <li className="simple-list__item" key={song.id}>
+            {editingId === song.id ? (
+              <SongEditFields
+                song={song}
+                canMakePublic
+                onSaved={() => { setEditingId(null); load(); }}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <div className="simple-list__row">
+                <div>
+                  <span className="simple-list__title">
+                    {song.title}
+                    {song.original_key && (
+                      <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)' }}>
+                        {song.original_key}
+                      </span>
+                    )}
+                    {song.is_public && (
+                      <span className="status-tag status-tag--confirmed" style={{ marginLeft: 8 }}>
+                        Public
+                      </span>
+                    )}
+                  </span>
+                  <span className="simple-list__subtitle">{song.artist || '—'}</span>
+                </div>
+                <div className="simple-list__actions">
+                  <button className="link-button" onClick={() => setEditingId(song.id)}>Edit</button>
+                  <button className="link-button link-button--danger" onClick={() => handleDelete(song)}>Delete</button>
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

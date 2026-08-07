@@ -10,6 +10,7 @@ import MyMileage from './MyMileage.jsx';
 import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import MyAvailability from './MyAvailability.jsx';
+import MyRepertoire from './MyRepertoire.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
@@ -255,6 +256,7 @@ export default function MyProfile() {
 
       {userId && <ProfilePaymentDetails profileId={userId} />}
       {userId && <MyAvailability profileId={userId} />}
+      {userId && <MyRepertoire profileId={userId} />}
       {userId && <OutstandingClaims profileId={userId} />}
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
