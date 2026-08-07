@@ -236,16 +236,6 @@ export default function MyProfile() {
           <NotificationSetup />
         </div>
 
-        <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
-          <span className="field__label">Your data</span>
-          <p className="field__hint" style={{ margin: 0 }}>
-            When you use this app, we log basic technical info — device type, browser, screen size, whether
-            you've installed it as a PWA, your notification permission, your IP address, and when you were
-            last active. This is used only by the admin, to monitor app usage and troubleshoot problems
-            — never shared outside the app, and not visible to band leaders or other musicians.
-          </p>
-        </div>
-
         <div className="field">
           <span className="field__label">App feels out of date?</span>
           <button
@@ -277,6 +267,16 @@ export default function MyProfile() {
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
       {userId && <TaxRecords profileId={userId} />}
+
+      <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, margin: '24px 0 0' }}>
+        <span className="field__label">Your data</span>
+        <p className="field__hint" style={{ margin: 0 }}>
+          When you use this app, we log basic technical info — device type, browser, screen size, whether
+          you've installed it as a PWA, your notification permission, your IP address, and when you were
+          last active. This is used only by the admin, to monitor app usage and troubleshoot problems
+          — never shared outside the app, and not visible to band leaders or other musicians.
+        </p>
+      </div>
     </>
   );
 }

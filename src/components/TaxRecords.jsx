@@ -219,7 +219,7 @@ export default function TaxRecords({ profileId }) {
         </span>
       </div>
 
-      <button className="btn btn--ghost btn--small" onClick={handleExport} disabled={!hasData}>
+      <button className="btn btn--primary btn--small" onClick={handleExport} disabled={!hasData}>
         ⬇ Export CSV
       </button>
     </div>

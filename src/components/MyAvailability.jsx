@@ -17,6 +17,9 @@ const DAYS = [
   { key: 'avail_sun', label: 'Sun' },
 ];
 
+const AVAILABLE_COLOUR = '#2f7d4f';
+const UNAVAILABLE_COLOUR = '#b6452c'; // matches --rust, stable across all UI themes
+
 const MAX_RANGE_DAYS = 60;
 
 // UTC-only date-string arithmetic, deliberately never touching local time --
@@ -144,19 +147,34 @@ export default function MyAvailability({ profileId }) {
       </h3>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        {DAYS.map((d) => (
-          <button
-            key={d.key}
-            type="button"
-            className={'role-toggle' + (days[d.key] ? ' role-toggle--active' : '')}
-            style={{ '--role-toggle-colour': 'var(--teal)' }}
-            onClick={() => toggleDay(d.key)}
-            disabled={savingDay === d.key}
-          >
-            <span className="role-toggle__dot" />
-            {d.label}
-          </button>
-        ))}
+        {DAYS.map((d) => {
+          const on = Boolean(days[d.key]);
+          const colour = on ? AVAILABLE_COLOUR : UNAVAILABLE_COLOUR;
+          return (
+            <button
+              key={d.key}
+              type="button"
+              onClick={() => toggleDay(d.key)}
+              disabled={savingDay === d.key}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                borderRadius: 20,
+                border: '1px solid ' + colour + '55',
+                background: colour + '1f',
+                color: colour,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              <span aria-hidden="true">{on ? '✓' : '✕'}</span>
+              <span style={{ textDecoration: on ? 'none' : 'line-through' }}>{d.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {!adding && (
