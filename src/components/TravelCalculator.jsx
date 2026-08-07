@@ -1,19 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
-
-const METERS_PER_MILE = 1609.344;
-
-async function fetchDrivingMiles(fromLat, fromLon, toLat, toLon) {
-  const url =
-    'https://router.project-osrm.org/route/v1/driving/' +
-    fromLon + ',' + fromLat + ';' + toLon + ',' + toLat +
-    '?overview=false';
-  const res = await fetch(url);
-  const data = await res.json();
-  if (data.code !== 'Ok' || !data.routes?.[0]) return null;
-  return data.routes[0].distance / METERS_PER_MILE;
-}
+import { fetchDrivingMiles } from '../utils/distance.js';
 
 export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence }) {
   const [lineup, setLineup] = useState([]);

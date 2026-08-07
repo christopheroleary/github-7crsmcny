@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import DepFinderWizard from './DepFinderWizard.jsx';
 
 const VOCAL_OPTIONS = [
   { value: '', label: 'Vocals — not set' },
@@ -88,6 +89,9 @@ export default function GigRoster({ gigId }) {
   const [musicianInstruments, setMusicianInstruments] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Dep-finder wizard
+  const [wizardInstrumentId, setWizardInstrumentId] = useState(null);
 
   // Real musician add
   const [newMusicianId, setNewMusicianId] = useState('');
@@ -472,6 +476,17 @@ export default function GigRoster({ gigId }) {
     <div className="roster-section">
       <h3 className="roster-section__title">Roster &amp; vacancies</h3>
 
+      {isAdmin && (
+        <button
+          type="button"
+          className="btn btn--ghost btn--small"
+          style={{ marginBottom: 12 }}
+          onClick={() => setWizardInstrumentId(instruments[0]?.id || '')}
+        >
+          🔍 Find a dep
+        </button>
+      )}
+
       {(requirements.length > 0 || gigNeeds.needs_dj || gigNeeds.needs_roadie) && (
         <ul className="vacancy-list">
           {requirements.map((r, i) => {
@@ -480,7 +495,19 @@ export default function GigRoster({ gigId }) {
             return (
               <li key={i} className={vacant > 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
                 <span>{r.instruments?.name}</span>
-                <span>{filled}/{r.quantity} filled{vacant > 0 ? ' — need ' + vacant + ' more' : ''}</span>
+                <span>
+                  {filled}/{r.quantity} filled{vacant > 0 ? ' — need ' + vacant + ' more' : ''}
+                  {isAdmin && vacant > 0 && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => setWizardInstrumentId(r.instrument_id)}
+                    >
+                      Find a dep
+                    </button>
+                  )}
+                </span>
               </li>
             );
           })}
@@ -793,6 +820,16 @@ export default function GigRoster({ gigId }) {
             </div>
           )}
         </div>
+      )}
+
+      {wizardInstrumentId != null && (
+        <DepFinderWizard
+          gigId={gigId}
+          instruments={instruments}
+          initialInstrumentId={wizardInstrumentId}
+          onClose={() => setWizardInstrumentId(null)}
+          onAdded={load}
+        />
       )}
     </div>
   );
