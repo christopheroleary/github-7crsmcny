@@ -140,15 +140,18 @@ export default function TaxRecords({ profileId }) {
         bank statement before filing.
       </div>
 
-      <select
-        value={startYear}
-        onChange={(e) => setStartYear(Number(e.target.value))}
-        style={{ marginBottom: 16, padding: '6px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--paper)', color: 'var(--ink)' }}
-      >
-        {options.map((o) => (
-          <option key={o.startYear} value={o.startYear}>{o.label} tax year</option>
-        ))}
-      </select>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+        <select
+          value={startYear}
+          onChange={(e) => setStartYear(Number(e.target.value))}
+          style={{ padding: '6px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--paper)', color: 'var(--ink)' }}
+        >
+          {options.map((o) => (
+            <option key={o.startYear} value={o.startYear}>{o.label} tax year</option>
+          ))}
+        </select>
+        <InfoTooltip text="Runs the UK tax year, 6 April to 5 April, not the calendar year. Figures use cash-basis accounting — amounts count when the money actually moves (paid or received), not when a gig is booked or invoiced. That's simpler than accrual/double-entry bookkeeping, and is what HMRC allows for most small self-employed traders." />
+      </div>
 
       {outstandingPence > 0 && (
         <p className="field__hint" style={{ marginBottom: 16 }}>
