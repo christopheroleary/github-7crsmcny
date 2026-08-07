@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { friendlyDbError } from '../utils/friendlyDbError.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -21,6 +22,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -36,11 +38,13 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
     setClient(gigData?.clients || null);
     setBand(gigData?.bands || null);
 
-    const { data: invData } = await supabase
+    const { data: invData, error: invLoadError } = await supabase
       .from('invoices')
       .select('*')
       .eq('gig_id', gigId)
       .maybeSingle();
+
+    if (invLoadError) setError(invLoadError.message);
 
     if (invData) {
       setInvoice(invData);
@@ -66,6 +70,10 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   }, [load]);
 
   async function handleCreate() {
+    if (creating) return;
+    setCreating(true);
+    setError(null);
+
     const issuedDate = new Date();
     const dueDate = new Date(issuedDate);
     dueDate.setDate(dueDate.getDate() + 7);
@@ -82,7 +90,8 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       .single();
 
     if (error) {
-      setError(error.message);
+      setError(friendlyDbError(error));
+      setCreating(false);
       return;
     }
 
@@ -112,6 +121,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       await supabase.from('invoice_items').insert(defaultItems);
     }
 
+    setCreating(false);
     load();
     setEditing(true);
   }
@@ -130,8 +140,8 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
           </p>
         )}
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate}>
-          Create invoice
+        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+          {creating ? 'Creating…' : 'Create invoice'}
         </button>
       </div>
     );

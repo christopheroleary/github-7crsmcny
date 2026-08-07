@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { friendlyDbError } from '../utils/friendlyDbError.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -19,6 +20,7 @@ export default function GigContract({ gigId, gigFeeAmount }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -34,11 +36,13 @@ export default function GigContract({ gigId, gigFeeAmount }) {
     setClient(gigData?.clients || null);
     setBand(gigData?.bands || null);
 
-    const { data: contractData } = await supabase
+    const { data: contractData, error: contractLoadError } = await supabase
       .from('contracts')
       .select('*')
       .eq('gig_id', gigId)
       .maybeSingle();
+
+    if (contractLoadError) setError(contractLoadError.message);
 
     setContract(contractData || null);
     setLoading(false);
@@ -49,9 +53,13 @@ export default function GigContract({ gigId, gigFeeAmount }) {
   }, [load]);
 
   async function handleCreate() {
+    if (creating) return;
+    setCreating(true);
+    setError(null);
     const { error } = await supabase.from('contracts').insert({ gig_id: gigId, status: 'draft' });
+    setCreating(false);
     if (error) {
-      setError(error.message);
+      setError(friendlyDbError(error));
       return;
     }
     load();
@@ -67,8 +75,8 @@ export default function GigContract({ gigId, gigFeeAmount }) {
         <h3 className="roster-section__title">Contract</h3>
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No contract yet for this gig.</p>
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate}>
-          Create contract
+        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+          {creating ? 'Creating…' : 'Create contract'}
         </button>
       </div>
     );

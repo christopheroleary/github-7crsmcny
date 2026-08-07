@@ -86,7 +86,7 @@ export default function PublicDocumentView({ type, token }) {
   return (
     <div className="enquiry-page">
       <div style={{ width: '100%', maxWidth: 720 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <button type="button" className="btn btn--ghost btn--small" onClick={() => window.print()}>
             Print / Save as PDF
           </button>
@@ -95,7 +95,12 @@ export default function PublicDocumentView({ type, token }) {
         <div
           className="invoice-page-preview"
           style={{
-            position: 'static',
+            // Must stay a positioned ancestor (not static) -- .invoice-footer
+            // is position:absolute and anchors to the nearest positioned
+            // ancestor. Losing that here made it anchor to the viewport
+            // instead, so it visually floated/moved while scrolling instead
+            // of sitting at the bottom of the document like a normal footer.
+            position: 'relative',
             width: '100%',
             minHeight: 0,
             '--doc-accent': band?.doc_accent_colour || '#c8862e',

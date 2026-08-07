@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import QuotePrintModal from './QuotePrintModal.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { friendlyDbError } from '../utils/friendlyDbError.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -20,6 +21,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -36,11 +38,13 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
     setClient(gigData?.clients || null);
     setBand(gigData?.bands || null);
 
-    const { data: quoteData } = await supabase
+    const { data: quoteData, error: quoteLoadError } = await supabase
       .from('quotes')
       .select('*')
       .eq('gig_id', gigId)
       .maybeSingle();
+
+    if (quoteLoadError) setError(quoteLoadError.message);
 
     if (quoteData) {
       setQuote(quoteData);
@@ -60,6 +64,10 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
   }, [load]);
 
   async function handleCreate() {
+    if (creating) return;
+    setCreating(true);
+    setError(null);
+
     const issuedDate = new Date();
     const validUntil = new Date(issuedDate);
     validUntil.setDate(validUntil.getDate() + 30);
@@ -76,7 +84,8 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
       .single();
 
     if (error) {
-      setError(error.message);
+      setError(friendlyDbError(error));
+      setCreating(false);
       return;
     }
 
@@ -90,6 +99,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
       });
     }
 
+    setCreating(false);
     load();
     setEditing(true);
   }
@@ -114,7 +124,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
       .single();
 
     if (invError) {
-      setError(invError.message);
+      setError(friendlyDbError(invError));
       setConverting(false);
       return;
     }
@@ -165,8 +175,8 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
           </p>
         )}
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate}>
-          Create quote
+        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+          {creating ? 'Creating…' : 'Create quote'}
         </button>
       </div>
     );
