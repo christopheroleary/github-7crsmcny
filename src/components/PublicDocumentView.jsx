@@ -194,6 +194,18 @@ export default function PublicDocumentView({ type, token }) {
               </table>
 
               <div className="invoice-totals">
+                {type === 'invoice' && (
+                  <div className="invoice-totals__row">
+                    <span>Subtotal</span>
+                    <span>£{poundsFromPence(total)}</span>
+                  </div>
+                )}
+                {type === 'invoice' && band?.vat_number && (
+                  <div className="invoice-totals__row">
+                    <span>VAT (0%)</span>
+                    <span>£0.00</span>
+                  </div>
+                )}
                 <div className="invoice-totals__row invoice-totals__row--total">
                   <span>{type === 'quote' ? 'Estimated total' : 'Total due'}</span>
                   <span>£{poundsFromPence(total)}</span>
