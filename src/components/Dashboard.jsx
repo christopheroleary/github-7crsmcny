@@ -52,7 +52,7 @@ function DrilldownModal({ title, gigs, isAdmin, onClose, onSelectGig }) {
                     {isAdmin && <td>{g.clients?.name || '—'}</td>}
                     <td>{g.status}</td>
                     {isAdmin && <td>{g.fee_amount != null ? '£' + Math.round(Number(g.fee_amount)).toLocaleString('en-GB') : '—'}</td>}
-                    {isAdmin && <td>{g.invoices?.some((i) => i.status === 'paid') ? 'Paid' : g.invoices?.some((i) => i.status === 'sent') ? 'Sent' : g.invoices?.length ? 'Draft' : 'None'}</td>}
+                    {isAdmin && <td>{g.invoices?.status === 'paid' ? 'Paid' : g.invoices?.status === 'sent' ? 'Sent' : g.invoices ? 'Draft' : 'None'}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -83,6 +83,20 @@ export default function Dashboard({ onNavigate }) {
 
   useEffect(() => {
     async function load() {
+      // Guards the whole body: an uncaught throw anywhere in here (as just
+      // happened with an embedded-relation shape mismatch) used to leave
+      // setLoading(false) unreached, freezing the page on "Loading
+      // dashboard…" forever with no visible error.
+      try {
+        await loadImpl();
+      } catch (err) {
+        console.error('Dashboard failed to load:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function loadImpl() {
       const today = todayStr();
       const monthStart = today.slice(0, 7) + '-01';
       const twelveAgo = twelveMonthsAgoStr();
@@ -152,14 +166,16 @@ export default function Dashboard({ onNavigate }) {
         setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
         setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
 
-        const unInvoicedGigs = (pastGigs || []).filter(g => !g.invoices?.some(inv => inv.status === 'sent' || inv.status === 'paid'));
+        // invoices is embedded as a single object, not an array -- invoices.gig_id
+        // has a UNIQUE constraint, so PostgREST returns a to-one relationship.
+        const unInvoicedGigs = (pastGigs || []).filter(g => g.invoices?.status !== 'sent' && g.invoices?.status !== 'paid');
         setUnInvoiced({
           count: unInvoicedGigs.length,
           value: unInvoicedGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
           gigs: unInvoicedGigs,
         });
 
-        const outstandingGigs = (completedGigs || []).filter(g => !g.invoices?.some(inv => inv.status === 'paid'));
+        const outstandingGigs = (completedGigs || []).filter(g => g.invoices?.status !== 'paid');
         setOutstanding({
           count: outstandingGigs.length,
           value: outstandingGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
@@ -211,8 +227,6 @@ export default function Dashboard({ onNavigate }) {
 
         buildTrends(trendGigs, false);
       }
-
-      setLoading(false);
     }
 
     load();
