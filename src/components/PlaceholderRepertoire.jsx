@@ -71,7 +71,7 @@ export default function PlaceholderRepertoire({ placeholderId }) {
                 <span className="simple-list__title" style={{ fontSize: 14 }}>
                   {song.title}
                   {song.original_key && (
-                    <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)' }}>
+                    <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)', textTransform: 'none' }}>
                       {song.original_key}
                     </span>
                   )}
