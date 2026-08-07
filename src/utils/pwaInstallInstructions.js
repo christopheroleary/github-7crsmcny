@@ -5,32 +5,41 @@
 // stays here for a quick glance; the official link is the source of truth
 // for the actual walkthrough, screenshots included.
 //
+function iosAppleDoc(os) {
+  return os === 'iPadOS'
+    ? { officialUrl: 'https://support.apple.com/guide/ipad/open-as-web-app-ipad8f1f7a29/ipados', officialLabel: 'Apple Support: Turn a website into an app (iPad)' }
+    : { officialUrl: 'https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios', officialLabel: 'Apple Support: Add a website to your Home Screen' };
+}
+
 // iOS: since iOS/iPadOS 16.4, every browser there -- not just Safari --
 // can add a web app to the Home Screen from its own Share menu, because
 // every iOS browser is required to run on Apple's WebKit engine and Apple
 // extended the mechanism to third parties (webkit.org/blog/13878,
 // "Third-party browser support for Add to Home Screen"). Apple's own
-// iPhone/iPad guides are written from Safari, which still works
-// identically from any other iOS browser's Share menu.
+// iPhone/iPad guides are written from Safari's UI specifically, though --
+// Chrome's share sheet on iOS has its own layout, confirmed by directly
+// testing it (an extra "expand" tap Safari's doesn't need), so it gets
+// its own precise steps rather than pointing at a doc written for a
+// different browser's menu.
 export function installInstructions({ os, browser }) {
-  if (os === 'iOS') {
+  if (os === 'iOS' || os === 'iPadOS') {
+    if (browser === 'Chrome') {
+      return {
+        steps: [
+          'Tap the Share icon in the address bar (a square with an arrow pointing up out of it).',
+          'Tap the ↓ (down arrow) in the bottom right of that menu to see more options.',
+          'Scroll down to the second section — "Add to Home Screen" is the first option there.',
+          'Tap "Add to Home Screen", then tap "Add" in the top right.',
+        ],
+        ...iosAppleDoc(os),
+      };
+    }
     return {
-      summary: 'Share icon (or "•••" then Share) → Add to Home Screen.',
-      officialUrl: 'https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios',
-      officialLabel: 'Apple Support: Add a website to your Home Screen',
+      summary: 'Share icon (or "..." then Share) → Add to Home Screen → Add.',
       note: browser !== 'Safari'
-        ? 'This works the same way from most iPhone browsers, this one included -- not just Safari.'
+        ? "This browser's share menu may be laid out a bit differently — if you can't find \"Add to Home Screen\", the official guide below covers Safari's exact layout."
         : undefined,
-    };
-  }
-  if (os === 'iPadOS') {
-    return {
-      summary: 'Share icon (or "•••" then Share) → Add to Home Screen.',
-      officialUrl: 'https://support.apple.com/guide/ipad/open-as-web-app-ipad8f1f7a29/ipados',
-      officialLabel: 'Apple Support: Turn a website into an app (iPad)',
-      note: browser !== 'Safari'
-        ? 'This works the same way from most iPad browsers, this one included -- not just Safari.'
-        : undefined,
+      ...iosAppleDoc(os),
     };
   }
 
@@ -45,7 +54,7 @@ export function installInstructions({ os, browser }) {
   if (os === 'Android') {
     if (browser === 'Chrome') {
       return {
-        summary: 'Tap ⋮ → "Install app" (some versions show "Add to Home screen").',
+        summary: 'Tap ⋮ (top right) → "Install app" (some versions show "Add to Home screen").',
         officialUrl: 'https://support.google.com/chrome/answer/9658361',
         officialLabel: 'Google Support: Use web apps',
       };

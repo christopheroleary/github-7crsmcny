@@ -37,11 +37,16 @@ function InstallStepContent({ device, onInstalled }) {
     );
   }
 
-  const { summary, note, officialUrl, officialLabel } = installInstructions(device);
+  const { steps, summary, note, officialUrl, officialLabel } = installInstructions(device);
 
   return (
     <div>
       {summary && <p>{summary}</p>}
+      {steps && (
+        <ol className="setup-wizard__list">
+          {steps.map((s, i) => <li key={i}>{s}</li>)}
+        </ol>
+      )}
       {note && <p className="field__hint">{note}</p>}
       {officialUrl && (
         <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">

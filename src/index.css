@@ -114,6 +114,15 @@ input {
 .setup-wizard .btn {
   margin-top: 4px;
 }
+.setup-wizard__list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.setup-wizard__list li {
+  margin-bottom: 6px;
+}
 .setup-wizard__progress {
   display: flex;
   align-items: center;
