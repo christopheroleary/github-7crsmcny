@@ -1,24 +1,28 @@
 // Manual "add to home screen" steps for platforms Chrome's native
-// beforeinstallprompt doesn't cover. iOS is the one that actually matters --
-// every browser there (Safari, Chrome/CriOS, Firefox/FxiOS) runs on Apple's
-// WebKit, and only Safari itself is allowed to install a web app to the
-// Home Screen, so a non-Safari iOS browser gets redirected to open in
-// Safari first rather than given steps that won't work.
+// beforeinstallprompt doesn't cover.
+//
+// iOS: since iOS/iPadOS 16.4, every browser there -- not just Safari -- can
+// add a web app to the Home Screen from its own Share menu, because every
+// iOS browser (Chrome, Edge, Firefox included) is required to run on
+// Apple's WebKit engine and Apple extended the same Add-to-Home-Screen
+// mechanism to all of them (see webkit.org/blog/13878, "Third-party
+// browser support for Add to Home Screen"). So this is one set of steps
+// for any iOS browser, not a Safari-only redirect.
+// The Share icon's own location has moved around across iOS versions too
+// (iOS 26 tucked it behind a "•••" button instead of showing it directly),
+// so the steps mention both rather than assuming one exact layout.
 export function installInstructions({ os, browser }) {
   if (os === 'iOS' || os === 'iPadOS') {
-    if (browser !== 'Safari') {
-      return {
-        note: "On iPhone/iPad, apps can only be installed from Safari — even if you're using Chrome or another browser right now. Open this page in Safari, then come back to this step.",
-        steps: [],
-      };
-    }
     return {
       steps: [
-        'Tap the Share icon (square with an arrow pointing up) in the Safari toolbar.',
+        'Tap the Share icon (square with an arrow ↑). If you don\'t see it, tap "•••" (more) first, then "Share".',
         'Scroll down the menu and tap "Add to Home Screen".',
-        'Tap "Add" in the top right.',
+        'Tap "Add".',
         'Close this browser tab, then open Gig Manager from the new icon on your Home Screen.',
       ],
+      note: browser !== 'Safari'
+        ? "This works from most browsers on iPhone/iPad, including this one. If \"Add to Home Screen\" doesn't appear in the share menu, try the same steps in Safari instead."
+        : undefined,
     };
   }
 

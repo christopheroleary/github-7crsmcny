@@ -60,7 +60,11 @@ function NotificationStep({ device }) {
         <span className="setup-step__badge">2</span>
         <div>
           <strong>Turn on notifications</strong>
-          <p>On iPhone/iPad, notifications only work once the app is installed (step 1) — Apple doesn't allow them in a regular Safari tab.</p>
+          <p>
+            This can't work yet in this browser tab — Apple only allows notifications for the installed app, opened
+            from its Home Screen icon. Finish step 1, then close this tab and open Gig Manager from the icon instead.
+            You'll see this step unlock automatically.
+          </p>
         </div>
       </div>
     );
@@ -81,7 +85,10 @@ function NotificationStep({ device }) {
 // Shown either as a full-screen gate right after login (App.jsx, when this
 // device hasn't completed setup and hasn't dismissed it) or embedded inline
 // from My profile for anyone revisiting it later -- same content either way,
-// onContinue just controls whether the Skip/Continue footer renders.
+// onContinue just controls whether the "Continue to app" footer renders.
+// There's deliberately only one exit button here, not a separate "Skip" --
+// both would have done exactly the same thing (dismiss), which is more
+// confusing than having one honest button.
 export default function PwaSetupGuide({ onContinue, showHeader = true }) {
   const device = getDeviceInfo();
 
@@ -101,10 +108,7 @@ export default function PwaSetupGuide({ onContinue, showHeader = true }) {
       <NotificationStep device={device} />
 
       {onContinue && (
-        <div className="form-actions" style={{ marginTop: 24 }}>
-          <button type="button" className="login-card__toggle" onClick={onContinue}>
-            Skip for now
-          </button>
+        <div className="form-actions" style={{ marginTop: 24, justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn--primary" onClick={onContinue}>
             Continue to app
           </button>
