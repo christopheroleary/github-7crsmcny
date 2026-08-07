@@ -2,10 +2,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { taxYearOptions } from '../utils/taxYear.js';
 import { SA103_EXPENSE_BOX, SA103_TURNOVER_BOX, SA103_OTHER_INCOME_BOX } from '../utils/sa103Boxes.js';
+import { mileageRateForTaxYear } from '../utils/mileageRates.js';
 import InfoTooltip from './InfoTooltip.jsx';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
+}
+
+// Tiered simplified-expenses calculation: first `firstThreshold` miles at
+// `firstRate`, the rest at `afterRate`. Returns pence so callers stay in the
+// same integer-pence convention as everything else on this page.
+function mileageAllowancePence(totalMiles, rate) {
+  const atFirst = Math.min(totalMiles, rate.firstThreshold);
+  const atAfter = Math.max(0, totalMiles - rate.firstThreshold);
+  return Math.round(atFirst * rate.firstRate * 100) + Math.round(atAfter * rate.afterRate * 100);
 }
 
 function csvEscape(value) {
@@ -38,13 +48,15 @@ export default function TaxRecords({ profileId }) {
   const [outstandingPence, setOutstandingPence] = useState(0);
   const [expenseRows, setExpenseRows] = useState([]);
   const [otherIncomeRows, setOtherIncomeRows] = useState([]);
+  const [gigMiles, setGigMiles] = useState(0);
+  const [otherMiles, setOtherMiles] = useState(0);
 
   const period = options.find((o) => o.startYear === startYear) || options[0];
 
   const load = useCallback(async () => {
     setLoading(true);
 
-    const [{ data: claims }, { data: expenses }, { data: otherIncome }] = await Promise.all([
+    const [{ data: claims }, { data: expenses }, { data: otherIncome }, { data: gigLineup }, { data: otherMileage }] = await Promise.all([
       supabase
         .from('musician_claims')
         .select('id, status, gigs(gig_date, venues(name)), musician_claim_items(category, description, amount_pence)')
@@ -64,6 +76,24 @@ export default function TaxRecords({ profileId }) {
         .gte('date', period.start)
         .lte('date', period.end)
         .order('date'),
+      // Mileage driven for gigs, regardless of claim/payment status -- the
+      // miles were driven either way. lift_share journeys are excluded since
+      // this musician didn't run a vehicle for them, so they aren't this
+      // musician's own mileage-allowance claim.
+      supabase
+        .from('gig_lineup')
+        .select('travel_miles, gigs!inner(gig_date, status)')
+        .eq('profile_id', profileId)
+        .eq('lift_share', false)
+        .neq('gigs.status', 'cancelled')
+        .gte('gigs.gig_date', period.start)
+        .lte('gigs.gig_date', period.end),
+      supabase
+        .from('mileage')
+        .select('miles')
+        .eq('profile_id', profileId)
+        .gte('date', period.start)
+        .lte('date', period.end),
     ]);
 
     const paidItems = [];
@@ -84,6 +114,8 @@ export default function TaxRecords({ profileId }) {
     setOutstandingPence(outstanding);
     setExpenseRows(expenses || []);
     setOtherIncomeRows(otherIncome || []);
+    setGigMiles((gigLineup || []).reduce((sum, l) => sum + (l.travel_miles || 0), 0));
+    setOtherMiles((otherMileage || []).reduce((sum, m) => sum + Number(m.miles), 0));
     setLoading(false);
   }, [profileId, period.start, period.end]);
 
@@ -102,6 +134,11 @@ export default function TaxRecords({ profileId }) {
   const hasData = income.length > 0 || expenseRows.length > 0 || otherIncomeRows.length > 0;
   const totalIncome = incomeTotal + otherIncomeTotal;
   const netPence = totalIncome - expenseTotal;
+
+  const totalMiles = gigMiles + otherMiles;
+  const mileageRate = mileageRateForTaxYear(startYear);
+  const milesRemainingAtFirstRate = Math.max(0, mileageRate.firstThreshold - totalMiles);
+  const allowancePence = mileageAllowancePence(totalMiles, mileageRate);
 
   function handleExport() {
     const lines = [
@@ -222,9 +259,38 @@ export default function TaxRecords({ profileId }) {
         </span>
       </div>
 
-      <button className="btn btn--primary btn--small" onClick={handleExport} disabled={!hasData}>
-        ⬇ Export CSV
-      </button>
+      <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, margin: '16px 0' }}>
+        <span className="field__label">
+          Mileage this tax year
+          <InfoTooltip text={`Self-employed simplified expenses let you claim a flat rate per business mile instead of tracking actual fuel/servicing/repair costs — currently ${Math.round(mileageRate.firstRate * 100)}p/mile for the first ${mileageRate.firstThreshold.toLocaleString()} miles in a tax year, ${Math.round(mileageRate.afterRate * 100)}p/mile after that. This is separate from what a band pays you for travel — that's still just income. You can only use this flat rate if you haven't already claimed actual running costs (fuel, servicing, repairs) for the same vehicle, and once you pick a method for a vehicle you stick with it. General guidance, not personalised advice — check gov.uk or an accountant for your situation.`} />
+        </span>
+        <p className="field__hint" style={{ margin: '4px 0 8px' }}>
+          {gigMiles.toFixed(1)} mi from gigs + {otherMiles.toFixed(1)} mi logged separately = <strong style={{ color: 'var(--ink)' }}>{totalMiles.toFixed(1)} mi</strong>
+          {milesRemainingAtFirstRate > 0
+            ? ` — ${milesRemainingAtFirstRate.toLocaleString()} mi left this year at the higher ${Math.round(mileageRate.firstRate * 100)}p rate.`
+            : ` — over the ${mileageRate.firstThreshold.toLocaleString()} mi threshold, now at the lower ${Math.round(mileageRate.afterRate * 100)}p rate.`}
+        </p>
+        <p className="field__hint" style={{ margin: 0 }}>
+          Indicative mileage allowance: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(allowancePence)}</strong> — not added to your expenses automatically; log it under Other expenses (Travel / mileage) yourself if you want to claim it.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn btn--primary btn--small" onClick={handleExport} disabled={!hasData}>
+          ⬇ Export CSV
+        </button>
+        <a
+          href="https://www.tax.service.gov.uk/find-making-tax-digital-income-tax-software"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-button"
+        >
+          Find HMRC-recognised MTD software →
+        </a>
+      </div>
+      <p className="field__hint" style={{ marginTop: 6 }}>
+        Some of these ("bridging software") can import a CSV like the one above and submit it to HMRC for you, after you've checked it.
+      </p>
     </div>
   );
 }

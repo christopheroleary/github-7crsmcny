@@ -6,6 +6,7 @@ import NotificationSetup from './NotificationSetup.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
+import MyMileage from './MyMileage.jsx';
 import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import MyAvailability from './MyAvailability.jsx';
@@ -266,6 +267,7 @@ export default function MyProfile() {
       {userId && <OutstandingClaims profileId={userId} />}
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
+      {userId && <MyMileage profileId={userId} />}
       {userId && <TaxRecords profileId={userId} />}
 
       <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, margin: '24px 0 0' }}>

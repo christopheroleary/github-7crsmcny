@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import MusicianEditForm from './MusicianEditForm.jsx';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
+import MyMileage from './MyMileage.jsx';
 import OutstandingClaims from './OutstandingClaims.jsx';
 import TaxRecords from './TaxRecords.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
@@ -24,6 +25,7 @@ export default function MusiciansList() {
   const [expandedId, setExpandedId] = useState(null);
   const [expandedExpensesId, setExpandedExpensesId] = useState(null);
   const [expandedIncomeId, setExpandedIncomeId] = useState(null);
+  const [expandedMileageId, setExpandedMileageId] = useState(null);
   const [expandedOutstandingId, setExpandedOutstandingId] = useState(null);
   const [expandedTaxId, setExpandedTaxId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -175,6 +177,14 @@ export default function MusiciansList() {
               {isAdmin && (
                 <button
                   className="link-button"
+                  onClick={() => setExpandedMileageId(expandedMileageId === m.id ? null : m.id)}
+                >
+                  {expandedMileageId === m.id ? 'Hide other mileage' : 'Other mileage'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  className="link-button"
                   onClick={() => setExpandedTaxId(expandedTaxId === m.id ? null : m.id)}
                 >
                   {expandedTaxId === m.id ? 'Hide tax records' : 'Tax records'}
@@ -202,6 +212,7 @@ export default function MusiciansList() {
             {isAdmin && expandedOutstandingId === m.id && <OutstandingClaims profileId={m.id} />}
             {isAdmin && expandedExpensesId === m.id && <MyExpenses profileId={m.id} />}
             {isAdmin && expandedIncomeId === m.id && <MyIncome profileId={m.id} />}
+            {isAdmin && expandedMileageId === m.id && <MyMileage profileId={m.id} />}
             {isAdmin && expandedTaxId === m.id && <TaxRecords profileId={m.id} />}
           </>
         )}
