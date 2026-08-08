@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import SongEditFields from './SongEditFields.jsx';
+import { ReferencePlayer, LyricsView } from './SongReference.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
@@ -13,6 +14,8 @@ export default function SongsList() {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
+  const [showPlayerId, setShowPlayerId] = useState(null);
+  const [showLyricsId, setShowLyricsId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newArtist, setNewArtist] = useState('');
@@ -127,28 +130,40 @@ export default function SongsList() {
                 onCancel={() => setEditingId(null)}
               />
             ) : (
-              <div className="simple-list__row">
-                <div>
-                  <span className="simple-list__title">
-                    {song.title}
-                    {song.original_key && (
-                      <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)', textTransform: 'none' }}>
-                        {song.original_key}
-                      </span>
+              <>
+                <div className="simple-list__row">
+                  <div>
+                    <span className="simple-list__title">
+                      {song.is_public && (
+                        <span title="Shared with all bands" aria-label="Shared with all bands" style={{ marginRight: 6 }}>🌐</span>
+                      )}
+                      {song.title}
+                      {song.original_key && (
+                        <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)', textTransform: 'none' }}>
+                          {song.original_key}
+                        </span>
+                      )}
+                    </span>
+                    <span className="simple-list__subtitle">{song.artist || '—'}</span>
+                  </div>
+                  <div className="simple-list__actions">
+                    {song.reference_url && (
+                      <button className="link-button" onClick={() => setShowPlayerId(showPlayerId === song.id ? null : song.id)}>
+                        {showPlayerId === song.id ? 'Hide player' : 'Listen'}
+                      </button>
                     )}
-                    {song.is_public && (
-                      <span className="status-tag status-tag--confirmed" style={{ marginLeft: 8 }}>
-                        Public
-                      </span>
+                    {song.lyrics && (
+                      <button className="link-button" onClick={() => setShowLyricsId(showLyricsId === song.id ? null : song.id)}>
+                        {showLyricsId === song.id ? 'Hide lyrics' : 'Lyrics'}
+                      </button>
                     )}
-                  </span>
-                  <span className="simple-list__subtitle">{song.artist || '—'}</span>
+                    <button className="link-button" onClick={() => setEditingId(song.id)}>Edit</button>
+                    <button className="link-button link-button--danger" onClick={() => handleDelete(song)}>Delete</button>
+                  </div>
                 </div>
-                <div className="simple-list__actions">
-                  <button className="link-button" onClick={() => setEditingId(song.id)}>Edit</button>
-                  <button className="link-button link-button--danger" onClick={() => handleDelete(song)}>Delete</button>
-                </div>
-              </div>
+                {showPlayerId === song.id && <ReferencePlayer url={song.reference_url} />}
+                {showLyricsId === song.id && <LyricsView text={song.lyrics} />}
+              </>
             )}
           </li>
         ))}
