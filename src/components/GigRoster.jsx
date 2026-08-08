@@ -751,8 +751,11 @@ export default function GigRoster({ gigId }) {
                       <select
                         value={selectedPlaceholderId}
                         onChange={(e) => {
-                          setSelectedPlaceholderId(e.target.value);
-                          setPlaceholderInstrumentId('');
+                          const id = e.target.value;
+                          setSelectedPlaceholderId(id);
+                          // Pre-select their instrument when they only play one.
+                          const theirInstruments = placeholders.find((p) => p.id === id)?.knownInstruments || [];
+                          setPlaceholderInstrumentId(theirInstruments.length === 1 ? theirInstruments[0].id : '');
                           setPlaceholderVocalRole('');
                           setPlaceholderIsDj(false);
                           setPlaceholderIsRoadie(false);

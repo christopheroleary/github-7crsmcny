@@ -1100,6 +1100,32 @@ input:not([type]) {
 .requirement-row select {
   flex: 2;
 }
+@media (max-width: 480px) {
+  /* Overrides the generic .field-row stack-to-column rule -- instrument
+     name and quantity read as one unit (e.g. "Drums   x 2") and are more
+     usable staying side by side than stacked full-width on a phone.
+     Explicit nowrap + a capped select width, because flex-wrap alone let
+     the select's natural content width claim the whole row and bump
+     quantity/Remove onto their own line instead of sharing it. */
+  .requirement-row {
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+  .requirement-row select {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+  .requirement-row input[type="number"] {
+    flex: 0 0 56px;
+    min-width: 0;
+    max-width: 56px !important;
+  }
+  .requirement-row .btn {
+    flex-shrink: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
 .tag-input select {
   width: 100%;
   border: none;
