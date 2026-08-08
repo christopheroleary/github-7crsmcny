@@ -18,10 +18,13 @@ function formatDate(dateStr) {
       '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
   }
   
-  function buildPrintHTML({ invoice, items, gig, band, client }) {
+  function buildPrintHTML({ invoice, items, payments, gig, band, client }) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+    const totalPaid = (payments || []).reduce((sum, p) => sum + p.amount_pence, 0);
+    const balance = total - totalPaid;
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
+    const isPartiallyPaid = !isPaid && totalPaid > 0;
     const invNumber = invoiceNumber(invoice.created_at);
     const bandDisplayName = band?.invoice_name || band?.name;
     // This is a standalone popup document -- it can't inherit the React
@@ -29,10 +32,20 @@ function formatDate(dateStr) {
     // directly into the <style> block below instead.
     const accent = band?.doc_accent_colour || '#c8862e';
     const secondary = band?.doc_secondary_colour || '#1f3d3a';
-  
+
     const stampHTML = (isPaid || isOverdue)
       ? '<div class="stamp stamp--' + invoice.status + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
+      : isPartiallyPaid
+      ? '<div class="stamp stamp--partial">PARTIALLY PAID</div>'
       : '';
+
+    const paymentsListHTML = (payments || []).length > 0 ? `
+      <div class="payment-box">
+        <p class="label">Payments received</p>
+        <div class="payment-grid">
+          ${payments.map((p) => `<span class="pl">${formatDate(p.paid_date)}${p.note ? ' — ' + p.note : ''}</span><span>£${poundsFromPence(p.amount_pence)}</span>`).join('')}
+        </div>
+      </div>` : '';
   
     const eventBoxHTML = gig ? `
       <div class="event-box">
@@ -107,6 +120,7 @@ function formatDate(dateStr) {
     }
     .stamp--paid { color: ${secondary}; border-color: ${secondary}; }
     .stamp--overdue { color: #b6452c; border-color: #b6452c; }
+    .stamp--partial { color: ${accent}; border-color: ${accent}; font-size: 24pt; }
 
     /* Header */
     .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
@@ -223,11 +237,21 @@ function formatDate(dateStr) {
       </div>
       ${band?.vat_number ? '<div class="totals-row"><span>VAT (0%)</span><span class="amt">£0.00</span></div>' : ''}
       <div class="totals-row totals-grand">
-        <span>Total due</span>
+        <span>${totalPaid > 0 ? 'Total' : 'Total due'}</span>
         <span class="amt">£${poundsFromPence(total)}</span>
       </div>
+      ${totalPaid > 0 ? `
+      <div class="totals-row">
+        <span>Paid so far</span>
+        <span class="amt">£${poundsFromPence(totalPaid)}</span>
+      </div>
+      <div class="totals-row totals-grand">
+        <span>Balance due</span>
+        <span class="amt">£${poundsFromPence(Math.max(0, balance))}</span>
+      </div>` : ''}
     </div>
-  
+
+    ${paymentsListHTML}
     ${paymentHTML}
     ${footerNotesHTML}
   
@@ -241,10 +265,13 @@ function formatDate(dateStr) {
   </html>`;
   }
   
-  export default function InvoicePrintModal({ invoice, items, gig, band, client, onClose }) {
+  export default function InvoicePrintModal({ invoice, items, payments = [], gig, band, client, onClose }) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
+    const balance = total - totalPaid;
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
+    const isPartiallyPaid = !isPaid && totalPaid > 0;
     const invNumber = invoiceNumber(invoice.created_at);
     const bandDisplayName = band?.invoice_name || band?.name;
   
@@ -257,7 +284,7 @@ function formatDate(dateStr) {
     const mailtoHref = 'mailto:' + (client?.email || '') + '?subject=' + mailtoSubject + '&body=' + mailtoBody;
   
     function handlePrint() {
-      const html = buildPrintHTML({ invoice, items, gig, band, client });
+      const html = buildPrintHTML({ invoice, items, payments, gig, band, client });
       const printWindow = window.open('', '_blank', 'width=900,height=750');
       if (!printWindow) {
         notify('Pop-up blocked — please allow pop-ups for this site and try again.');
@@ -307,7 +334,10 @@ function formatDate(dateStr) {
               {isPaid ? 'PAID' : 'OVERDUE'}
             </div>
           )}
-  
+          {isPartiallyPaid && (
+            <div className="invoice-stamp invoice-stamp--partial">PARTIALLY PAID</div>
+          )}
+
           <div className="invoice-header">
             <div className="invoice-header__from">
               <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
@@ -388,11 +418,37 @@ function formatDate(dateStr) {
               </div>
             )}
             <div className="invoice-totals__row invoice-totals__row--total">
-              <span>Total due</span>
+              <span>{totalPaid > 0 ? 'Total' : 'Total due'}</span>
               <span>£{poundsFromPence(total)}</span>
             </div>
+            {totalPaid > 0 && (
+              <>
+                <div className="invoice-totals__row">
+                  <span>Paid so far</span>
+                  <span>£{poundsFromPence(totalPaid)}</span>
+                </div>
+                <div className="invoice-totals__row invoice-totals__row--total">
+                  <span>Balance due</span>
+                  <span>£{poundsFromPence(Math.max(0, balance))}</span>
+                </div>
+              </>
+            )}
           </div>
-          
+
+          {payments.length > 0 && (
+            <div className="invoice-payment">
+              <p className="invoice-payment__heading">Payments received</p>
+              <div className="invoice-payment__grid">
+                {payments.map((p) => (
+                  <span key={p.id} style={{ display: 'contents' }}>
+                    <span className="invoice-payment__label">{formatDate(p.paid_date)}{p.note ? ' — ' + p.note : ''}</span>
+                    <span>£{poundsFromPence(p.amount_pence)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(band?.bank_account_name || band?.bank_account_number) && (
             <div className="invoice-payment">
                 <p className="invoice-payment__heading">Payment details</p>

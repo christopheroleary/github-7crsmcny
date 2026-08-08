@@ -75,13 +75,17 @@ export default function PublicDocumentView({ type, token }) {
 
   const doc = data.invoice || data.quote || data.contract;
   const items = data.items || [];
+  const payments = data.payments || [];
   const { band, client, gig, venue } = data;
   const bandDisplayName = band?.invoice_name || band?.name;
   const prefix = type === 'invoice' ? 'INV' : type === 'quote' ? 'QUO' : 'CON';
   const number = docNumber(prefix, doc.created_at);
   const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
+  const balance = total - totalPaid;
   const isPaid = type === 'invoice' && doc.status === 'paid';
   const isOverdue = type === 'invoice' && doc.status === 'overdue';
+  const isPartiallyPaid = type === 'invoice' && !isPaid && totalPaid > 0;
 
   return (
     <div className="enquiry-page">
@@ -111,6 +115,9 @@ export default function PublicDocumentView({ type, token }) {
             <div className={'invoice-stamp invoice-stamp--' + doc.status}>
               {isPaid ? 'PAID' : 'OVERDUE'}
             </div>
+          )}
+          {isPartiallyPaid && (
+            <div className="invoice-stamp invoice-stamp--partial">PARTIALLY PAID</div>
           )}
 
           <div className="invoice-header">
@@ -213,11 +220,37 @@ export default function PublicDocumentView({ type, token }) {
                   </div>
                 )}
                 <div className="invoice-totals__row invoice-totals__row--total">
-                  <span>{type === 'quote' ? 'Estimated total' : 'Total due'}</span>
+                  <span>{type === 'quote' ? 'Estimated total' : totalPaid > 0 ? 'Total' : 'Total due'}</span>
                   <span>£{poundsFromPence(total)}</span>
                 </div>
+                {type === 'invoice' && totalPaid > 0 && (
+                  <>
+                    <div className="invoice-totals__row">
+                      <span>Paid so far</span>
+                      <span>£{poundsFromPence(totalPaid)}</span>
+                    </div>
+                    <div className="invoice-totals__row invoice-totals__row--total">
+                      <span>Balance due</span>
+                      <span>£{poundsFromPence(Math.max(0, balance))}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </>
+          )}
+
+          {type === 'invoice' && payments.length > 0 && (
+            <div className="invoice-payment">
+              <p className="invoice-payment__heading">Payments received</p>
+              <div className="invoice-payment__grid">
+                {payments.map((p) => (
+                  <span key={p.id} style={{ display: 'contents' }}>
+                    <span className="invoice-payment__label">{formatDate(p.paid_date)}{p.note ? ' — ' + p.note : ''}</span>
+                    <span>£{poundsFromPence(p.amount_pence)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
 
           {type === 'invoice' && (band?.bank_account_name || band?.bank_account_number) && (

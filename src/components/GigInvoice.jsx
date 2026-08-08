@@ -15,6 +15,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   const isAdmin = isAdminRole || isBandLeader;
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [lineup, setLineup] = useState([]);
   const [gig, setGig] = useState(null);
   const [band, setBand] = useState(null);
@@ -23,6 +24,11 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [addingPayment, setAddingPayment] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [savingPayment, setSavingPayment] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -48,12 +54,12 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
 
     if (invData) {
       setInvoice(invData);
-      const { data: itemData } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', invData.id)
-        .order('sort_order');
+      const [{ data: itemData }, { data: paymentData }] = await Promise.all([
+        supabase.from('invoice_items').select('*').eq('invoice_id', invData.id).order('sort_order'),
+        supabase.from('invoice_payments').select('*').eq('invoice_id', invData.id).order('paid_date'),
+      ]);
       setItems(itemData || []);
+      setPayments(paymentData || []);
     }
 
     const { data: lineupData } = await supabase
@@ -126,6 +132,74 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
     setEditing(true);
   }
 
+  // Keeps invoice.status in sync with the payments ledger: flips to 'paid'
+  // the moment recorded payments cover the total, and back to 'sent' if a
+  // payment is later removed/reduced below that -- but never touches
+  // status if it was set some other way (e.g. an admin manually marking a
+  // cash-in-hand payment as 'paid' with no ledger entry at all).
+  async function syncStatusToPayments(invoiceId, currentStatus, totalPaidPence, totalDuePence) {
+    if (totalDuePence > 0 && totalPaidPence >= totalDuePence && currentStatus !== 'paid') {
+      const latestDate = payments.reduce((max, p) => (p.paid_date > max ? p.paid_date : max), paymentDate || '');
+      await supabase.from('invoices').update({ status: 'paid', paid_date: latestDate || null }).eq('id', invoiceId);
+    } else if (currentStatus === 'paid' && totalPaidPence < totalDuePence) {
+      await supabase.from('invoices').update({ status: 'sent', paid_date: null }).eq('id', invoiceId);
+    }
+  }
+
+  function startAddPayment() {
+    setPaymentAmount('');
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentNote('');
+    setError(null);
+    setAddingPayment(true);
+  }
+
+  async function handleAddPayment(e) {
+    e.preventDefault();
+    setSavingPayment(true);
+    setError(null);
+
+    const amountPence = Math.round(Number(paymentAmount) * 100);
+    if (!amountPence || amountPence <= 0) {
+      setError('Enter a valid amount.');
+      setSavingPayment(false);
+      return;
+    }
+
+    const { error: saveError } = await supabase.from('invoice_payments').insert({
+      invoice_id: invoice.id,
+      amount_pence: amountPence,
+      paid_date: paymentDate || new Date().toISOString().slice(0, 10),
+      note: paymentNote.trim() || null,
+    });
+
+    if (saveError) {
+      setError(saveError.message);
+      setSavingPayment(false);
+      return;
+    }
+
+    const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) + amountPence;
+    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, total);
+
+    setSavingPayment(false);
+    setAddingPayment(false);
+    load();
+  }
+
+  async function handleDeletePayment(payment) {
+    const ok = await confirmAsync(`Remove the £${poundsFromPence(payment.amount_pence)} payment recorded on ${payment.paid_date}?`);
+    if (!ok) return;
+    const { error: deleteError } = await supabase.from('invoice_payments').delete().eq('id', payment.id);
+    if (deleteError) {
+      notify("Couldn't remove payment: " + deleteError.message);
+      return;
+    }
+    const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) - payment.amount_pence;
+    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, total);
+    load();
+  }
+
   if (loading) return <p className="state-message">Loading invoice…</p>;
   if (!isAdmin) return null;
 
@@ -148,6 +222,8 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   }
 
   const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
+  const balance = total - totalPaid;
 
   return (
     <div className="roster-section">
@@ -165,6 +241,17 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
               <dt>Due</dt><dd>{invoice.due_date || '—'}</dd>
               <dt>Paid</dt><dd>{invoice.paid_date || '—'}</dd>
               <dt>Total</dt><dd><strong>£{poundsFromPence(total)}</strong></dd>
+              {totalPaid > 0 && (
+                <>
+                  <dt>Paid so far</dt><dd>£{poundsFromPence(totalPaid)}</dd>
+                  <dt>Balance due</dt>
+                  <dd>
+                    <strong style={{ color: balance > 0 ? 'var(--rust)' : 'var(--teal)' }}>
+                      £{poundsFromPence(Math.max(0, balance))}
+                    </strong>
+                  </dd>
+                </>
+              )}
             </dl>
 
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
@@ -189,6 +276,69 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                 </tr>
               </tfoot>
             </table>
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <span className="field__label">Payments received</span>
+              {payments.length === 0 && <p className="field__hint">No payments recorded yet.</p>}
+              {payments.length > 0 && (
+                <ul className="simple-list" style={{ marginTop: 4 }}>
+                  {payments.map((p) => (
+                    <li className="simple-list__item" key={p.id}>
+                      <div className="simple-list__row">
+                        <div>
+                          <span className="simple-list__title">£{poundsFromPence(p.amount_pence)}</span>
+                          <span className="simple-list__subtitle">{p.paid_date}{p.note ? ' · ' + p.note : ''}</span>
+                        </div>
+                        <button className="link-button link-button--danger" onClick={() => handleDeletePayment(p)}>Remove</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {!addingPayment && balance > 0 && (
+                <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 8 }} onClick={startAddPayment}>
+                  + Record payment
+                </button>
+              )}
+
+              {addingPayment && (
+                <form className="inline-subform" onSubmit={handleAddPayment} style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <label className="field" style={{ flex: '1 1 100px' }}>
+                      <span className="field__label">Amount (£)</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder={poundsFromPence(Math.max(0, balance))}
+                        required
+                        autoFocus
+                      />
+                    </label>
+                    <label className="field" style={{ flex: '1 1 140px' }}>
+                      <span className="field__label">Date</span>
+                      <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
+                    </label>
+                  </div>
+                  <label className="field">
+                    <span className="field__label">Note (optional)</span>
+                    <input value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} placeholder="e.g. Deposit" />
+                  </label>
+                  {error && <p className="form-error">{error}</p>}
+                  <div className="form-actions">
+                    <button type="button" className="btn btn--ghost btn--small" onClick={() => setAddingPayment(false)}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn--primary btn--small" disabled={savingPayment}>
+                      {savingPayment ? 'Saving…' : 'Record payment'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
             <div className="field" style={{ marginTop: 12 }}>
@@ -241,6 +391,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
         <InvoicePrintModal
           invoice={invoice}
           items={items}
+          payments={payments}
           gig={gig}
           band={band}
           client={client}

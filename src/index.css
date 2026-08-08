@@ -1705,6 +1705,7 @@ input:not([type]) {
   }
   .invoice-stamp--paid { color: var(--doc-secondary); border-color: var(--doc-secondary); }
   .invoice-stamp--overdue { color: #b6452c; border-color: #b6452c; }
+  .invoice-stamp--partial { color: var(--doc-accent); border-color: var(--doc-accent); font-size: 26pt; }
   
   /* ---- Header ---- */
   .invoice-header {
