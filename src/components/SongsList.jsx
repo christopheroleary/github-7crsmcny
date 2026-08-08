@@ -7,6 +7,19 @@ import { ReferencePlayer, LyricsView } from './SongReference.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
+// Matches the stroke-icon convention used elsewhere (App.jsx's UserIcon,
+// NotificationBell) rather than an emoji, which renders inconsistently
+// across platforms/fonts and doesn't take a deliberate colour.
+function GlobeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 // Admin-only master repertoire -- every song in the system in one place,
 // quick to search and edit, rather than only reachable by drilling into
 // whichever setlist happens to already contain it.
@@ -135,7 +148,13 @@ export default function SongsList() {
                   <div>
                     <span className="simple-list__title">
                       {song.is_public && (
-                        <span title="Shared with all bands" aria-label="Shared with all bands" style={{ marginRight: 6 }}>🌐</span>
+                        <span
+                          title="Shared with all bands"
+                          aria-label="Shared with all bands"
+                          style={{ display: 'inline-flex', verticalAlign: -2, marginRight: 6, color: 'var(--teal)' }}
+                        >
+                          <GlobeIcon />
+                        </span>
                       )}
                       {song.title}
                       {song.original_key && (
