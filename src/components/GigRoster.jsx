@@ -89,6 +89,11 @@ export default function GigRoster({ gigId }) {
   const [musicianInstruments, setMusicianInstruments] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Guards the per-row Confirm/Remove/vocal-role/DJ/Roadie/Captain actions
+  // against a rapid double-click sending two overlapping mutations for the
+  // same roster row -- kept until load() finishes, not just the write, so a
+  // second click can't read stale pre-refetch entry data either.
+  const [busyEntryId, setBusyEntryId] = useState(null);
 
   // Dep-finder wizard
   const [wizardInstrumentId, setWizardInstrumentId] = useState(null);
@@ -126,7 +131,8 @@ export default function GigRoster({ gigId }) {
       .then(({ data }) => {
         setGigBandId(data?.band_id || null);
         setGigNeeds({ needs_dj: data?.needs_dj || false, needs_roadie: data?.needs_roadie || false });
-      });
+      })
+      .catch(() => {}); // offline/network failure -- leaves band preset/DJ/roadie badges at their defaults
   }, [gigId]);
 
   async function handleApplyPreset() {
@@ -396,53 +402,75 @@ export default function GigRoster({ gigId }) {
 
     const ok = await confirmAsync(confirmMessage);
     if (!ok) return;
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
     const { error } = await supabase.from('gig_lineup').delete().eq('id', entry.id);
-    if (error) { notify("Couldn't remove: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't remove: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   async function handleConfirm(entry) {
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', entry.id);
-    if (error) { notify("Couldn't confirm: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't confirm: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   async function handleUpdateVocalRole(entryId, vocal_role) {
+    if (busyEntryId === entryId) return;
+    setBusyEntryId(entryId);
     const { error } = await supabase.from('gig_lineup').update({ vocal_role: vocal_role || null }).eq('id', entryId);
-    if (error) { notify("Couldn't update vocal role: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't update vocal role: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   // Toggling DJ/roadie on for an existing roster row — clears vocal_role since
   // neither role sings. Freely combinable with a real instrument and with
   // each other (unlike instruments, which stay single-select per person).
   async function handleToggleDj(entry) {
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
     const makingDj = !entry.is_dj;
     const { error } = await supabase.from('gig_lineup')
       .update({ is_dj: makingDj, vocal_role: makingDj ? null : entry.vocal_role })
       .eq('id', entry.id);
-    if (error) { notify("Couldn't update DJ role: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't update DJ role: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   async function handleToggleRoadie(entry) {
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
     const makingRoadie = !entry.is_roadie;
     const { error } = await supabase.from('gig_lineup')
       .update({ is_roadie: makingRoadie, vocal_role: makingRoadie ? null : entry.vocal_role })
       .eq('id', entry.id);
-    if (error) { notify("Couldn't update roadie role: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't update roadie role: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   // Only one captain per gig — setting a new one clears any previous one.
+  // The busy guard matters more here than the other toggles: this is a
+  // two-step, non-atomic operation (clear old captain, then set new), so an
+  // overlapping second call is how a gig could end up with two captains or
+  // none, not just a wasted duplicate write.
   async function handleToggleCaptain(entry) {
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
     const makingCaptain = !entry.is_captain;
     if (makingCaptain) {
       await supabase.from('gig_lineup').update({ is_captain: false }).eq('gig_id', gigId).eq('is_captain', true);
     }
     const { error } = await supabase.from('gig_lineup').update({ is_captain: makingCaptain }).eq('id', entry.id);
-    if (error) { notify("Couldn't update captain: " + error.message); return; }
-    load();
+    if (error) { notify("Couldn't update captain: " + error.message); setBusyEntryId(null); return; }
+    await load();
+    setBusyEntryId(null);
   }
 
   if (loading) return <p className="state-message">Loading roster…</p>;
@@ -561,6 +589,7 @@ export default function GigRoster({ gigId }) {
                     <select
                       value={entry.vocal_role || ''}
                       onChange={(e) => handleUpdateVocalRole(entry.id, e.target.value)}
+                      disabled={busyEntryId === entry.id}
                       style={{ fontSize: 12, marginTop: 6, padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)', display: 'block' }}
                     >
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -573,18 +602,21 @@ export default function GigRoster({ gigId }) {
                         active={entry.is_dj}
                         colour={DJ_COLOUR}
                         onClick={() => handleToggleDj(entry)}
+                        disabled={busyEntryId === entry.id}
                       />
                       <RoleToggle
                         label="Roadie"
                         active={entry.is_roadie}
                         colour={ROADIE_COLOUR}
                         onClick={() => handleToggleRoadie(entry)}
+                        disabled={busyEntryId === entry.id}
                       />
                       <RoleToggle
                         label="Captain"
                         active={entry.is_captain}
                         colour="var(--rust)"
                         onClick={() => handleToggleCaptain(entry)}
+                        disabled={busyEntryId === entry.id}
                       />
                     </div>
                   )}
@@ -599,10 +631,10 @@ export default function GigRoster({ gigId }) {
                     </span>
                   )}
                   {!entry.confirmed && (isMe || isAdmin) && (
-                    <button className="link-button" onClick={() => handleConfirm(entry)}>Confirm</button>
+                    <button className="link-button" onClick={() => handleConfirm(entry)} disabled={busyEntryId === entry.id}>Confirm</button>
                   )}
                   {isAdmin && (
-                    <button className="link-button link-button--danger" onClick={() => handleRemove(entry)}>Remove</button>
+                    <button className="link-button link-button--danger" onClick={() => handleRemove(entry)} disabled={busyEntryId === entry.id}>Remove</button>
                   )}
                 </div>
               </div>
