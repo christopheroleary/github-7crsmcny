@@ -268,7 +268,7 @@ export default function TaxRecords({ profileId }) {
           {gigMiles.toFixed(1)} mi from gigs + {otherMiles.toFixed(1)} mi logged separately = <strong style={{ color: 'var(--ink)' }}>{totalMiles.toFixed(1)} mi</strong>
           {milesRemainingAtFirstRate > 0
             ? ` — ${milesRemainingAtFirstRate.toLocaleString()} mi left this year at the higher ${Math.round(mileageRate.firstRate * 100)}p rate.`
-            : ` — over the ${mileageRate.firstThreshold.toLocaleString()} mi threshold, now at the lower ${Math.round(mileageRate.afterRate * 100)}p rate.`}
+            : ` — at or over the ${mileageRate.firstThreshold.toLocaleString()} mi threshold, now at the lower ${Math.round(mileageRate.afterRate * 100)}p rate.`}
         </p>
         <p className="field__hint" style={{ margin: 0 }}>
           Indicative mileage allowance: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(allowancePence)}</strong> — not added to your expenses automatically; log it under Other expenses (Travel / mileage) yourself if you want to claim it.

@@ -13,16 +13,18 @@ const STATUS_COLOURS = {
 export default function EnquiriesList() {
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [convertingEnq, setConvertingEnq] = useState(null); // ← new
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('enquiries')
       .select('*')
       .order('created_at', { ascending: false });
-    setEnquiries(data || []);
+    if (error) setError(error.message);
+    else setEnquiries(data || []);
     setLoading(false);
   }, []);
 
@@ -105,6 +107,8 @@ export default function EnquiriesList() {
 
       {loading ? (
         <p className="state-message">Loading enquiries…</p>
+      ) : error ? (
+        <p className="state-message state-message--error">Couldn't load enquiries: {error}</p>
       ) : enquiries.length === 0 ? (
         <p className="state-message">No enquiries yet. Share your enquiry link to get started.</p>
       ) : (

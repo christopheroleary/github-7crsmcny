@@ -143,6 +143,12 @@ export default function PublicDocumentView({ type, token }) {
                   <span className="invoice-header__value">{formatDate(doc.valid_until)}</span>
                 </div>
               )}
+              {isPaid && (
+                <div className="invoice-header__label-block">
+                  <span className="invoice-header__label">Paid date</span>
+                  <span className="invoice-header__value">{formatDate(doc.paid_date)}</span>
+                </div>
+              )}
             </div>
           </div>
 

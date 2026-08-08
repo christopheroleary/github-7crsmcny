@@ -222,7 +222,7 @@ export default function Dashboard({ onNavigate }) {
         setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
         setUpcoming({ count: (upcomingGigs || []).length, value: null, gigs: upcomingGigs || [] });
 
-        const thisMonthGigs = (allGigsData || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today);
+        const thisMonthGigs = (allGigsData || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today && g.status !== 'cancelled');
         setThisMonth({ count: thisMonthGigs.length, value: null, gigs: thisMonthGigs });
 
         buildTrends(trendGigs, false);

@@ -105,6 +105,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
   }
 
   async function handleConvertToInvoice() {
+    if (converting) return;
     setConverting(true);
     setError(null);
 
