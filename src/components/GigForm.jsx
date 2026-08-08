@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import TimeInput from './TimeInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
+import InfoTooltip from './InfoTooltip.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -399,7 +400,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       </div>
 
       <label className="field">
-        <span className="field__label">Fee (£) — whole number</span>
+        <span className="field__label">
+          Fee (£)
+          <InfoTooltip text="Enter as a whole number, e.g. 650 rather than 650.50." />
+        </span>
         <input
           type="number"
           step="1"
@@ -411,7 +415,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       </label>
 
       <label className="field">
-        <span className="field__label">Mileage rate (pence per mile)</span>
+        <span className="field__label">
+          Mileage rate
+          <InfoTooltip text="Pence per mile, e.g. 35 = 35p/mile. Used to calculate musician travel costs for this gig." />
+        </span>
         <input
           type="number"
           step="1"
@@ -468,12 +475,15 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       </label>
 
       <label className="field">
-        <span className="field__label">Notes</span>
-        <textarea 
-          placeholder="e.g. dress code, greenroom, food and refreshments, bride and groom names or birthday number, favourite songs and don't play songs, stage size and style, power, load-in ground/stairs or gravel? noise limiter? wet weather plan? other acts? dj playlist? mic's for speeches/cake cutting? approx guest count, emergency day contact number? suppliers social handles?..." 
-          value={notes} 
-          onChange={(e) => setNotes(e.target.value)} 
-          rows={3} 
+        <span className="field__label">
+          Notes
+          <InfoTooltip text="e.g. dress code, greenroom, food and refreshments, bride and groom names or birthday number, favourite songs and don't play songs, stage size and style, power, load-in ground/stairs or gravel? noise limiter? wet weather plan? other acts? dj playlist? mic's for speeches/cake cutting? approx guest count, emergency day contact number? suppliers social handles?" />
+        </span>
+        <textarea
+          placeholder="Anything else for the day sheet — see (i) for ideas"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
         />
       </label>
 
@@ -514,7 +524,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       </label>
 
       <div className="field">
-        <span className="field__label">Instruments needed</span>
+        <span className="field__label">
+          Instruments needed
+          <InfoTooltip text="Shows as vacancies on the roster page. DJ and roadie are set separately below, not counted here." />
+        </span>
         {requirements.map((r, i) => (
           <div className="field-row requirement-row" key={r.id ?? 'new-' + i}>
             <select value={r.instrument_id} onChange={(e) => updateRequirementRow(i, 'instrument_id', e.target.value)}>
@@ -522,20 +535,31 @@ export default function GigForm({ gig, onSaved, onCancel }) {
               {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
             </select>
             <input type="number" min="1" value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
-            <button type="button" className="btn btn--ghost btn--small" onClick={() => removeRequirementRow(i)}>Remove</button>
+            <button
+              type="button"
+              className="link-button link-button--danger requirement-row__remove"
+              onClick={() => removeRequirementRow(i)}
+              aria-label="Remove instrument requirement"
+              title="Remove"
+            >
+              ×
+            </button>
           </div>
         ))}
         <button type="button" className="link-button" onClick={addRequirementRow}>+ Add instrument requirement</button>
       </div>
 
-      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Budgeting</p>
-      <p className="field__hint" style={{ marginBottom: 8 }}>
-        Project the profit/loss for this gig before anyone's actually booked, using the band's fee split defaults.
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>
+        Budgeting
+        <InfoTooltip text="Projects the profit/loss for this gig before anyone's actually booked, using the band's fee split defaults." />
       </p>
 
       <div className="field-row">
         <label className="field">
-          <span className="field__label">Planned headcount (regular musicians)</span>
+          <span className="field__label">
+            Planned headcount
+            <InfoTooltip text="Regular musicians only — for the projection below, not the real roster. Doesn't affect who can actually be added to this gig." />
+          </span>
           <input
             type="number"
             min="0"

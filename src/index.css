@@ -1100,6 +1100,12 @@ input:not([type]) {
 .requirement-row select {
   flex: 2;
 }
+.requirement-row__remove {
+  flex-shrink: 0;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+}
 @media (max-width: 480px) {
   /* Overrides the generic .field-row stack-to-column rule -- instrument
      name and quantity read as one unit (e.g. "Drums   x 2") and are more
@@ -1116,14 +1122,9 @@ input:not([type]) {
     min-width: 0;
   }
   .requirement-row input[type="number"] {
-    flex: 0 0 56px;
+    flex: 0 0 50px;
     min-width: 0;
-    max-width: 56px !important;
-  }
-  .requirement-row .btn {
-    flex-shrink: 0;
-    padding-left: 10px;
-    padding-right: 10px;
+    max-width: 50px !important;
   }
 }
 .tag-input select {
