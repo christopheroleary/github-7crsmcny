@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
+import SignatureCapture from './SignatureCapture.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -22,6 +23,9 @@ export default function GigContract({ gigId, gigFeeAmount }) {
   const [showPrint, setShowPrint] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const [signingBand, setSigningBand] = useState(false);
+  const [bandSigning, setBandSigning] = useState(false);
+  const [bandSignError, setBandSignError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,19 +56,21 @@ export default function GigContract({ gigId, gigFeeAmount }) {
     load();
   }, [load]);
 
-  async function handleBandSign() {
-    if (!me?.full_name) return;
-    const ok = await confirmAsync('Sign this contract as ' + me.full_name + '?');
-    if (!ok) return;
-    const { error } = await supabase
-      .from('contracts')
-      .update({
-        band_signee_name: me.full_name,
-        band_signed_date: new Date().toISOString().slice(0, 10),
-        status: contract.client_signed_date ? 'signed' : contract.status,
-      })
-      .eq('id', contract.id);
-    if (error) { notify("Couldn't sign: " + error.message); return; }
+  async function handleBandSignSubmit(name, signatureImage, method) {
+    setBandSigning(true);
+    setBandSignError(null);
+    const { error } = await supabase.rpc('sign_contract_as_band', {
+      p_contract_id: contract.id,
+      p_signee_name: name,
+      p_signature_image: signatureImage,
+      p_method: method,
+    });
+    setBandSigning(false);
+    if (error) {
+      setBandSignError(error.message);
+      return;
+    }
+    setSigningBand(false);
     load();
   }
 
@@ -119,20 +125,46 @@ export default function GigContract({ gigId, gigFeeAmount }) {
               <dt>Band signed</dt>
               <dd>
                 {contract.band_signee_name
-                  ? `${contract.band_signee_name} (${contract.band_signed_date || 'no date'})`
+                  ? (
+                    <>
+                      {contract.band_signature_image && (
+                        <img src={contract.band_signature_image} alt="Signature" style={{ maxHeight: 24, verticalAlign: 'middle', marginRight: 6 }} />
+                      )}
+                      {contract.band_signee_name} ({contract.band_signed_date || 'no date'})
+                    </>
+                  )
                   : (
-                    <button type="button" className="link-button" onClick={handleBandSign}>
-                      ✓ Sign for the band
+                    <button type="button" className="link-button" onClick={() => setSigningBand((v) => !v)}>
+                      {signingBand ? 'Cancel signing' : '✓ Sign for the band'}
                     </button>
                   )}
               </dd>
               <dt>Client signed</dt>
               <dd>
                 {contract.client_signee_name
-                  ? `${contract.client_signee_name} (${contract.client_signed_date || 'no date'})`
+                  ? (
+                    <>
+                      {contract.client_signature_image && (
+                        <img src={contract.client_signature_image} alt="Signature" style={{ maxHeight: 24, verticalAlign: 'middle', marginRight: 6 }} />
+                      )}
+                      {contract.client_signee_name} ({contract.client_signed_date || 'no date'})
+                    </>
+                  )
                   : 'Not yet signed — share the client view link below'}
               </dd>
             </dl>
+
+            {signingBand && !contract.band_signee_name && (
+              <div className="field" style={{ marginTop: 12, padding: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--paper-raised)' }}>
+                <SignatureCapture
+                  defaultName={me?.full_name || ''}
+                  onSign={handleBandSignSubmit}
+                  signing={bandSigning}
+                  submitLabel="✓ Sign for the band"
+                  error={bandSignError}
+                />
+              </div>
+            )}
 
             {contract.cancellation_policy && (
               <div className="field" style={{ marginTop: 12 }}>

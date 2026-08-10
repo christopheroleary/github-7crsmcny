@@ -19,10 +19,11 @@ function contractNumber(createdAt) {
     '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
 }
 
-function signatureBlock(label, name, date) {
+function signatureBlock(label, name, date, image) {
   return `
     <div class="sig-box">
       <p class="label">${label}</p>
+      ${image ? '<img class="sig-image" src="' + image + '" alt="Signature"/>' : ''}
       <p class="sig-line">${name ? name : '&nbsp;'}</p>
       <p class="sig-under">Signature / name</p>
       <p class="sig-line">${date ? formatDate(date) : '&nbsp;'}</p>
@@ -84,6 +85,7 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   .sig-box { flex: 1; }
   .sig-box .label { margin-bottom: 12mm; }
   .sig-line { border-bottom: 1px solid #999; padding-bottom: 4px; margin: 0 0 2px; font-size: 10pt; min-height: 14pt; }
+  .sig-image { max-height: 18mm; max-width: 100%; display: block; margin-bottom: 2px; }
   .sig-under { font-size: 7.5pt; color: #999; margin: 0; }
   .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
   @media print {
@@ -134,8 +136,8 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   ${contract.additional_terms ? `<div class="section"><p class="label">Additional terms</p><p class="body">${contract.additional_terms}</p></div>` : ''}
 
   <div class="sig-row">
-    ${signatureBlock('For ' + (bandDisplayName || 'the band'), contract.band_signee_name, contract.band_signed_date)}
-    ${signatureBlock('For ' + (client?.name || 'the client'), contract.client_signee_name, contract.client_signed_date)}
+    ${signatureBlock('For ' + (bandDisplayName || 'the band'), contract.band_signee_name, contract.band_signed_date, contract.band_signature_image)}
+    ${signatureBlock('For ' + (client?.name || 'the client'), contract.client_signee_name, contract.client_signed_date, contract.client_signature_image)}
   </div>
 
   <div class="page-footer">
@@ -283,6 +285,9 @@ export default function ContractPrintModal({ contract, gig, band, client, gigFee
         <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
           <div style={{ flex: 1 }}>
             <p className="invoice-parties__heading">For {bandDisplayName || 'the band'}</p>
+            {contract.band_signature_image && (
+              <img src={contract.band_signature_image} alt="Signature" style={{ maxHeight: 60, display: 'block', marginBottom: 2 }} />
+            )}
             <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{contract.band_signee_name || ' '}</p>
             <p className="field__hint" style={{ margin: '2px 0 8px' }}>Signature / name</p>
             <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{contract.band_signed_date ? formatDate(contract.band_signed_date) : ' '}</p>
@@ -290,6 +295,9 @@ export default function ContractPrintModal({ contract, gig, band, client, gigFee
           </div>
           <div style={{ flex: 1 }}>
             <p className="invoice-parties__heading">For {client?.name || 'the client'}</p>
+            {contract.client_signature_image && (
+              <img src={contract.client_signature_image} alt="Signature" style={{ maxHeight: 60, display: 'block', marginBottom: 2 }} />
+            )}
             <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{contract.client_signee_name || ' '}</p>
             <p className="field__hint" style={{ margin: '2px 0 8px' }}>Signature / name</p>
             <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{contract.client_signed_date ? formatDate(contract.client_signed_date) : ' '}</p>
