@@ -56,6 +56,7 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   .page { width: 210mm; min-height: 297mm; padding: 18mm 16mm 28mm; margin: 0 auto; position: relative; overflow: hidden; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
   .band-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: ${accent}; margin: 0 0 5px; letter-spacing: -0.02em; }
+  .band-logo { max-height: 20mm; max-width: 70mm; margin: 0 0 5px; display: block; }
   .from-detail { margin: 1px 0; font-size: 9pt; color: #555; line-height: 1.5; }
   .meta { text-align: right; flex-shrink: 0; }
   .meta-block { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 6px; }
@@ -89,7 +90,7 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
 <div class="page">
   <div class="header">
     <div>
-      <h1 class="band-name">${bandDisplayName || 'Band Name'}</h1>
+      ${band?.logo_url ? '<img class="band-logo" src="' + band.logo_url + '" alt="' + (bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + (bandDisplayName || 'Band Name') + '</h1>'}
       ${band?.address ? '<p class="from-detail">' + band.address.split('\n').join(', ') + '</p>' : ''}
       ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
       ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
@@ -198,7 +199,11 @@ export default function ContractPrintModal({ contract, gig, band, client, gigFee
       >
         <div className="invoice-header">
           <div className="invoice-header__from">
-            <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
+            {band?.logo_url ? (
+              <img src={band.logo_url} alt={bandDisplayName || 'Band logo'} className="invoice-header__logo" />
+            ) : (
+              <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
+            )}
             {band?.address && <p className="invoice-header__address">{band.address.split('\n').join(', ')}</p>}
             {band?.contact_email && <p className="invoice-header__contact">{band.contact_email}</p>}
             {band?.contact_phone && <p className="invoice-header__contact">{band.contact_phone}</p>}

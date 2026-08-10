@@ -125,7 +125,11 @@ export default function PublicDocumentView({ type, token }) {
 
           <div className="invoice-header">
             <div className="invoice-header__from">
-              <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
+              {band?.logo_url ? (
+                <img src={band.logo_url} alt={bandDisplayName || 'Band logo'} className="invoice-header__logo" />
+              ) : (
+                <h1 className="invoice-header__band">{bandDisplayName || 'Band Name'}</h1>
+              )}
               {band?.address && <p className="invoice-header__address">{band.address.split('\n').join(', ')}</p>}
               {band?.contact_email && <p className="invoice-header__contact">{band.contact_email}</p>}
               {band?.contact_phone && <p className="invoice-header__contact">{band.contact_phone}</p>}

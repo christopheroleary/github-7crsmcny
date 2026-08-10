@@ -1724,7 +1724,13 @@ input:not([type]) {
     margin: 0 0 4px;
     letter-spacing: -0.02em;
   }
-  
+  .invoice-header__logo {
+    max-height: 56px;
+    max-width: 220px;
+    margin: 0 0 4px;
+    display: block;
+  }
+
   .invoice-header__address,
   .invoice-header__contact {
     margin: 1px 0;

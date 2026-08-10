@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { resizeImageFile } from '../utils/resizeImage.js';
+import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
+
+const LOGO_BUCKET = 'band-logos';
 
 export default function BandForm({ band, onSaved, onCancel }) {
   const isEdit = Boolean(band);
@@ -23,8 +28,48 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [captainBonusPct, setCaptainBonusPct] = useState(band?.fee_split_captain_bonus_pct ?? '');
   const [djPct, setDjPct] = useState(band?.fee_split_dj_pct ?? '');
   const [roadiePct, setRoadiePct] = useState(band?.fee_split_roadie_pct ?? '');
+  const [logoUrl, setLogoUrl] = useState(band?.logo_url || '');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  async function handleLogoChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingLogo(true);
+    setError(null);
+    try {
+      const blob = await resizeImageFile(file);
+      const path = band.id + '/logo.webp';
+      const { error: uploadError } = await supabase.storage
+        .from(LOGO_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: 'image/webp' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+      // Cache-bust so replacing an existing logo shows immediately instead
+      // of the browser/CDN serving the old cached image at the same URL.
+      const publicUrl = urlData.publicUrl + '?v=' + Date.now();
+      const { error: dbError } = await supabase.from('bands').update({ logo_url: publicUrl }).eq('id', band.id);
+      if (dbError) throw dbError;
+      setLogoUrl(publicUrl);
+    } catch (err) {
+      setError(err.message);
+    }
+    setUploadingLogo(false);
+  }
+
+  async function handleRemoveLogo() {
+    const ok = await confirmAsync('Remove this band\'s logo?');
+    if (!ok) return;
+    setUploadingLogo(true);
+    const { error: removeError } = await supabase.storage.from(LOGO_BUCKET).remove([band.id + '/logo.webp']);
+    if (removeError) { notify("Couldn't remove logo: " + removeError.message); setUploadingLogo(false); return; }
+    const { error: dbError } = await supabase.from('bands').update({ logo_url: null }).eq('id', band.id);
+    if (dbError) { notify("Couldn't remove logo: " + dbError.message); setUploadingLogo(false); return; }
+    setLogoUrl('');
+    setUploadingLogo(false);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -171,6 +216,33 @@ export default function BandForm({ band, onSaved, onCancel }) {
           placeholder="e.g. Payment is due within 14 days of the invoice date. Thank you for your booking."
         />
       </label>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Logo</p>
+      {isEdit ? (
+        <div className="field">
+          {logoUrl && (
+            <div style={{ marginBottom: 10, padding: 12, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, display: 'inline-block' }}>
+              <img src={logoUrl} alt="Band logo" style={{ maxWidth: 220, maxHeight: 80, display: 'block' }} />
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
+              {uploadingLogo ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
+              <input type="file" accept="image/*" onChange={handleLogoChange} disabled={uploadingLogo} style={{ display: 'none' }} />
+            </label>
+            {logoUrl && (
+              <button type="button" className="link-button link-button--danger" onClick={handleRemoveLogo} disabled={uploadingLogo}>
+                Remove
+              </button>
+            )}
+          </div>
+          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+            Shown on this band's invoices, quotes and contracts. Resized and compressed automatically — any reasonable image works.
+          </span>
+        </div>
+      ) : (
+        <p className="field__hint" style={{ marginBottom: 8 }}>Save the band first, then edit it to add a logo.</p>
+      )}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Document theme</p>
       <p className="field__hint" style={{ marginBottom: 8 }}>
