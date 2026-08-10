@@ -56,6 +56,26 @@ export default function GigContract({ gigId, gigFeeAmount }) {
     load();
   }, [load]);
 
+  async function handleUndoBandSign() {
+    const ok = await confirmAsync("Remove the band's signature? This doesn't affect the client's signature.");
+    if (!ok) return;
+    const { error } = await supabase
+      .from('contracts')
+      .update({
+        band_signee_name: null,
+        band_signed_date: null,
+        band_signed_at: null,
+        band_signature_ip: null,
+        band_signature_user_agent: null,
+        band_signature_method: null,
+        band_signature_image: null,
+        status: contract.status === 'signed' ? 'sent' : contract.status,
+      })
+      .eq('id', contract.id);
+    if (error) { notify("Couldn't undo: " + error.message); return; }
+    load();
+  }
+
   async function handleBandSignSubmit(name, signatureImage, method) {
     setBandSigning(true);
     setBandSignError(null);
@@ -131,6 +151,10 @@ export default function GigContract({ gigId, gigFeeAmount }) {
                         <img src={contract.band_signature_image} alt="Signature" style={{ maxHeight: 24, verticalAlign: 'middle', marginRight: 6 }} />
                       )}
                       {contract.band_signee_name} ({contract.band_signed_date || 'no date'})
+                      {' '}
+                      <button type="button" className="link-button link-button--danger" onClick={handleUndoBandSign}>
+                        Undo
+                      </button>
                     </>
                   )
                   : (
