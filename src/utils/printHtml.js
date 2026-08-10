@@ -7,13 +7,23 @@
 // happens. A hidden same-page iframe sidesteps popup blocking entirely
 // since it never opens a new browsing context.
 //
-// Loaded via `srcdoc` rather than document.open/write/close -- the latter
-// races the iframe's initial about:blank "load" event (the handler can
-// end up attached after that fires, so it never fires again once the
-// real content is written) and left the frame permanently un-printed
-// with no error in testing. srcdoc is a real navigation, so `load` fires
-// once, reliably, after the written document and its sub-resources
-// (fonts, the band logo image) are actually ready.
+// document.write + an immediate, synchronous print() call, deliberately
+// *not* waiting on the iframe's `load` event. Two real bugs came from
+// that event:
+//   1. Appending an iframe with no src/srcdoc yet implicitly navigates it
+//      to about:blank, which can fire its own `load` -- separately from
+//      the `load` that follows once the real content is written/set.
+//      Printing from that handler could therefore fire twice: once for
+//      the real page, once for a second, empty pass.
+//   2. `win.print()` called from an async event handler (the `load`
+//      fires well after the click that started all this) falls outside
+//      what iOS Safari treats as a direct user gesture, so it shows an
+//      "this page is trying to print automatically" prompt instead of
+//      just printing.
+// Calling print() synchronously, in the same tick as document.close(),
+// avoids both: there's no `load` event in the loop to double-fire, and
+// it's still within the click handler's call stack as far as Safari's
+// user-activation check is concerned.
 export function printHtmlDocument(html) {
   const iframe = document.createElement('iframe');
   Object.assign(iframe.style, {
@@ -24,24 +34,24 @@ export function printHtmlDocument(html) {
     height: '0',
     border: '0',
   });
+  document.body.appendChild(iframe);
 
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const win = iframe.contentWindow;
   let cleaned = false;
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
     iframe.remove();
   };
-
-  iframe.onload = () => {
-    const win = iframe.contentWindow;
-    win.addEventListener('afterprint', cleanup);
-    win.focus();
-    win.print();
-    // Safety net for browsers that don't fire afterprint on an iframe
-    // (notably older iOS Safari).
-    setTimeout(cleanup, 5000);
-  };
-
-  document.body.appendChild(iframe);
-  iframe.srcdoc = html;
+  win.addEventListener('afterprint', cleanup);
+  win.focus();
+  win.print();
+  // Safety net for browsers that don't fire afterprint on an iframe
+  // (notably older iOS Safari).
+  setTimeout(cleanup, 5000);
 }

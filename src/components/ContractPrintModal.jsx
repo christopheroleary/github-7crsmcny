@@ -88,6 +88,10 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   .sig-image { max-height: 18mm; max-width: 100%; display: block; margin-bottom: 2px; }
   .sig-under { font-size: 7.5pt; color: #999; margin: 0; }
   .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
+  @page {
+    size: A4;
+    margin: 0;
+  }
   @media print {
     html, body { margin: 0; }
     .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }

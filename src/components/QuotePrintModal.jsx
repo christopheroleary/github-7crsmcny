@@ -117,6 +117,10 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
   /* Page footer */
   .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
 
+  @page {
+    size: A4;
+    margin: 0;
+  }
   @media print {
     html, body { margin: 0; }
     .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }
