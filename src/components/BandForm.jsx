@@ -29,6 +29,8 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [djPct, setDjPct] = useState(band?.fee_split_dj_pct ?? '');
   const [roadiePct, setRoadiePct] = useState(band?.fee_split_roadie_pct ?? '');
   const [logoUrl, setLogoUrl] = useState(band?.logo_url || '');
+  const [websiteUrl, setWebsiteUrl] = useState(band?.website_url || '');
+  const [socialLinks, setSocialLinks] = useState(band?.social_links || []);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -93,6 +95,16 @@ export default function BandForm({ band, onSaved, onCancel }) {
     setUploadingLogo(false);
   }
 
+  function addSocialLink() {
+    setSocialLinks((prev) => [...prev, { label: '', url: '' }]);
+  }
+  function updateSocialLink(index, field, value) {
+    setSocialLinks((prev) => prev.map((link, i) => (i === index ? { ...link, [field]: value } : link)));
+  }
+  function removeSocialLink(index) {
+    setSocialLinks((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -105,6 +117,8 @@ export default function BandForm({ band, onSaved, onCancel }) {
       contact_email: contactEmail || null,
       contact_phone: contactPhone || null,
       address: address || null,
+      website_url: websiteUrl || null,
+      social_links: socialLinks.filter((link) => link.label.trim() && link.url.trim()),
       bank_name: bankName || null,
       bank_account_name: bankAccountName || null,
       bank_sort_code: bankSortCode || null,
@@ -172,6 +186,52 @@ export default function BandForm({ band, onSaved, onCancel }) {
         <span className="field__label">Address</span>
         <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Your trading address as it should appear on invoices" />
       </label>
+
+      <label className="field">
+        <span className="field__label">Website</span>
+        <input type="url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://yourband.com" />
+      </label>
+
+      <div className="field">
+        <span className="field__label">Social links</span>
+        {socialLinks.map((link, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+            <input
+              value={link.label}
+              onChange={(e) => updateSocialLink(i, 'label', e.target.value)}
+              placeholder="Instagram"
+              list="social-platform-suggestions"
+              style={{ flex: '0 1 140px' }}
+            />
+            <input
+              type="url"
+              value={link.url}
+              onChange={(e) => updateSocialLink(i, 'url', e.target.value)}
+              placeholder="https://instagram.com/yourband"
+              style={{ flex: '1 1 auto' }}
+            />
+            <button
+              type="button"
+              className="link-button link-button--danger"
+              onClick={() => removeSocialLink(i)}
+              aria-label="Remove social link"
+              style={{ flexShrink: 0 }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <datalist id="social-platform-suggestions">
+          <option value="Instagram" />
+          <option value="Facebook" />
+          <option value="TikTok" />
+          <option value="YouTube" />
+          <option value="Twitter/X" />
+          <option value="Spotify" />
+        </datalist>
+        <button type="button" className="btn btn--ghost btn--small" onClick={addSocialLink}>+ Add social link</button>
+        <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>Shown on invoices, quotes and contracts alongside the website above.</span>
+      </div>
 
       <div className="field-row">
         <label className="field">

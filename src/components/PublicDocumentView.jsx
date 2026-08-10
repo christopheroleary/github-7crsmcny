@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { displayUrl } from '../utils/formatUrl.js';
 
 const RPC_BY_TYPE = {
   invoice: 'get_invoice_by_token',
@@ -133,6 +134,21 @@ export default function PublicDocumentView({ type, token }) {
               {band?.address && <p className="invoice-header__address">{band.address.split('\n').join(', ')}</p>}
               {band?.contact_email && <p className="invoice-header__contact">{band.contact_email}</p>}
               {band?.contact_phone && <p className="invoice-header__contact">{band.contact_phone}</p>}
+              {band?.website_url && (
+                <p className="invoice-header__contact">
+                  <a href={band.website_url} target="_blank" rel="noopener noreferrer">{displayUrl(band.website_url)}</a>
+                </p>
+              )}
+              {band?.social_links?.length > 0 && (
+                <p className="invoice-header__contact">
+                  {band.social_links.map((link, i) => (
+                    <span key={i}>
+                      {i > 0 && ' · '}
+                      <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             <div className="invoice-header__meta">
               <div className="invoice-header__label-block">

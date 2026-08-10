@@ -7,6 +7,14 @@ let registration = null;
 // there unused until the next full app restart.
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
+  // The service worker's whole job is to cache the app shell so it works
+  // offline -- exactly the thing that makes it fight Vite's dev server,
+  // which wants every reload to fetch fresh, unbundled modules straight
+  // from disk. Registering it in dev meant every restart of the dev
+  // server could leave a tab silently serving a stale cached bundle
+  // (import errors for exports that exist on disk, edits that never
+  // appear) until someone thought to manually unregister it.
+  if (import.meta.env.DEV) return;
 
   window.addEventListener('load', () => {
     navigator.serviceWorker

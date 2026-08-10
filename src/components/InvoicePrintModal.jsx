@@ -1,4 +1,5 @@
 import { printHtmlDocument } from '../utils/printHtml.js';
+import { displayUrl } from '../utils/formatUrl.js';
 
 function formatDate(dateStr) {
     if (!dateStr) return '—';
@@ -79,6 +80,10 @@ function formatDate(dateStr) {
         </div>
       </div>` : '';
   
+    const socialLinksHTML = (band?.social_links || []).length > 0
+      ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + l.url + '">' + l.label + '</a>').join(' · ') + '</p>'
+      : '';
+
     const footerNotesHTML = (invoice.notes || band?.invoice_notes) ? `
       <div class="footer-notes">
         ${invoice.notes ? '<p>' + invoice.notes + '</p>' : ''}
@@ -130,6 +135,7 @@ function formatDate(dateStr) {
     .band-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: ${accent}; margin: 0 0 5px; letter-spacing: -0.02em; }
     .band-logo { max-height: 20mm; max-width: 70mm; margin: 0 0 5px; display: block; }
     .from-detail { margin: 1px 0; font-size: 9pt; color: #555; line-height: 1.5; }
+    .from-detail a { color: inherit; text-decoration: none; }
     .meta { text-align: right; flex-shrink: 0; }
     .meta-block { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 6px; }
     .meta-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #999; font-weight: 600; }
@@ -192,6 +198,8 @@ function formatDate(dateStr) {
         ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
         ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
         ${band?.vat_number ? '<p class="from-detail">VAT: ' + band.vat_number + '</p>' : ''}
+        ${band?.website_url ? '<p class="from-detail"><a href="' + band.website_url + '">' + displayUrl(band.website_url) + '</a></p>' : ''}
+        ${socialLinksHTML}
       </div>
       <div class="meta">
         <div class="meta-block">
@@ -345,6 +353,21 @@ function formatDate(dateStr) {
               {band?.contact_email && <p className="invoice-header__contact">{band.contact_email}</p>}
               {band?.contact_phone && <p className="invoice-header__contact">{band.contact_phone}</p>}
               {band?.vat_number && <p className="invoice-header__contact">VAT: {band.vat_number}</p>}
+              {band?.website_url && (
+                <p className="invoice-header__contact">
+                  <a href={band.website_url} target="_blank" rel="noopener noreferrer">{displayUrl(band.website_url)}</a>
+                </p>
+              )}
+              {band?.social_links?.length > 0 && (
+                <p className="invoice-header__contact">
+                  {band.social_links.map((link, i) => (
+                    <span key={i}>
+                      {i > 0 && ' · '}
+                      <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             <div className="invoice-header__meta">
               {[
