@@ -81,8 +81,11 @@ export default function PublicDocumentView({ type, token }) {
   const prefix = type === 'invoice' ? 'INV' : type === 'quote' ? 'QUO' : 'CON';
   const number = docNumber(prefix, doc.created_at);
   const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+  const vatRate = type === 'invoice' ? (band?.vat_rate || 0) : 0;
+  const vatPence = Math.round(total * (vatRate / 100));
+  const grandTotal = total + vatPence;
   const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
-  const balance = total - totalPaid;
+  const balance = grandTotal - totalPaid;
   const isPaid = type === 'invoice' && doc.status === 'paid';
   const isOverdue = type === 'invoice' && doc.status === 'overdue';
   const isPartiallyPaid = type === 'invoice' && !isPaid && totalPaid > 0;
@@ -213,15 +216,15 @@ export default function PublicDocumentView({ type, token }) {
                     <span>£{poundsFromPence(total)}</span>
                   </div>
                 )}
-                {type === 'invoice' && band?.vat_number && (
+                {vatRate > 0 && (
                   <div className="invoice-totals__row">
-                    <span>VAT (0%)</span>
-                    <span>£0.00</span>
+                    <span>VAT ({vatRate}%)</span>
+                    <span>£{poundsFromPence(vatPence)}</span>
                   </div>
                 )}
                 <div className="invoice-totals__row invoice-totals__row--total">
                   <span>{type === 'quote' ? 'Estimated total' : totalPaid > 0 ? 'Total' : 'Total due'}</span>
-                  <span>£{poundsFromPence(total)}</span>
+                  <span>£{poundsFromPence(type === 'quote' ? total : grandTotal)}</span>
                 </div>
                 {type === 'invoice' && totalPaid > 0 && (
                   <>

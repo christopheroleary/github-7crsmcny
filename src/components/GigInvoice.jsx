@@ -10,6 +10,10 @@ function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
 }
 
+function vatPenceFor(subtotalPence, ratePercent) {
+  return Math.round(subtotalPence * (ratePercent / 100));
+}
+
 export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   const { isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
@@ -180,7 +184,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
     }
 
     const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) + amountPence;
-    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, total);
+    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, grandTotal);
 
     setSavingPayment(false);
     setAddingPayment(false);
@@ -196,7 +200,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       return;
     }
     const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) - payment.amount_pence;
-    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, total);
+    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, grandTotal);
     load();
   }
 
@@ -222,8 +226,11 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   }
 
   const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+  const vatRate = band?.vat_rate || 0;
+  const vatPence = vatPenceFor(total, vatRate);
+  const grandTotal = total + vatPence;
   const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
-  const balance = total - totalPaid;
+  const balance = grandTotal - totalPaid;
 
   return (
     <div className="roster-section">
@@ -240,7 +247,15 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
               <dt>Issued</dt><dd>{invoice.issued_date || '—'}</dd>
               <dt>Due</dt><dd>{invoice.due_date || '—'}</dd>
               <dt>Paid</dt><dd>{invoice.paid_date || '—'}</dd>
-              <dt>Total</dt><dd><strong>£{poundsFromPence(total)}</strong></dd>
+              {vatRate > 0 ? (
+                <>
+                  <dt>Subtotal</dt><dd>£{poundsFromPence(total)}</dd>
+                  <dt>VAT ({vatRate}%)</dt><dd>£{poundsFromPence(vatPence)}</dd>
+                  <dt>Total</dt><dd><strong>£{poundsFromPence(grandTotal)}</strong></dd>
+                </>
+              ) : (
+                <><dt>Total</dt><dd><strong>£{poundsFromPence(grandTotal)}</strong></dd></>
+              )}
               {totalPaid > 0 && (
                 <>
                   <dt>Paid so far</dt><dd>£{poundsFromPence(totalPaid)}</dd>
@@ -270,10 +285,15 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                 ))}
               </tbody>
               <tfoot>
-                <tr>
-                  <td colSpan={3}><strong>Total</strong></td>
-                  <td><strong>£{poundsFromPence(total)}</strong></td>
-                </tr>
+                {vatRate > 0 ? (
+                  <>
+                    <tr><td colSpan={3}>Subtotal</td><td>£{poundsFromPence(total)}</td></tr>
+                    <tr><td colSpan={3}>VAT ({vatRate}%)</td><td>£{poundsFromPence(vatPence)}</td></tr>
+                    <tr><td colSpan={3}><strong>Total</strong></td><td><strong>£{poundsFromPence(grandTotal)}</strong></td></tr>
+                  </>
+                ) : (
+                  <tr><td colSpan={3}><strong>Total</strong></td><td><strong>£{poundsFromPence(grandTotal)}</strong></td></tr>
+                )}
               </tfoot>
             </table>
             </div>

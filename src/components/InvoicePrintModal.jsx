@@ -20,8 +20,11 @@ function formatDate(dateStr) {
   
   function buildPrintHTML({ invoice, items, payments, gig, band, client }) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+    const vatRate = band?.vat_rate || 0;
+    const vatPence = Math.round(total * (vatRate / 100));
+    const grandTotal = total + vatPence;
     const totalPaid = (payments || []).reduce((sum, p) => sum + p.amount_pence, 0);
-    const balance = total - totalPaid;
+    const balance = grandTotal - totalPaid;
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
     const isPartiallyPaid = !isPaid && totalPaid > 0;
@@ -235,10 +238,10 @@ function formatDate(dateStr) {
         <span>Subtotal</span>
         <span class="amt">£${poundsFromPence(total)}</span>
       </div>
-      ${band?.vat_number ? '<div class="totals-row"><span>VAT (0%)</span><span class="amt">£0.00</span></div>' : ''}
+      ${vatRate > 0 ? '<div class="totals-row"><span>VAT (' + vatRate + '%)</span><span class="amt">£' + poundsFromPence(vatPence) + '</span></div>' : ''}
       <div class="totals-row totals-grand">
         <span>${totalPaid > 0 ? 'Total' : 'Total due'}</span>
-        <span class="amt">£${poundsFromPence(total)}</span>
+        <span class="amt">£${poundsFromPence(grandTotal)}</span>
       </div>
       ${totalPaid > 0 ? `
       <div class="totals-row">
@@ -267,17 +270,20 @@ function formatDate(dateStr) {
   
   export default function InvoicePrintModal({ invoice, items, payments = [], gig, band, client, onClose }) {
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
+    const vatRate = band?.vat_rate || 0;
+    const vatPence = Math.round(total * (vatRate / 100));
+    const grandTotal = total + vatPence;
     const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
-    const balance = total - totalPaid;
+    const balance = grandTotal - totalPaid;
     const isPaid = invoice.status === 'paid';
     const isOverdue = invoice.status === 'overdue';
     const isPartiallyPaid = !isPaid && totalPaid > 0;
     const invNumber = invoiceNumber(invoice.created_at);
     const bandDisplayName = band?.invoice_name || band?.name;
-  
+
     const mailtoSubject = encodeURIComponent('Invoice ' + invNumber + ' — ' + (gig?.venues?.name || 'Event'));
     const mailtoBody = encodeURIComponent(
-      'Please find attached invoice ' + invNumber + ' for the amount of £' + poundsFromPence(total) + '.\n\n' +
+      'Please find attached invoice ' + invNumber + ' for the amount of £' + poundsFromPence(grandTotal) + '.\n\n' +
       'If you have any questions, please don\'t hesitate to get in touch.\n\n' +
       'Kind regards,\n' + (band?.name || 'The Band')
     );
@@ -411,15 +417,15 @@ function formatDate(dateStr) {
               <span>Subtotal</span>
               <span>£{poundsFromPence(total)}</span>
             </div>
-            {band?.vat_number && (
+            {vatRate > 0 && (
               <div className="invoice-totals__row">
-                <span>VAT (0%)</span>
-                <span>£0.00</span>
+                <span>VAT ({vatRate}%)</span>
+                <span>£{poundsFromPence(vatPence)}</span>
               </div>
             )}
             <div className="invoice-totals__row invoice-totals__row--total">
               <span>{totalPaid > 0 ? 'Total' : 'Total due'}</span>
-              <span>£{poundsFromPence(total)}</span>
+              <span>£{poundsFromPence(grandTotal)}</span>
             </div>
             {totalPaid > 0 && (
               <>

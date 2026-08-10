@@ -14,6 +14,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [bankSortCode, setBankSortCode] = useState(band?.bank_sort_code || '');
   const [bankAccountNumber, setBankAccountNumber] = useState(band?.bank_account_number || '');
   const [vatNumber, setVatNumber] = useState(band?.vat_number || '');
+  const [vatRate, setVatRate] = useState(band?.vat_rate ?? '');
   const [invoiceNotes, setInvoiceNotes] = useState(band?.invoice_notes || '');
   const [docAccentColour, setDocAccentColour] = useState(band?.doc_accent_colour || '#c8862e');
   const [docSecondaryColour, setDocSecondaryColour] = useState(band?.doc_secondary_colour || '#1f3d3a');
@@ -42,6 +43,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
       bank_sort_code: bankSortCode || null,
       bank_account_number: bankAccountNumber || null,
       vat_number: vatNumber || null,
+      vat_rate: vatRate === '' ? null : Number(vatRate),
       invoice_notes: invoiceNotes || null,
       doc_accent_colour: docAccentColour,
       doc_secondary_colour: docSecondaryColour,
@@ -104,10 +106,37 @@ export default function BandForm({ band, onSaved, onCancel }) {
         <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Your trading address as it should appear on invoices" />
       </label>
 
-      <label className="field">
-        <span className="field__label">VAT number (optional)</span>
-        <input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="e.g. GB123456789" />
-      </label>
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">VAT number (optional)</span>
+          <input
+            value={vatNumber}
+            onChange={(e) => {
+              const next = e.target.value;
+              setVatNumber(next);
+              // Default to the UK standard rate the moment a VAT number is
+              // first entered -- one less step for the common case, still
+              // freely editable for a reduced/zero rate or a correction.
+              if (next && !vatNumber && vatRate === '') setVatRate('20');
+            }}
+            placeholder="e.g. GB123456789"
+          />
+        </label>
+        {vatNumber && (
+          <label className="field" style={{ maxWidth: 140 }}>
+            <span className="field__label">VAT rate (%)</span>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={vatRate}
+              onChange={(e) => setVatRate(e.target.value)}
+              placeholder="e.g. 20"
+            />
+          </label>
+        )}
+      </div>
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Bank details (shown on invoices for payment)</p>
 
