@@ -105,7 +105,7 @@ export default function MyRepertoire({ profileId }) {
     <div className="day-sheet__section">
       <h3 className="day-sheet__section-title">
         Songs I know
-        <InfoTooltip text="Tick Play for every public song you can perform, and Lead too if you can also sing lead on it. Admin uses this to find a dep who already knows a gig's setlist — and whether they can front it — not just someone free that day." />
+        <InfoTooltip text="Tick Play for every public song you can perform, and Lead vocal too if you can also sing lead on it. Admin uses this to find a dep who already knows a gig's setlist — and whether they can front it — not just someone free that day." />
       </h3>
       <p className="field__hint" style={{ marginBottom: 12 }}>
         {knownIds.size} of {songs.length} public songs ticked, {leadIds.size} as lead vocal.
@@ -156,7 +156,7 @@ export default function MyRepertoire({ profileId }) {
                       />
                     </label>
                     <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)' }}>
-                      🎤 Lead
+                      Lead vocal
                       <input
                         type="checkbox"
                         checked={lead}

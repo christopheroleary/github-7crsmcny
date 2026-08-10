@@ -129,7 +129,7 @@ export default function PlaceholderRepertoire({ placeholderId }) {
                     />
                   </label>
                   <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', fontSize: 10, color: 'var(--text-muted)' }}>
-                    🎤 Lead
+                    Lead vocal
                     <input
                       type="checkbox"
                       checked={lead}

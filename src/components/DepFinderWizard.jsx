@@ -285,7 +285,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
               {distanceLabel(c)}
               {c.kind === 'placeholder' && ' · no availability data'}
               {setlistTotal > 0 && ' · 🎵 ' + (c.songsKnown || 0) + '/' + setlistTotal + ' setlist songs known'}
-              {setlistTotal > 0 && c.songsLead > 0 && ' (🎤 ' + c.songsLead + ' as lead)'}
+              {setlistTotal > 0 && c.songsLead > 0 && ' (' + c.songsLead + ' as lead vocal)'}
               {reasonLabel(c) && ' · ' + reasonLabel(c)}
             </span>
             <EquipmentTags values={c.equipment} />
