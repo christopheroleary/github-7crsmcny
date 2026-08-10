@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InstrumentPicker from './InstrumentPicker.jsx';
+import EquipmentFields from './EquipmentFields.jsx';
+import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
+import { confirmAsync } from '../utils/confirmService.js';
 
 export default function MusicianEditForm({ profile, onSaved, onCancel }) {
   const { isAdmin } = useCurrentProfile();
@@ -9,6 +12,10 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
   const [phone, setPhone] = useState(profile.phone || '');
   const [role, setRole] = useState(profile.role || 'band_member');
   const [isActive, setIsActive] = useState(profile.is_active);
+  const [equipment, setEquipment] = useState(
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(profile[item.key])]))
+  );
+  const [equipmentNotes, setEquipmentNotes] = useState(profile.equipment_notes || '');
   const [allInstruments, setAllInstruments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [originalIds, setOriginalIds] = useState([]);
@@ -33,10 +40,29 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    // Guards against silently wiping every instrument this musician had --
+    // e.g. the picker not finishing its fetch before a fast Save click, or
+    // an accidental click on every tag's × in a row. Only fires when they
+    // previously had instruments and now have none; removing some while
+    // keeping others needs no extra confirmation.
+    if (originalIds.length > 0 && selectedIds.length === 0) {
+      const ok = await confirmAsync(
+        'This removes every instrument ' + (fullName || 'this musician') + ' had set (' + originalIds.length + '). Continue?'
+      );
+      if (!ok) return;
+    }
+
     setSaving(true);
     setError(null);
 
-    const updates = { full_name: fullName, phone: phone || null, is_active: isActive };
+    const updates = {
+      full_name: fullName,
+      phone: phone || null,
+      is_active: isActive,
+      ...equipment,
+      equipment_notes: equipmentNotes || null,
+    };
     if (isAdmin) updates.role = role;
 
     const { error: profileError } = await supabase
@@ -86,6 +112,16 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
         <span className="field__label">Instruments</span>
         <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
       </label>
+
+      <div className="field">
+        <span className="field__label">Equipment they can bring</span>
+        <EquipmentFields
+          values={equipment}
+          onToggle={(key, checked) => setEquipment((prev) => ({ ...prev, [key]: checked }))}
+          notes={equipmentNotes}
+          onNotesChange={setEquipmentNotes}
+        />
+      </div>
 
       {isAdmin && (
         <label className="field">

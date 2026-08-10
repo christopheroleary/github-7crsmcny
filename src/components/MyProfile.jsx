@@ -84,6 +84,15 @@ export default function MyProfile() {
 
   async function handleSave(e) {
     e.preventDefault();
+
+    // Guards against silently wiping every instrument on file -- e.g. the
+    // picker not finishing its fetch before a fast Save click. Removing
+    // some while keeping others needs no extra confirmation.
+    if (originalIds.length > 0 && selectedIds.length === 0) {
+      const ok = await confirmAsync('This removes every instrument on your profile (' + originalIds.length + '). Continue?');
+      if (!ok) return;
+    }
+
     setSaving(true);
     setError(null);
     setSaved(false);
