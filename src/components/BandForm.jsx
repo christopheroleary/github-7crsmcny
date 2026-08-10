@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { resizeImageFile } from '../utils/resizeImage.js';
+import { prepareLogoUpload } from '../utils/resizeImage.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
@@ -40,7 +40,14 @@ export default function BandForm({ band, onSaved, onCancel }) {
     setUploadingLogo(true);
     setError(null);
     try {
-      const blob = await resizeImageFile(file);
+      const prepared = await prepareLogoUpload(file);
+      let invert = false;
+      if (prepared.invertible) {
+        invert = await confirmAsync(
+          "This logo looks white or very light — it may not be visible on invoices with a white background. Invert the colours so it shows up (e.g. white becomes black)?"
+        );
+      }
+      const blob = await prepared.toBlob(invert);
       const path = band.id + '/logo.webp';
       const { error: uploadError } = await supabase.storage
         .from(LOGO_BUCKET)
