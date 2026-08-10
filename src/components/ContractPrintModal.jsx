@@ -1,4 +1,4 @@
-import { notify } from '../utils/toastService.js';
+import { printHtmlDocument } from '../utils/printHtml.js';
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -154,18 +154,7 @@ export default function ContractPrintModal({ contract, gig, band, client, gigFee
 
   function handlePrint() {
     const html = buildPrintHTML({ contract, gig, band, client, gigFeeAmount });
-    const printWindow = window.open('', '_blank', 'width=900,height=750');
-    if (!printWindow) {
-      notify('Pop-up blocked — please allow pop-ups for this site and try again.');
-      return;
-    }
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    printHtmlDocument(html);
   }
 
   return (

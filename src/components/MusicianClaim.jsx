@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { notify } from '../utils/toastService.js';
+import { printHtmlDocument } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 
 function poundsFromPence(p) {
@@ -430,18 +430,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
   function handlePrintInvoice() {
     if (!claim) return;
     const html = buildMusicianInvoiceHTML({ claim, gig, band, profile });
-    const printWindow = window.open('', '_blank', 'width=900,height=750');
-    if (!printWindow) {
-      notify('Pop-up blocked — please allow pop-ups for this site and try again.');
-      return;
-    }
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    printHtmlDocument(html);
   }
 
   // A new claim starts pre-seeded with a Fee line and, if travel was already
