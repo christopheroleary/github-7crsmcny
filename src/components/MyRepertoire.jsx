@@ -13,6 +13,7 @@ import InfoTooltip from './InfoTooltip.jsx';
 export default function MyRepertoire({ profileId }) {
   const [songs, setSongs] = useState([]);
   const [knownIds, setKnownIds] = useState(new Set());
+  const [leadIds, setLeadIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
 
@@ -20,10 +21,11 @@ export default function MyRepertoire({ profileId }) {
     setLoading(true);
     const [{ data: songData }, { data: known }] = await Promise.all([
       supabase.from('songs').select('id, title, artist, original_key').eq('is_public', true).order('title'),
-      supabase.from('known_songs').select('song_id').eq('profile_id', profileId),
+      supabase.from('known_songs').select('song_id, can_sing_lead').eq('profile_id', profileId),
     ]);
     setSongs(songData || []);
     setKnownIds(new Set((known || []).map((k) => k.song_id)));
+    setLeadIds(new Set((known || []).filter((k) => k.can_sing_lead).map((k) => k.song_id)));
     setLoading(false);
   }, [profileId]);
 
@@ -31,12 +33,18 @@ export default function MyRepertoire({ profileId }) {
 
   async function toggleKnown(song) {
     const isKnown = knownIds.has(song.id);
+    const wasLead = leadIds.has(song.id);
     setSavingId(song.id);
     setKnownIds((prev) => {
       const next = new Set(prev);
       if (isKnown) next.delete(song.id); else next.add(song.id);
       return next;
     });
+    // Unticking "know it" can't leave "sing lead" ticked -- can't front a
+    // song you don't know. Deleting the row clears both server-side.
+    if (isKnown && wasLead) {
+      setLeadIds((prev) => { const next = new Set(prev); next.delete(song.id); return next; });
+    }
 
     const { error } = isKnown
       ? await supabase.from('known_songs').delete().eq('profile_id', profileId).eq('song_id', song.id)
@@ -49,6 +57,42 @@ export default function MyRepertoire({ profileId }) {
         if (isKnown) next.add(song.id); else next.delete(song.id);
         return next;
       });
+      if (isKnown && wasLead) {
+        setLeadIds((prev) => { const next = new Set(prev); next.add(song.id); return next; });
+      }
+      notify("Couldn't save: " + error.message);
+    }
+  }
+
+  async function toggleLead(song) {
+    const isLead = leadIds.has(song.id);
+    const wasKnown = knownIds.has(song.id);
+    setSavingId(song.id);
+    setLeadIds((prev) => {
+      const next = new Set(prev);
+      if (isLead) next.delete(song.id); else next.add(song.id);
+      return next;
+    });
+    // Ticking "sing lead" on a song not yet ticked "know it" ticks that
+    // too -- singing lead implies knowing it.
+    if (!isLead && !wasKnown) {
+      setKnownIds((prev) => { const next = new Set(prev); next.add(song.id); return next; });
+    }
+
+    const { error } = await supabase
+      .from('known_songs')
+      .upsert({ profile_id: profileId, song_id: song.id, can_sing_lead: !isLead }, { onConflict: 'profile_id,song_id' });
+
+    setSavingId(null);
+    if (error) {
+      setLeadIds((prev) => {
+        const next = new Set(prev);
+        if (isLead) next.add(song.id); else next.delete(song.id);
+        return next;
+      });
+      if (!isLead && !wasKnown) {
+        setKnownIds((prev) => { const next = new Set(prev); next.delete(song.id); return next; });
+      }
       notify("Couldn't save: " + error.message);
     }
   }
@@ -61,10 +105,10 @@ export default function MyRepertoire({ profileId }) {
     <div className="day-sheet__section">
       <h3 className="day-sheet__section-title">
         Songs I know
-        <InfoTooltip text="Tick every public song you can play. Admin uses this to find a dep who already knows a gig's setlist, not just someone free that day." />
+        <InfoTooltip text="Tick Play for every public song you can perform, and Lead too if you can also sing lead on it. Admin uses this to find a dep who already knows a gig's setlist — and whether they can front it — not just someone free that day." />
       </h3>
       <p className="field__hint" style={{ marginBottom: 12 }}>
-        {knownIds.size} of {songs.length} public songs ticked.
+        {knownIds.size} of {songs.length} public songs ticked, {leadIds.size} as lead vocal.
       </p>
 
       {songs.length === 0 && <p className="field__hint">No public songs in the repertoire yet.</p>}
@@ -85,9 +129,10 @@ export default function MyRepertoire({ profileId }) {
         <ul className="simple-list" style={{ marginTop: 8, maxHeight: 400, overflowY: 'auto' }}>
           {filtered.map((song) => {
             const known = knownIds.has(song.id);
+            const lead = leadIds.has(song.id);
             return (
               <li className="simple-list__item" key={song.id}>
-                <label className="simple-list__row" style={{ cursor: 'pointer', alignItems: 'center' }}>
+                <div className="simple-list__row" style={{ alignItems: 'center' }}>
                   <div>
                     <span className="simple-list__title">
                       {song.title}
@@ -99,14 +144,29 @@ export default function MyRepertoire({ profileId }) {
                     </span>
                     <span className="simple-list__subtitle">{song.artist || '—'}</span>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={known}
-                    disabled={savingId === song.id}
-                    onChange={() => toggleKnown(song)}
-                    style={{ width: 20, height: 20 }}
-                  />
-                </label>
+                  <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)' }}>
+                      Play
+                      <input
+                        type="checkbox"
+                        checked={known}
+                        disabled={savingId === song.id}
+                        onChange={() => toggleKnown(song)}
+                        style={{ width: 20, height: 20 }}
+                      />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)' }}>
+                      🎤 Lead
+                      <input
+                        type="checkbox"
+                        checked={lead}
+                        disabled={savingId === song.id}
+                        onChange={() => toggleLead(song)}
+                        style={{ width: 20, height: 20 }}
+                      />
+                    </label>
+                  </div>
+                </div>
               </li>
             );
           })}

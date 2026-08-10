@@ -14,6 +14,9 @@ import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import EquipmentFields from './EquipmentFields.jsx';
+import EquipmentTags from './EquipmentTags.jsx';
+import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
@@ -41,7 +44,7 @@ export default function MusiciansList() {
       { data: insts },
       { data: lineupRows },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone, role, is_active').order('full_name'),
+      supabase.from('profiles').select('id, full_name, phone, role, is_active, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('full_name'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(id, name)'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       // Confirmed/completed only -- an inquiry gig isn't a real booking yet,
@@ -149,6 +152,7 @@ export default function MusiciansList() {
                 ? m.instruments.map((i) => i.name).join(', ')
                 : 'No instruments set'}
             </span>
+            <EquipmentTags values={m} />
             <div className="musician-card__actions">
               <button className="link-button" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
                 {expandedId === m.id ? 'Hide' : 'View'}
@@ -218,6 +222,7 @@ export default function MusiciansList() {
                 <dt>Phone</dt><dd>{m.phone || '—'}</dd>
                 <dt>Role</dt><dd>{m.role}</dd>
                 <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
+                {m.equipment_notes && (<><dt>Equipment notes</dt><dd>{m.equipment_notes}</dd></>)}
               </dl>
             )}
             {isAdmin && expandedOutstandingId === m.id && <OutstandingClaims profileId={m.id} />}
@@ -418,6 +423,10 @@ function DepDetailsEditor({ ph, onSaved }) {
   const [address, setAddress] = useState(ph.address || '');
   const [lat, setLat] = useState(ph.latitude ?? null);
   const [lon, setLon] = useState(ph.longitude ?? null);
+  const [equipment, setEquipment] = useState(
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(ph[item.key])]))
+  );
+  const [equipmentNotes, setEquipmentNotes] = useState(ph.equipment_notes || '');
   const [saving, setSaving] = useState(false);
   const [showRepertoire, setShowRepertoire] = useState(false);
 
@@ -425,7 +434,15 @@ function DepDetailsEditor({ ph, onSaved }) {
     setSaving(true);
     const { error } = await supabase
       .from('placeholder_musicians')
-      .update({ phone: phone || null, email: email || null, address: address || null, latitude: lat, longitude: lon })
+      .update({
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        latitude: lat,
+        longitude: lon,
+        ...equipment,
+        equipment_notes: equipmentNotes || null,
+      })
       .eq('id', ph.id);
     setSaving(false);
     if (error) { notify("Couldn't save details: " + error.message); return; }
@@ -458,6 +475,13 @@ function DepDetailsEditor({ ph, onSaved }) {
           placeholder="Address (used for travel cost — start typing…)"
         />
       </div>
+      <p className="field__label" style={{ marginTop: 12, marginBottom: 4 }}>Equipment they can bring</p>
+      <EquipmentFields
+        values={equipment}
+        onToggle={(key, checked) => setEquipment((prev) => ({ ...prev, [key]: checked }))}
+        notes={equipmentNotes}
+        onNotesChange={setEquipmentNotes}
+      />
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <button className="btn btn--primary btn--small" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save details'}
@@ -498,7 +522,7 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: ph }, { data: pr }, { data: insts }, { data: phInsts }] = await Promise.all([
-      supabase.from('placeholder_musicians').select('id, name, phone, email, address, latitude, longitude, merged_into, created_by').order('name'),
+      supabase.from('placeholder_musicians').select('id, name, phone, email, address, latitude, longitude, merged_into, created_by, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('name'),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),
@@ -633,6 +657,8 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
             ))}
           </div>
         )}
+
+        <EquipmentTags values={ph} />
 
         {/* Always its own row, never sharing a line with the tags above --
             otherwise this select's position (and how much of the row it

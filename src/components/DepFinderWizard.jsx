@@ -4,6 +4,7 @@ import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
 import { formatShortDate } from '../utils/formatDate.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
+import EquipmentTags from './EquipmentTags.jsx';
 
 const DAY_KEYS = ['avail_sun', 'avail_mon', 'avail_tue', 'avail_wed', 'avail_thu', 'avail_fri', 'avail_sat'];
 
@@ -55,11 +56,11 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       supabase.from('gig_lineup').select('profile_id, placeholder_id').eq('gig_id', gigId),
       supabase
         .from('profile_instruments')
-        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat)')
+        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting)')
         .eq('instrument_id', instrumentId),
       supabase
         .from('placeholder_musician_instruments')
-        .select('placeholder_id, placeholder_musicians(id, name, phone, latitude, longitude, address, merged_into)')
+        .select('placeholder_id, placeholder_musicians(id, name, phone, latitude, longitude, address, merged_into, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting)')
         .eq('instrument_id', instrumentId),
     ]);
 
@@ -90,6 +91,8 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
     let blackedOutProfileIds = new Set();
     const knownByProfile = {};
     const knownByPlaceholder = {};
+    const leadByProfile = {};
+    const leadByPlaceholder = {};
 
     if (date && (profileCandidates.length > 0 || placeholderCandidates.length > 0)) {
       const { data: busyRows } = await supabase
@@ -114,17 +117,19 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
     if (setlistSongIds.length > 0) {
       const [{ data: ks }, { data: pks }] = await Promise.all([
         profileCandidates.length > 0
-          ? supabase.from('known_songs').select('profile_id, song_id').in('song_id', setlistSongIds).in('profile_id', profileCandidates.map((p) => p.id))
+          ? supabase.from('known_songs').select('profile_id, song_id, can_sing_lead').in('song_id', setlistSongIds).in('profile_id', profileCandidates.map((p) => p.id))
           : Promise.resolve({ data: [] }),
         placeholderCandidates.length > 0
-          ? supabase.from('placeholder_known_songs').select('placeholder_id, song_id').in('song_id', setlistSongIds).in('placeholder_id', placeholderCandidates.map((p) => p.id))
+          ? supabase.from('placeholder_known_songs').select('placeholder_id, song_id, can_sing_lead').in('song_id', setlistSongIds).in('placeholder_id', placeholderCandidates.map((p) => p.id))
           : Promise.resolve({ data: [] }),
       ]);
       (ks || []).forEach((r) => {
         (knownByProfile[r.profile_id] ??= new Set()).add(r.song_id);
+        if (r.can_sing_lead) (leadByProfile[r.profile_id] ??= new Set()).add(r.song_id);
       });
       (pks || []).forEach((r) => {
         (knownByPlaceholder[r.placeholder_id] ??= new Set()).add(r.song_id);
+        if (r.can_sing_lead) (leadByPlaceholder[r.placeholder_id] ??= new Set()).add(r.song_id);
       });
     }
 
@@ -143,6 +148,8 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         blackedOut: blackedOutProfileIds.has(p.id),
         distanceMiles: null,
         songsKnown: setlistSongIds.length > 0 ? (knownByProfile[p.id]?.size || 0) : null,
+        songsLead: setlistSongIds.length > 0 ? (leadByProfile[p.id]?.size || 0) : null,
+        equipment: p,
       })),
       ...placeholderCandidates.map((p) => ({
         kind: 'placeholder',
@@ -156,6 +163,8 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         blackedOut: false,
         distanceMiles: null,
         songsKnown: setlistSongIds.length > 0 ? (knownByPlaceholder[p.id]?.size || 0) : null,
+        songsLead: setlistSongIds.length > 0 ? (leadByPlaceholder[p.id]?.size || 0) : null,
+        equipment: p,
       })),
     ];
 
@@ -276,8 +285,10 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
               {distanceLabel(c)}
               {c.kind === 'placeholder' && ' · no availability data'}
               {setlistTotal > 0 && ' · 🎵 ' + (c.songsKnown || 0) + '/' + setlistTotal + ' setlist songs known'}
+              {setlistTotal > 0 && c.songsLead > 0 && ' (🎤 ' + c.songsLead + ' as lead)'}
               {reasonLabel(c) && ' · ' + reasonLabel(c)}
             </span>
+            <EquipmentTags values={c.equipment} />
           </div>
           <div className="simple-list__actions">
             <button

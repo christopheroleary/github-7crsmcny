@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import InstrumentPicker from './InstrumentPicker.jsx';
+import EquipmentFields from './EquipmentFields.jsx';
+import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
 import PwaSetupGuide from './PwaSetupGuide.jsx';
@@ -30,6 +32,8 @@ export default function MyProfile() {
   const [phone, setPhone] = useState('');
   const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
   const [availableForDepWork, setAvailableForDepWork] = useState(false);
+  const [equipment, setEquipment] = useState({});
+  const [equipmentNotes, setEquipmentNotes] = useState('');
   const [uiTheme, setUiTheme] = useState('default');
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
@@ -51,7 +55,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -66,6 +70,8 @@ export default function MyProfile() {
         setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
         setAvailableForDepWork(Boolean(profile.available_for_dep_work));
         setUiTheme(profile.ui_theme || 'default');
+        setEquipment(Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(profile[item.key])])));
+        setEquipmentNotes(profile.equipment_notes || '');
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -96,6 +102,8 @@ export default function MyProfile() {
         share_phone_on_daysheet: sharePhoneOnDaysheet,
         available_for_dep_work: availableForDepWork,
         ui_theme: uiTheme,
+        ...equipment,
+        equipment_notes: equipmentNotes || null,
       })
       .eq('id', userId);
 
@@ -176,6 +184,19 @@ export default function MyProfile() {
             <InfoTooltip text="Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default." />
           </span>
         </label>
+
+        <div className="field">
+          <span className="field__label">
+            Equipment you can bring
+            <InfoTooltip text="Deps who can turn up with their own PA, monitors and lights are in high demand — this shows up wherever bands are looking for a dep, so tick anything you own and can bring." />
+          </span>
+          <EquipmentFields
+            values={equipment}
+            onToggle={(key, checked) => setEquipment((prev) => ({ ...prev, [key]: checked }))}
+            notes={equipmentNotes}
+            onNotesChange={setEquipmentNotes}
+          />
+        </div>
 
         <div className="field">
           <span className="field__label">
