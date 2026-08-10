@@ -37,6 +37,21 @@ export default function BandForm({ band, onSaved, onCancel }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    // Fast, friendly rejection before we hand the file to createImageBitmap
+    // -- a huge or maliciously crafted "decompression bomb" image (tiny on
+    // disk, enormous once decoded) can otherwise hang or crash the tab.
+    // This isn't the real security boundary (a determined attacker can call
+    // the Storage API directly, bypassing the browser entirely) -- that's
+    // enforced server-side by the band-logos bucket's own file size/mime
+    // type limits, set in the restrict_band_logo_uploads migration.
+    if (!file.type.startsWith('image/')) {
+      setError("That doesn't look like an image file — please choose a photo or graphic.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError('That image is too large (max 20MB) — please choose a smaller file.');
+      return;
+    }
     setUploadingLogo(true);
     setError(null);
     try {
