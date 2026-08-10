@@ -11,7 +11,7 @@ function poundsFromPence(pence) {
 }
 
 export default function GigContract({ gigId, gigFeeAmount }) {
-  const { isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [contract, setContract] = useState(null);
   const [gig, setGig] = useState(null);
@@ -51,6 +51,22 @@ export default function GigContract({ gigId, gigFeeAmount }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleBandSign() {
+    if (!me?.full_name) return;
+    const ok = await confirmAsync('Sign this contract as ' + me.full_name + '?');
+    if (!ok) return;
+    const { error } = await supabase
+      .from('contracts')
+      .update({
+        band_signee_name: me.full_name,
+        band_signed_date: new Date().toISOString().slice(0, 10),
+        status: contract.client_signed_date ? 'signed' : contract.status,
+      })
+      .eq('id', contract.id);
+    if (error) { notify("Couldn't sign: " + error.message); return; }
+    load();
+  }
 
   async function handleCreate() {
     if (creating) return;
@@ -100,8 +116,22 @@ export default function GigContract({ gigId, gigFeeAmount }) {
               <dt>Deposit</dt><dd>{contract.deposit_amount_pence != null ? '£' + poundsFromPence(contract.deposit_amount_pence) : '—'}</dd>
               <dt>Deposit due</dt><dd>{contract.deposit_due_date || '—'}</dd>
               <dt>Balance due</dt><dd>{contract.balance_due_date || '—'}</dd>
-              <dt>Band signed</dt><dd>{contract.band_signee_name ? `${contract.band_signee_name} (${contract.band_signed_date || 'no date'})` : '—'}</dd>
-              <dt>Client signed</dt><dd>{contract.client_signee_name ? `${contract.client_signee_name} (${contract.client_signed_date || 'no date'})` : '—'}</dd>
+              <dt>Band signed</dt>
+              <dd>
+                {contract.band_signee_name
+                  ? `${contract.band_signee_name} (${contract.band_signed_date || 'no date'})`
+                  : (
+                    <button type="button" className="link-button" onClick={handleBandSign}>
+                      ✓ Sign for the band
+                    </button>
+                  )}
+              </dd>
+              <dt>Client signed</dt>
+              <dd>
+                {contract.client_signee_name
+                  ? `${contract.client_signee_name} (${contract.client_signed_date || 'no date'})`
+                  : 'Not yet signed — share the client view link below'}
+              </dd>
             </dl>
 
             {contract.cancellation_policy && (
@@ -258,7 +288,9 @@ function ContractEditor({ contract, onSaved }) {
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Signatures</p>
       <p className="field__hint" style={{ marginBottom: 8 }}>
-        Recorded manually once a signature has been obtained outside the app (email reply, physical copy, etc.) — not captured here.
+        Normally captured electronically — the band signs with one click from the contract screen, and the client signs by typing
+        their name on the public link. Only edit these fields directly to correct a mistake or record a signature obtained outside
+        the app (email reply, physical copy, etc.).
       </p>
 
       <div className="field-row">

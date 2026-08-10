@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { displayUrl } from '../utils/formatUrl.js';
 
@@ -42,9 +42,12 @@ export default function PublicDocumentView({ type, token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [signeeName, setSigneeName] = useState('');
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState(null);
 
-  useEffect(() => {
-    supabase.rpc(RPC_BY_TYPE[type], { p_token: token }).then(({ data, error }) => {
+  const loadData = useCallback(() => {
+    return supabase.rpc(RPC_BY_TYPE[type], { p_token: token }).then(({ data, error }) => {
       if (error || !data) {
         setNotFound(true);
       } else {
@@ -53,6 +56,26 @@ export default function PublicDocumentView({ type, token }) {
       setLoading(false);
     });
   }, [type, token]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function handleSign(e) {
+    e.preventDefault();
+    const trimmed = signeeName.trim();
+    if (!trimmed) return;
+    setSigning(true);
+    setSignError(null);
+    const { error } = await supabase.rpc('sign_contract_by_token', { p_token: token, p_signee_name: trimmed });
+    setSigning(false);
+    if (error) {
+      setSignError(error.message);
+      return;
+    }
+    setSigneeName('');
+    loadData();
+  }
 
   if (loading) {
     return (
@@ -329,10 +352,31 @@ export default function PublicDocumentView({ type, token }) {
                 </div>
                 <div style={{ flex: 1 }}>
                   <p className="invoice-parties__heading">For {client?.name || 'the client'}</p>
-                  <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{doc.client_signee_name || ' '}</p>
-                  <p className="field__hint" style={{ margin: '2px 0 8px' }}>Signature / name</p>
-                  <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{doc.client_signed_date ? formatDate(doc.client_signed_date) : ' '}</p>
-                  <p className="field__hint" style={{ margin: '2px 0' }}>Date</p>
+                  {doc.client_signed_date ? (
+                    <>
+                      <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>✓ {doc.client_signee_name}</p>
+                      <p className="field__hint" style={{ margin: '2px 0 8px' }}>Signature / name</p>
+                      <p style={{ borderBottom: '1px solid var(--line)', paddingBottom: 4, minHeight: 20 }}>{formatDate(doc.client_signed_date)}</p>
+                      <p className="field__hint" style={{ margin: '2px 0' }}>Date</p>
+                    </>
+                  ) : (
+                    <form onSubmit={handleSign} className="no-print">
+                      <input
+                        value={signeeName}
+                        onChange={(e) => setSigneeName(e.target.value)}
+                        placeholder="Type your full name to sign"
+                        style={{ marginBottom: 8 }}
+                        required
+                      />
+                      <button type="submit" className="btn btn--primary btn--small" disabled={signing || !signeeName.trim()}>
+                        {signing ? 'Signing…' : '✓ Sign contract'}
+                      </button>
+                      {signError && <p className="form-error" style={{ marginTop: 6 }}>{signError}</p>}
+                      <p className="field__hint" style={{ marginTop: 6 }}>
+                        By typing your name and clicking Sign, you agree to the terms of this contract.
+                      </p>
+                    </form>
+                  )}
                 </div>
               </div>
             </>
