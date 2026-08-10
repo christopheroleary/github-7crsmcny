@@ -34,7 +34,18 @@ export default function SignaturePad({ onChange }) {
     e.preventDefault();
     canvasRef.current.setPointerCapture(e.pointerId);
     drawingRef.current = true;
-    lastPointRef.current = pointFromEvent(e);
+    const point = pointFromEvent(e);
+    lastPointRef.current = point;
+    // A plain tap/click (down+up with no movement in between) never fired
+    // a pointermove, so it drew nothing and looked like the first click
+    // "didn't work" -- dotting the start point here means every press
+    // leaves a mark immediately, drag or not.
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fill();
+    hasStrokeRef.current = true;
   }
 
   function handlePointerMove(e) {
