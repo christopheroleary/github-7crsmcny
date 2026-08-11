@@ -1685,6 +1685,17 @@ input:not([type]) {
     font-family: 'Inter', sans-serif;
     font-size: 10pt;
     color: #1a1a1a;
+    /* Column flex so .invoice-footer (margin-top: auto) sticks to the
+       bottom of whatever height this box ends up at, rather than being
+       absolutely positioned at a hardcoded offset from a box that's
+       supposed to be exactly 297mm tall. That fixed-offset approach
+       overlapped real content the moment the box was shorter than
+       297mm (e.g. the responsive breakpoint below, or a short document
+       in print) -- flex naturally leaves however much gap actually
+       exists above the footer, down to zero, instead of assuming there
+       always is some. */
+    display: flex;
+    flex-direction: column;
   }
   
   /* ---- Stamp ---- */
@@ -1977,16 +1988,13 @@ input:not([type]) {
   
   /* ---- Page footer ---- */
   .invoice-footer {
-    position: absolute;
-    bottom: 10mm;
-    left: 16mm;
-    right: 16mm;
+    margin-top: auto;
+    padding-top: 4mm;
     display: flex;
     justify-content: space-between;
     font-size: 7.5pt;
     color: #bbb;
     border-top: 1px solid #eee;
-    padding-top: 4mm;
   }
   
   /* ============================================================
@@ -1995,6 +2003,17 @@ input:not([type]) {
   
   @media print {
     .no-print { display: none !important; }
+
+    /* Browsers strip background colours/gradients when printing by
+       default (to save ink) unless told not to -- without this, the
+       accent-coloured divider, the "total due" bar, the event-info box
+       etc. all render as plain white in the printed output even though
+       they're clearly visible in the on-screen preview right above the
+       print button. */
+    * {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
 
     .print-modal-overlay {
       position: static;

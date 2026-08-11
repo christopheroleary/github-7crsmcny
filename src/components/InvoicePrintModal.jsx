@@ -108,6 +108,16 @@ function formatDate(dateStr) {
       margin: 0 auto;
       position: relative;
       overflow: hidden;
+      /* Column flex so .page-footer (margin-top: auto) sticks to the
+         bottom of whatever height this box ends up at, instead of being
+         absolutely positioned at a hardcoded offset from a box assumed
+         to be exactly 297mm tall -- that overlapped real content on a
+         short invoice, and even when it didn't overlap, forcing the
+         box to exactly 297mm left zero room for print-time rounding,
+         which could tip the footer alone onto a second, otherwise-blank
+         page. */
+      display: flex;
+      flex-direction: column;
     }
   
     /* Stamp */
@@ -179,7 +189,7 @@ function formatDate(dateStr) {
     .footer-notes p { margin: 0 0 4px; white-space: pre-line; }
   
     /* Page footer */
-    .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
+    .page-footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
   
     @page {
       size: A4;
@@ -187,7 +197,16 @@ function formatDate(dateStr) {
     }
     @media print {
       html, body { margin: 0; }
-      .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }
+      * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      /* min-height: 0, not 297mm -- forcing the box to exactly one A4
+         page's height left no margin for print-time rounding, which
+         could tip just the footer onto a genuinely blank second page
+         even for a short invoice that easily fits on one. Letting
+         height be purely content-driven means a short invoice simply
+         ends where its content ends (blank paper below is normal and
+         expected), while a long one still overflows to page 2 on its
+         own when it actually needs to. */
+      .page { margin: 0; width: 100%; min-height: 0; padding: 10mm 12mm 20mm; }
     }
   </style>
   </head>

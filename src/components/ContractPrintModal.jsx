@@ -59,7 +59,7 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: white; font-family: 'Inter', sans-serif; color: #1a1a1a; font-size: 10pt; }
-  .page { width: 210mm; min-height: 297mm; padding: 18mm 16mm 28mm; margin: 0 auto; position: relative; overflow: hidden; }
+  .page { width: 210mm; min-height: 297mm; padding: 18mm 16mm 28mm; margin: 0 auto; position: relative; overflow: hidden; display: flex; flex-direction: column; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
   .band-name { font-family: 'Space Grotesk', sans-serif; font-size: 22pt; font-weight: 700; color: ${accent}; margin: 0 0 5px; letter-spacing: -0.02em; }
   .band-logo { max-height: 20mm; max-width: 70mm; margin: 0 0 5px; display: block; }
@@ -87,14 +87,15 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   .sig-line { border-bottom: 1px solid #999; padding-bottom: 4px; margin: 0 0 2px; font-size: 10pt; min-height: 14pt; }
   .sig-image { max-height: 18mm; max-width: 100%; display: block; margin-bottom: 2px; }
   .sig-under { font-size: 7.5pt; color: #999; margin: 0; }
-  .page-footer { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
+  .page-footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 7.5pt; color: #bbb; border-top: 1px solid #eee; padding-top: 4mm; }
   @page {
     size: A4;
     margin: 0;
   }
   @media print {
     html, body { margin: 0; }
-    .page { margin: 0; width: 100%; padding: 10mm 12mm 20mm; }
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .page { margin: 0; width: 100%; min-height: 0; padding: 10mm 12mm 20mm; }
   }
 </style>
 </head>
