@@ -185,7 +185,10 @@ export default function DateInput({ value, onChange, id, required, placeholder =
         value={formatDisplay(value)}
         placeholder={placeholder}
         onClick={openPicker}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); } }}
+        onKeyDown={(e) => {
+          if (open) return; // already open -- the dialog's own keydown handling owns this keypress
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+        }}
         role="combobox"
         aria-haspopup="dialog"
         aria-expanded={open}

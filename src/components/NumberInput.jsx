@@ -80,9 +80,28 @@ export default function NumberInput({
   // typed. Refs make that timing irrelevant.)
   const touchedRef = useRef(false);
   const draftRef = useRef('');
+  const panelRef = useRef(null);
   const panelId = useId();
 
   useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+
+  // Move focus into the dialog when it opens, same as DateInput's grid --
+  // standard modal behaviour, and not just cosmetic here: if focus stayed
+  // on the trigger, that trigger's own onKeyDown (below) would still be
+  // the thing that receives every subsequent keydown, since it's still
+  // the target. It calls openPicker() on Enter -- meant only for opening
+  // the dialog in the first place -- which resets touchedRef/draftRef to
+  // empty. That reset landed *before* this component's own Enter handler
+  // ran (both fire off the same keydown, target phase before document's
+  // bubble-phase listener), so confirmClose always saw an already-wiped
+  // draft and silently discarded whatever had just been typed. Tabbing
+  // away from the trigger, or clicking a pad button, sidestepped it by
+  // moving focus off the trigger before Enter was ever pressed -- which
+  // is the real clue this was a focus issue, not a state one.
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+  }, [open]);
 
   function openPicker() {
     if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
@@ -205,7 +224,10 @@ export default function NumberInput({
         value={formatDisplay(value, decimals, prefix, suffix)}
         placeholder={placeholder}
         onClick={openPicker}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); } }}
+        onKeyDown={(e) => {
+          if (open) return; // already open -- let the dialog's own keydown handling own this keypress
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+        }}
         role="combobox"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -221,6 +243,8 @@ export default function NumberInput({
             role="dialog"
             aria-modal="true"
             aria-label="Enter a number"
+            ref={panelRef}
+            tabIndex={-1}
           >
             <button type="button" className="date-picker__close" onClick={cancelClose} aria-label="Close">×</button>
             <div
