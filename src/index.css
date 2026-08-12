@@ -2117,6 +2117,130 @@ input:not([type]) {
   margin: 0 0 12px;
 }
 
+/* ============================================================
+   Gig chat — deliberately styled after iMessage specifically
+   (per request), using its own blue/grey rather than the app's
+   amber/teal brand colours, since that specific look was the point.
+   ============================================================ */
+.gig-chat__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 4px 2px 8px;
+  margin-bottom: 10px;
+}
+
+.gig-chat__row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.gig-chat__row--mine {
+  align-items: flex-end;
+}
+
+.gig-chat__sender {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 2px 12px;
+}
+
+.gig-chat__bubble-wrap {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+}
+
+.gig-chat__bubble {
+  background: #e5e5ea;
+  color: #1a1a1a;
+  padding: 8px 14px;
+  border-radius: 18px;
+  font-size: 14.5px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.gig-chat__row--mine .gig-chat__bubble {
+  background: #0b84ff;
+  color: #fff;
+}
+
+.gig-chat__time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin: 3px 4px 0;
+  align-self: flex-end;
+}
+
+.gig-chat__row--mine .gig-chat__time {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.gig-chat__delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+.gig-chat__delete:hover {
+  color: var(--rust);
+}
+
+.gig-chat__compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gig-chat__compose button {
+  /* .btn--primary defaults to width: 100% for standalone full-width
+     submit buttons -- here it's one item in a flex row, and that width
+     was winning out over the input's flex-grow, squeezing it down to
+     almost nothing. */
+  width: auto;
+  flex-shrink: 0;
+}
+
+.gig-chat__compose input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+}
+.gig-chat__compose input:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.gig-chat__counter {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  min-width: 22px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.gig-chat__counter--low {
+  color: var(--rust);
+  font-weight: 700;
+}
+
 .day-sheet__times {
   display: flex;
   flex-direction: column;

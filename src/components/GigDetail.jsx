@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
+import GigMessages from './GigMessages.jsx';
 import GigWhatsAppGroup from './GigWhatsAppGroup.jsx';
 import GigSetlist from './GigSetlist.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
@@ -318,6 +319,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <div id="gig-section-roster">
         <GigRoster gigId={gigId} />
       </div>
+
+      <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
 
       <GigWhatsAppGroup gig={gig} />
 

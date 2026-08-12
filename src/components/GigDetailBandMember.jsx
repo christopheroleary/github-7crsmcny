@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
+import GigMessages from './GigMessages.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyFood from './NearbyFood.jsx';
 import NearbyFuel from './NearbyFuel.jsx';
@@ -442,6 +443,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
             </div>
           ))}
         </div>
+      )}
+
+      {/* Gig chat — only when online */}
+      {!isOffline && (
+        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
       )}
 
       {/* Payment claim — only when online */}
