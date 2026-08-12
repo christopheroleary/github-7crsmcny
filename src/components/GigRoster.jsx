@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import DepFinderWizard from './DepFinderWizard.jsx';
+import Avatar from './Avatar.jsx';
 
 const VOCAL_OPTIONS = [
   { value: '', label: 'Vocals — not set' },
@@ -180,7 +181,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -569,6 +570,8 @@ export default function GigRoster({ gigId }) {
           return (
             <li className="simple-list__item" key={entry.id}>
               <div className="simple-list__row">
+                <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+                  {!isPlaceholder && <Avatar url={entry.profiles?.avatar_url} name={displayName} />}
                 <div>
                   <span className="simple-list__title">
                     {displayName}
@@ -620,6 +623,7 @@ export default function GigRoster({ gigId }) {
                       />
                     </div>
                   )}
+                </div>
                 </div>
                 <div className="simple-list__actions">
                   <span className={entry.confirmed ? 'status-tag status-tag--confirmed' : 'status-tag status-tag--inquiry'}>

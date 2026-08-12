@@ -6,6 +6,7 @@ import { formatShortDate } from '../utils/formatDate.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
 import EquipmentTags from './EquipmentTags.jsx';
 import NumberInput from './NumberInput.jsx';
+import Avatar from './Avatar.jsx';
 
 const DAY_KEYS = ['avail_sun', 'avail_mon', 'avail_tue', 'avail_wed', 'avail_thu', 'avail_fri', 'avail_sat'];
 
@@ -57,7 +58,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       supabase.from('gig_lineup').select('profile_id, placeholder_id').eq('gig_id', gigId),
       supabase
         .from('profile_instruments')
-        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting)')
+        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, avatar_url)')
         .eq('instrument_id', instrumentId),
       supabase
         .from('placeholder_musician_instruments')
@@ -141,6 +142,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
         kind: 'profile',
         id: p.id,
         name: p.full_name,
+        avatarUrl: p.avatar_url,
         phone: p.phone,
         lat: p.home_latitude,
         lon: p.home_longitude,
@@ -261,6 +263,8 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
     return (
       <li className="simple-list__item" key={c.kind + c.id}>
         <div className="simple-list__row">
+          <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+            <Avatar url={c.avatarUrl} name={c.name} />
           <div>
             <span className="simple-list__title">
               {c.name}
@@ -290,6 +294,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
               {reasonLabel(c) && ' · ' + reasonLabel(c)}
             </span>
             <EquipmentTags values={c.equipment} />
+          </div>
           </div>
           <div className="simple-list__actions">
             <button

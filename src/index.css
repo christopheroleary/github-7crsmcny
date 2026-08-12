@@ -2669,6 +2669,17 @@ input:not([type]) {
 .avatar-preview--tiny .avatar-preview__placeholder {
   font-size: 10px;
 }
+.avatar-preview--small {
+  width: 32px;
+  height: 32px;
+}
+.avatar-preview--small .avatar-preview__placeholder {
+  font-size: 13px;
+}
+.avatar-preview--large {
+  width: 56px;
+  height: 56px;
+}
 
 .notif-bell__badge {
   position: absolute;

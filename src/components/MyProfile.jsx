@@ -14,6 +14,7 @@ import TaxRecords from './TaxRecords.jsx';
 import MyAvailability from './MyAvailability.jsx';
 import MyRepertoire from './MyRepertoire.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
+import Avatar from './Avatar.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
@@ -218,9 +219,7 @@ export default function MyProfile() {
         <div className="field">
           <span className="field__label">Profile picture</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="avatar-preview">
-              {avatarUrl ? <img src={avatarUrl} alt="" /> : <span className="avatar-preview__placeholder">{(fullName || '?').charAt(0).toUpperCase()}</span>}
-            </div>
+            <Avatar url={avatarUrl} name={fullName} size="large" />
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
                 {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Replace photo' : 'Upload photo'}

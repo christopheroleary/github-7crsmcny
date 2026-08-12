@@ -5,6 +5,7 @@ import GigMessages from './GigMessages.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyPlaces from './NearbyPlaces.jsx';
+import Avatar from './Avatar.jsx';
 import { notify } from '../utils/toastService.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
 
@@ -362,6 +363,8 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
         <ul className="day-sheet__roster">
         {sortedLineup.map((l) => (
           <li key={l.id} className="day-sheet__roster-row">
+            <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+              {l.profile_id && <Avatar url={l.profiles?.avatar_url} name={l.profiles?.full_name} />}
             <div>
               <span className="day-sheet__roster-name">
                 {l.profiles?.full_name || l.placeholder_musicians?.name}
@@ -377,6 +380,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
               <span className="day-sheet__roster-instrument">
                 {[l.instruments?.name, l.is_dj && 'DJ', l.is_roadie && 'Roadie', vocalLabel(l.vocal_role)].filter(Boolean).join(' · ')}
               </span>
+            </div>
             </div>
             <span className={'status-tag status-tag--' + (l.confirmed ? 'confirmed' : 'inquiry')}>
               {l.confirmed ? 'Confirmed' : 'Pending'}
