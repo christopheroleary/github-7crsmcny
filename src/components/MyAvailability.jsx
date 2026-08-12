@@ -4,6 +4,7 @@ import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 import InfoTooltip from './InfoTooltip.jsx';
+import DateInput from './DateInput.jsx';
 
 // UK week order (Monday first) for display -- unrelated to Date.getDay()'s
 // fixed 0=Sunday indexing used elsewhere to look these columns up by date.
@@ -188,11 +189,11 @@ export default function MyAvailability({ profileId }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">From</span>
-              <input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} required />
+              <DateInput value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} required />
             </label>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">To</span>
-              <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} required />
+              <DateInput value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} required />
             </label>
           </div>
           <label className="field">

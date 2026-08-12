@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
+import DateInput from './DateInput.jsx';
 
 export default function EnquiryForm() {
   const [name, setName] = useState('');
@@ -84,7 +85,7 @@ export default function EnquiryForm() {
           <div className="field-row">
             <label className="field">
               <span className="field__label">Event date</span>
-              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+              <DateInput value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
             </label>
             <label className="field">
               <span className="field__label">Event type</span>

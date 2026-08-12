@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
+import DateInput from './DateInput.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
@@ -114,7 +115,7 @@ export default function MyMileage({ profileId }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">Date</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <DateInput value={date} onChange={(e) => setDate(e.target.value)} required />
             </label>
             <label className="field" style={{ flex: '1 1 100px' }}>
               <span className="field__label">Miles</span>

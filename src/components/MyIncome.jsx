@@ -4,6 +4,7 @@ import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { INCOME_CATEGORIES } from '../utils/incomeCategories.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
+import DateInput from './DateInput.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
@@ -122,7 +123,7 @@ export default function MyIncome({ profileId }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">Date</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <DateInput value={date} onChange={(e) => setDate(e.target.value)} required />
             </label>
             <label className="field" style={{ flex: '1 1 180px' }}>
               <span className="field__label">Category</span>

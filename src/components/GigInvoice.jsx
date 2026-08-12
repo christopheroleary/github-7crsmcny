@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
+import DateInput from './DateInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -342,7 +343,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                     </label>
                     <label className="field" style={{ flex: '1 1 140px' }}>
                       <span className="field__label">Date</span>
-                      <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
+                      <DateInput value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
                     </label>
                   </div>
                   <label className="field">
@@ -478,17 +479,17 @@ function InvoiceEditor({ invoice, items: initialItems, onSaved }) {
         </label>
         <label className="field">
           <span className="field__label">Issued</span>
-          <input type="date" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+          <DateInput value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
         </label>
       </div>
       <div className="field-row">
         <label className="field">
           <span className="field__label">Due</span>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <DateInput value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">Paid</span>
-          <input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+          <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
         </label>
       </div>
 

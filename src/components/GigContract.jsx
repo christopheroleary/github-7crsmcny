@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
 import SignatureCapture from './SignatureCapture.jsx';
+import DateInput from './DateInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -323,11 +324,11 @@ function ContractEditor({ contract, onSaved }) {
       <div className="field-row">
         <label className="field">
           <span className="field__label">Deposit due</span>
-          <input type="date" value={depositDueDate} onChange={(e) => setDepositDueDate(e.target.value)} />
+          <DateInput value={depositDueDate} onChange={(e) => setDepositDueDate(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">Balance due</span>
-          <input type="date" value={balanceDueDate} onChange={(e) => setBalanceDueDate(e.target.value)} />
+          <DateInput value={balanceDueDate} onChange={(e) => setBalanceDueDate(e.target.value)} />
         </label>
       </div>
 
@@ -356,7 +357,7 @@ function ContractEditor({ contract, onSaved }) {
         </label>
         <label className="field">
           <span className="field__label">Date</span>
-          <input type="date" value={bandSignedDate} onChange={(e) => setBandSignedDate(e.target.value)} />
+          <DateInput value={bandSignedDate} onChange={(e) => setBandSignedDate(e.target.value)} />
         </label>
       </div>
 
@@ -367,7 +368,7 @@ function ContractEditor({ contract, onSaved }) {
         </label>
         <label className="field">
           <span className="field__label">Date</span>
-          <input type="date" value={clientSignedDate} onChange={(e) => setClientSignedDate(e.target.value)} />
+          <DateInput value={clientSignedDate} onChange={(e) => setClientSignedDate(e.target.value)} />
         </label>
       </div>
 

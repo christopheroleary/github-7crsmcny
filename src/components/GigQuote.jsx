@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import QuotePrintModal from './QuotePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
+import DateInput from './DateInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -354,11 +355,11 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
         </label>
         <label className="field">
           <span className="field__label">Issued</span>
-          <input type="date" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+          <DateInput value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
         </label>
         <label className="field">
           <span className="field__label">Valid until</span>
-          <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          <DateInput value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
         </label>
       </div>
 

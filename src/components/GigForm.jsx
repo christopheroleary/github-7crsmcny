@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import TimeInput from './TimeInput.jsx';
+import DateInput from './DateInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import InfoTooltip from './InfoTooltip.jsx';
@@ -359,7 +360,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       <div className="field-row">
         <label className="field">
           <span className="field__label">Date</span>
-          <input type="date" value={gigDate} onChange={(e) => setGigDate(e.target.value)} required />
+          <DateInput value={gigDate} onChange={(e) => setGigDate(e.target.value)} required />
           {sameDayGigs.length > 0 && (
             <span className="field__hint" style={{ color: 'var(--rust)' }}>
               ⚠ Already {sameDayGigs.length} gig{sameDayGigs.length > 1 ? 's' : ''} booked this date: {sameDayGigs.map((g) => g.venues?.name || g.bands?.name || 'Unknown venue').join(', ')}

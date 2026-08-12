@@ -4,6 +4,7 @@ import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { EXPENSE_CATEGORIES } from '../utils/expenseCategories.js';
 import { SA103_EXPENSE_BOX } from '../utils/sa103Boxes.js';
+import DateInput from './DateInput.jsx';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -123,7 +124,7 @@ export default function MyExpenses({ profileId }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label className="field" style={{ flex: '1 1 140px' }}>
               <span className="field__label">Date</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <DateInput value={date} onChange={(e) => setDate(e.target.value)} required />
             </label>
             <label className="field" style={{ flex: '1 1 180px' }}>
               <span className="field__label">Category</span>
