@@ -209,7 +209,12 @@ export default function GigWhatsAppGroup({ gig }) {
                   style={{ flex: 1 }}
                   autoFocus
                 />
-                <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
+                <button
+                  type="submit"
+                  className="btn btn--primary btn--small"
+                  disabled={saving}
+                  style={{ width: 'auto', flexShrink: 0 }}
+                >
                   {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
                 </button>
               </form>
