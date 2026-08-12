@@ -160,7 +160,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
         <input
           value={invoiceName}
           onChange={(e) => setInvoiceName(e.target.value)}
-          placeholder="e.g. Chip Shop Boys Entertainment Ltd"
+          placeholder="e.g. XYZ Entertainment Ltd"
         />
         <span className="field__hint">Used on invoices and musician claims instead of the band name above, if set.</span>
       </label>
