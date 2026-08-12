@@ -2636,6 +2636,40 @@ input:not([type]) {
   background: rgba(255,255,255,0.1);
 }
 
+/* Profile picture -- circular everywhere it appears (My Profile preview,
+   header icon, and later the roster/day-sheet/dep-wizard rows this same
+   class is meant to be reused for). */
+.avatar-preview {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-preview__placeholder {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+.avatar-preview--tiny {
+  width: 22px;
+  height: 22px;
+}
+.avatar-preview--tiny .avatar-preview__placeholder {
+  font-size: 10px;
+}
+
 .notif-bell__badge {
   position: absolute;
   top: 0;

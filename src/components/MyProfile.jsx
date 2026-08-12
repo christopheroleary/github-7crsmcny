@@ -16,7 +16,11 @@ import MyRepertoire from './MyRepertoire.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
+import { resizeImageFile } from '../utils/resizeImage.js';
 import { APP_VERSION, APP_BUILD_TIME } from '../utils/buildInfo.js';
+
+const AVATAR_BUCKET = 'profile-pictures';
 
 const UI_THEMES = [
   { id: 'default', label: 'Classic', swatch: '#c8862e' },
@@ -45,6 +49,8 @@ export default function MyProfile() {
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -55,7 +61,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -72,6 +78,7 @@ export default function MyProfile() {
         setUiTheme(profile.ui_theme || 'default');
         setEquipment(Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(profile[item.key])])));
         setEquipmentNotes(profile.equipment_notes || '');
+        setAvatarUrl(profile.avatar_url || '');
       }
       setAllInstruments(instruments || []);
       const ids = (links || []).map((l) => l.instrument_id);
@@ -81,6 +88,62 @@ export default function MyProfile() {
     }
     load();
   }, []);
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !userId) return;
+    // Fast, friendly rejection before we hand the file to createImageBitmap --
+    // a huge or maliciously crafted "decompression bomb" image (tiny on disk,
+    // enormous once decoded) can otherwise hang or crash the tab. This isn't
+    // the real security boundary (a determined attacker can call the Storage
+    // API directly, bypassing the browser entirely) -- that's enforced
+    // server-side by the profile-pictures bucket's own file size/mime type
+    // limits, set in the add_profile_avatar migration.
+    if (!file.type.startsWith('image/')) {
+      setError("That doesn't look like an image file — please choose a photo.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError('That image is too large (max 20MB) — please choose a smaller file.');
+      return;
+    }
+    setUploadingAvatar(true);
+    setError(null);
+    try {
+      // Small and heavily compressed on purpose — this is shown at avatar/
+      // thumbnail size almost everywhere (roster rows, day sheets, the
+      // header icon), never full-screen, and storage is tight.
+      const blob = await resizeImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85, maxBytes: 60 * 1024 });
+      const path = userId + '/avatar.webp';
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: 'image/webp' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      // Cache-bust so replacing an existing photo shows immediately instead
+      // of the browser/CDN serving the old cached image at the same URL.
+      const publicUrl = urlData.publicUrl + '?v=' + Date.now();
+      const { error: dbError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', userId);
+      if (dbError) throw dbError;
+      setAvatarUrl(publicUrl);
+    } catch (err) {
+      setError(err.message);
+    }
+    setUploadingAvatar(false);
+  }
+
+  async function handleRemoveAvatar() {
+    const ok = await confirmAsync('Remove your profile picture?');
+    if (!ok) return;
+    setUploadingAvatar(true);
+    const { error: removeError } = await supabase.storage.from(AVATAR_BUCKET).remove([userId + '/avatar.webp']);
+    if (removeError) { notify("Couldn't remove photo: " + removeError.message); setUploadingAvatar(false); return; }
+    const { error: dbError } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', userId);
+    if (dbError) { notify("Couldn't remove photo: " + dbError.message); setUploadingAvatar(false); return; }
+    setAvatarUrl('');
+    setUploadingAvatar(false);
+  }
 
   async function handleSave(e) {
     e.preventDefault();
@@ -151,6 +214,29 @@ export default function MyProfile() {
     <>
       <form className="entity-form" onSubmit={handleSave}>
         <h2 className="section-header__title">My profile</h2>
+
+        <div className="field">
+          <span className="field__label">Profile picture</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="avatar-preview">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : <span className="avatar-preview__placeholder">{(fullName || '?').charAt(0).toUpperCase()}</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
+                {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Replace photo' : 'Upload photo'}
+                <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadingAvatar} style={{ display: 'none' }} />
+              </label>
+              {avatarUrl && (
+                <button type="button" className="link-button link-button--danger" onClick={handleRemoveAvatar} disabled={uploadingAvatar}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+            Shown on the roster, gig day sheets and here in the app. Resized and compressed automatically — any reasonable photo works.
+          </span>
+        </div>
 
         <label className="field">
           <span className="field__label">Email</span>

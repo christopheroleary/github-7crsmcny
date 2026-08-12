@@ -67,7 +67,7 @@ export default function App() {
   // session would fall straight through to the normal signed-in app instead
   // of prompting for a new password.
   const [passwordRecovery, setPasswordRecovery] = useState(false);
-  const { isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
+  const { profile, isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
   // localStorage, not sessionStorage: a PWA fully exited (e.g. backgrounded
   // at a venue with no signal, then killed by the OS) loses sessionStorage
   // on relaunch — this needs to survive that so the user lands back on the
@@ -205,7 +205,13 @@ export default function App() {
             title="My profile"
             aria-label="My profile"
           >
-            <UserIcon />
+            {profile?.avatar_url ? (
+              <span className="avatar-preview avatar-preview--tiny">
+                <img src={profile.avatar_url} alt="" />
+              </span>
+            ) : (
+              <UserIcon />
+            )}
           </button>
           <button className="btn btn--ghost" onClick={() => supabase.auth.signOut()}>
             Sign out

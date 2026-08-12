@@ -94,7 +94,7 @@ export function ProfileProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, ui_theme')
+        .select('id, full_name, role, ui_theme, avatar_url')
         .eq('id', uid)
         .single();
       if (error) throw error;
