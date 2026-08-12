@@ -68,6 +68,18 @@ export default function NumberInput({
   // (already-mutated) prop -- otherwise "restoring the original" is really
   // just re-sending the value that's already there.
   const openedWithRef = useRef(value);
+  // Mirrors of `touched`/`draft`, updated synchronously in the same call
+  // that sets the state. confirmClose/cancelClose read these instead of the
+  // state directly -- refs are shared across every render's closure, so
+  // there's no window where a keydown lands on a handler that still thinks
+  // nothing's been typed yet. (There was: two keydown events fired back to
+  // back -- a digit, then Enter -- could have the Enter one processed
+  // before React had re-run the effect below with a fresh closure over the
+  // just-updated `touched`/`draft` state, so it read stale `touched=false`
+  // and silently fell back to the original value instead of what was just
+  // typed. Refs make that timing irrelevant.)
+  const touchedRef = useRef(false);
+  const draftRef = useRef('');
   const panelId = useId();
 
   useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
@@ -75,6 +87,8 @@ export default function NumberInput({
   function openPicker() {
     if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
     openedWithRef.current = value;
+    touchedRef.current = false;
+    draftRef.current = '';
     setDraft('');
     setTouched(false);
     setClosing(false);
@@ -91,13 +105,13 @@ export default function NumberInput({
   // and the only sane behaviour for a change-of-mind: nobody expects tapping
   // outside a half-typed amount to *save* the half-typed amount.
   function confirmClose() {
-    const final = touched ? clampAndFormat(draft, decimals, min, max) : openedWithRef.current;
-    if (touched) onChange({ target: { value: final } });
+    const final = touchedRef.current ? clampAndFormat(draftRef.current, decimals, min, max) : openedWithRef.current;
+    if (touchedRef.current) onChange({ target: { value: final } });
     onClose?.(final);
     startClosing();
   }
   function cancelClose() {
-    if (touched) onChange({ target: { value: openedWithRef.current } });
+    if (touchedRef.current) onChange({ target: { value: openedWithRef.current } });
     onClose?.(openedWithRef.current);
     startClosing();
   }
@@ -116,35 +130,51 @@ export default function NumberInput({
   // Every keystroke is a single validated append or a single character
   // removed -- there is no path where a pasted or typed string reaches
   // state unsanitized, unlike a plain text field with inputMode="decimal".
+  //
+  // `next` is computed against draftRef.current (not the `cur` a setState
+  // updater would hand back) and the ref is written *synchronously*, right
+  // here -- not inside the setDraft callback. React doesn't run a state
+  // updater function synchronously, so two keydowns handled back to back
+  // (e.g. a digit immediately followed by Enter, however that happens --
+  // fast typing, or two events dispatched in the same tick) could reach
+  // confirmClose before the first updater had ever run, reading a
+  // still-empty draftRef and silently saving nothing instead of what was
+  // just typed. A plain synchronous assignment closes that gap entirely.
   function pressDigit(d) {
+    const cur = draftRef.current;
+    let next = cur;
+    if (d === '.') {
+      if (decimals > 0 && !cur.includes('.')) next = cur === '' ? '0.' : cur + '.';
+    } else if (cur === '0') {
+      next = d;
+    } else if (cur.includes('.') && (cur.split('.')[1] || '').length >= decimals) {
+      next = cur;
+    } else if (cur.replace('.', '').length < 10) {
+      next = cur + d; // sane upper bound on digit count
+    }
+    touchedRef.current = true;
+    draftRef.current = next;
     setTouched(true);
-    setDraft((cur) => {
-      if (d === '.') {
-        if (decimals === 0 || cur.includes('.')) return cur;
-        return cur === '' ? '0.' : cur + '.';
-      }
-      if (cur === '0') return d;
-      if (cur.includes('.')) {
-        const frac = cur.split('.')[1] || '';
-        if (frac.length >= decimals) return cur;
-      }
-      if (cur.replace('.', '').length >= 10) return cur; // sane upper bound on digit count
-      return cur + d;
-    });
+    setDraft(next);
   }
   function pressBackspace() {
+    const next = draftRef.current.slice(0, -1);
+    touchedRef.current = true;
+    draftRef.current = next;
     setTouched(true);
-    setDraft((cur) => cur.slice(0, -1));
+    setDraft(next);
   }
   function pressClear() {
+    touchedRef.current = true;
+    draftRef.current = '';
     setTouched(true);
     setDraft('');
   }
 
-  // cancelClose/confirmClose read touched/draft/value directly (not via a
-  // setState updater), so this listener has to rebind whenever any of them
-  // change -- otherwise Escape/Enter close over whatever those were the
-  // instant the panel opened, before a single digit had been typed.
+  // confirmClose/cancelClose read touched/draft via refs (see above), not
+  // the state directly, so this listener no longer needs to rebind on
+  // every keystroke just to stay correct -- it only needs open/decimals/
+  // min/max, which change far less often.
   useEffect(() => {
     if (!open) return;
     function handleKey(e) {
@@ -156,7 +186,8 @@ export default function NumberInput({
     }
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [open, decimals, touched, draft, min, max]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, decimals, min, max]);
 
   const displayValue = touched
     ? (draft === '' ? '' : prefix + draft + suffix)
