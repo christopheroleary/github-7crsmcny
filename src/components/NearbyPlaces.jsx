@@ -19,7 +19,16 @@ export default function NearbyPlaces({ lat, lon, isOffline, venueName }) {
         <summary className="day-sheet__section-title" style={{ cursor: 'pointer', userSelect: 'none' }}>
           Key places near {venueName || 'the venue'}
         </summary>
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div
+          style={{
+            marginTop: 10,
+            paddingLeft: 16,
+            borderLeft: '2px solid var(--line)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
           <NearbyFood lat={lat} lon={lon} isOffline={isOffline} bare />
           <NearbyFuel lat={lat} lon={lon} isOffline={isOffline} bare />
           <NearbyHotel lat={lat} lon={lon} isOffline={isOffline} bare />
