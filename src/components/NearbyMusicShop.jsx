@@ -36,9 +36,18 @@ function ShopRow({ shop }) {
   );
 }
 
-export default function NearbyMusicShop({ lat, lon, isOffline, bare }) {
+export default function NearbyMusicShop({ lat, lon, isOffline, bare, warmDelayMs }) {
   return (
-    <NearbySection title="Music shops" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyMusicShop} bare={bare}>
+    <NearbySection
+      title="Music shops"
+      lat={lat}
+      lon={lon}
+      isOffline={isOffline}
+      fetchFn={fetchNearbyMusicShop}
+      bare={bare}
+      cacheKey="musicshop"
+      warmDelayMs={warmDelayMs}
+    >
       {(shops) =>
         shops.length === 0 ? (
           <p className="day-sheet__text day-sheet__text--muted">No music instrument shops available within 20 minutes.</p>

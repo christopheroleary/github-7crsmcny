@@ -43,9 +43,18 @@ function BrandRow({ brand, result }) {
   );
 }
 
-export default function NearbyFood({ lat, lon, isOffline, bare }) {
+export default function NearbyFood({ lat, lon, isOffline, bare, warmDelayMs }) {
   return (
-    <NearbySection title="Food" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFood} bare={bare}>
+    <NearbySection
+      title="Food"
+      lat={lat}
+      lon={lon}
+      isOffline={isOffline}
+      fetchFn={fetchNearbyFood}
+      bare={bare}
+      cacheKey="food"
+      warmDelayMs={warmDelayMs}
+    >
       {(results) => (
         <div className="day-sheet__roster">
           {FOOD_BRANDS.map((brand) => (

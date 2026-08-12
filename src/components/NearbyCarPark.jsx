@@ -48,9 +48,18 @@ function CarParkRow({ carPark }) {
   );
 }
 
-export default function NearbyCarPark({ lat, lon, isOffline, bare }) {
+export default function NearbyCarPark({ lat, lon, isOffline, bare, warmDelayMs }) {
   return (
-    <NearbySection title="Car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark} bare={bare}>
+    <NearbySection
+      title="Car parks"
+      lat={lat}
+      lon={lon}
+      isOffline={isOffline}
+      fetchFn={fetchNearbyCarPark}
+      bare={bare}
+      cacheKey="carpark"
+      warmDelayMs={warmDelayMs}
+    >
       {(carParks) =>
         carParks.length === 0 ? (
           <p className="day-sheet__text day-sheet__text--muted">No car parks available within 20 minutes.</p>

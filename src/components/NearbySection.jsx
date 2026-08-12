@@ -1,24 +1,50 @@
 import { useEffect, useState } from 'react';
+import { readNearbyCache, writeNearbyCache } from '../utils/nearbyCache.js';
 
 // Shared shell for every "Nearby X" section (food, fuel, hotels, music
 // shops, car parks) -- a fold-out disclosure like the WhatsApp group setup,
 // deliberately not expanded by default. These used to fetch the moment the
 // gig page loaded, all five at once even when nobody was going to look at
 // most of them -- the actual cause of the timeouts, not just a UI nicety.
-// Nothing calls out to the map data service until a section is actually
-// opened, and it's only ever fetched once per page load after that (closing
-// and reopening doesn't refetch).
-export default function NearbySection({ title, lat, lon, isOffline, fetchFn, children, bare = false }) {
+//
+// Two ways data ends up here without the user opening anything:
+// 1. A fresh cache entry for this venue (see nearbyCache.js) -- checked
+//    synchronously on mount, so a venue visited before shows results the
+//    instant the row is opened, no "Checking nearby options…" at all.
+// 2. No cache yet: a quiet background fetch fires `warmDelayMs` after
+//    mount, so a first-time venue is ready by the time anyone looks
+//    without competing with the gig page's own data on load. Opening the
+//    row manually before that timer fires just fetches immediately
+//    instead, same as before this existed.
+// Either way this stays invisible while the row is collapsed -- a closed
+// <details> shows nothing regardless of what's loading inside it.
+export default function NearbySection({ title, lat, lon, isOffline, fetchFn, children, bare = false, cacheKey, warmDelayMs = 4000 }) {
   const [opened, setOpened] = useState(false);
-  const [state, setState] = useState({ loading: false, error: null, data: null });
+  const [warmed, setWarmed] = useState(false);
+  const [state, setState] = useState(() => {
+    const cached = cacheKey ? readNearbyCache(cacheKey, lat, lon) : null;
+    return { loading: false, error: null, data: cached };
+  });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!opened || lat == null || lon == null || isOffline) return;
+    if (state.data || isOffline || lat == null || lon == null) return; // already have something to show (from cache) -- nothing to warm
+    const timer = setTimeout(() => setWarmed(true), warmDelayMs);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lon, isOffline]);
+
+  const shouldFetch = opened || warmed;
+
+  useEffect(() => {
+    if (!shouldFetch || state.data || lat == null || lon == null || isOffline) return;
     const controller = new AbortController();
-    setState({ loading: true, error: null, data: null });
+    setState((s) => ({ ...s, loading: true, error: null }));
     fetchFn(lat, lon, { signal: controller.signal })
-      .then((data) => setState({ loading: false, error: null, data }))
+      .then((data) => {
+        setState({ loading: false, error: null, data });
+        if (cacheKey) writeNearbyCache(cacheKey, lat, lon, data);
+      })
       .catch(() => {
         // Only a real cancellation (unmount / retry / venue change) aborts this effect's own
         // controller -- an internal per-attempt timeout also throws AbortError but should surface.
@@ -27,7 +53,7 @@ export default function NearbySection({ title, lat, lon, isOffline, fetchFn, chi
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, lat, lon, isOffline, attempt]);
+  }, [shouldFetch, attempt, lat, lon, isOffline]);
 
   if (lat == null || lon == null) return null;
 
