@@ -50,7 +50,7 @@ function CarParkRow({ carPark }) {
 
 export default function NearbyCarPark({ lat, lon, isOffline, bare }) {
   return (
-    <NearbySection title="Nearby car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark} bare={bare}>
+    <NearbySection title="Car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark} bare={bare}>
       {(carParks) =>
         carParks.length === 0 ? (
           <p className="day-sheet__text day-sheet__text--muted">No car parks available within 20 minutes.</p>

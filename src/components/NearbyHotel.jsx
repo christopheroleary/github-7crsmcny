@@ -33,7 +33,7 @@ function BrandRow({ brand, result }) {
 
 export default function NearbyHotel({ lat, lon, isOffline, bare }) {
   return (
-    <NearbySection title="Nearby hotels" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyHotel} bare={bare}>
+    <NearbySection title="Hotels" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyHotel} bare={bare}>
       {(results) => (
         <div className="day-sheet__roster">
           {HOTEL_BRANDS.map((brand) => (
