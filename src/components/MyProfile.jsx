@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InstrumentPicker from './InstrumentPicker.jsx';
 import EquipmentFields from './EquipmentFields.jsx';
 import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
@@ -31,6 +32,7 @@ const UI_THEMES = [
 ];
 
 export default function MyProfile() {
+  const { refreshProfile } = useCurrentProfile();
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -52,6 +54,7 @@ export default function MyProfile() {
   const [userId, setUserId] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -128,6 +131,11 @@ export default function MyProfile() {
       const { error: dbError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', userId);
       if (dbError) throw dbError;
       setAvatarUrl(publicUrl);
+      // The header icon (and anything else reading useCurrentProfile()) has
+      // its own separate, cached copy of the profile that this write doesn't
+      // touch -- without this it'd keep showing the old photo (or no photo)
+      // until the next full reload.
+      await refreshProfile();
     } catch (err) {
       setError(err.message);
     }
@@ -137,13 +145,14 @@ export default function MyProfile() {
   async function handleRemoveAvatar() {
     const ok = await confirmAsync('Remove your profile picture?');
     if (!ok) return;
-    setUploadingAvatar(true);
+    setRemovingAvatar(true);
     const { error: removeError } = await supabase.storage.from(AVATAR_BUCKET).remove([userId + '/avatar.webp']);
-    if (removeError) { notify("Couldn't remove photo: " + removeError.message); setUploadingAvatar(false); return; }
+    if (removeError) { notify("Couldn't remove photo: " + removeError.message); setRemovingAvatar(false); return; }
     const { error: dbError } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', userId);
-    if (dbError) { notify("Couldn't remove photo: " + dbError.message); setUploadingAvatar(false); return; }
+    if (dbError) { notify("Couldn't remove photo: " + dbError.message); setRemovingAvatar(false); return; }
     setAvatarUrl('');
-    setUploadingAvatar(false);
+    await refreshProfile();
+    setRemovingAvatar(false);
   }
 
   async function handleSave(e) {
@@ -202,6 +211,10 @@ export default function MyProfile() {
     else {
       setOriginalIds(selectedIds);
       setSaved(true);
+      // Same reason as the avatar handlers above -- the header icon and any
+      // other consumer of useCurrentProfile() has its own cached copy of
+      // full_name/ui_theme that this write doesn't touch on its own.
+      await refreshProfile();
     }
   }
 
@@ -223,11 +236,11 @@ export default function MyProfile() {
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
                 {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Replace photo' : 'Upload photo'}
-                <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadingAvatar} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadingAvatar || removingAvatar} style={{ display: 'none' }} />
               </label>
               {avatarUrl && (
-                <button type="button" className="link-button link-button--danger" onClick={handleRemoveAvatar} disabled={uploadingAvatar}>
-                  Remove
+                <button type="button" className="link-button link-button--danger" onClick={handleRemoveAvatar} disabled={uploadingAvatar || removingAvatar}>
+                  {removingAvatar ? 'Removing…' : 'Remove'}
                 </button>
               )}
             </div>

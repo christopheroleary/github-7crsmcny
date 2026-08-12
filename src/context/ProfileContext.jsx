@@ -152,6 +152,11 @@ export function ProfileProvider({ children }) {
         isBandLeader: profile?.role === 'band_leader',
         ledBandIds,
         loading,
+        // Re-fetches and re-caches the profile -- for callers that just wrote
+        // to their own `profiles` row (name, theme, avatar) and need every
+        // other consumer of this context (the header icon, notably) to pick
+        // up the change immediately rather than on next reload.
+        refreshProfile: loadProfile,
       }}
     >
       {children}
