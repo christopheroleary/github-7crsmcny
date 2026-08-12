@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import GigMessages from './GigMessages.jsx';
+import GigSuppliers from './GigSuppliers.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyFood from './NearbyFood.jsx';
 import NearbyFuel from './NearbyFuel.jsx';
@@ -448,6 +449,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       {/* Gig chat — only when online */}
       {!isOffline && (
         <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
+      )}
+
+      {/* Suppliers (photographer, DJ, etc.) — only when online. Always
+          read-only here, same as venue/client info elsewhere on this page:
+          this component doesn't know whether it's rendering for a real
+          musician or an admin's "view as" preview (that only swaps
+          myProfileId, not role context), so management stays on the
+          admin-facing gig view regardless of who's actually signed in. */}
+      {!isOffline && (
+        <GigSuppliers gigId={gigId} gig={gig} readOnly />
       )}
 
       {/* Payment claim — only when online */}

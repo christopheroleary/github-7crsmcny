@@ -5,6 +5,7 @@ import Login from './components/Login.jsx';
 import GigsList from './components/GigsList.jsx';
 import VenuesList from './components/VenuesList.jsx';
 import ClientsList from './components/ClientsList.jsx';
+import SuppliersList from './components/SuppliersList.jsx';
 import BandsList from './components/BandsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
 import MyProfile from './components/MyProfile.jsx';
@@ -159,6 +160,7 @@ export default function App() {
     ['enquiries', 'Enquiries'],
     ['venues', 'Venues'],
     ['clients', 'Clients'],
+    ['suppliers', 'Suppliers'],
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
     ['repertoire', 'Repertoire'],
@@ -171,6 +173,7 @@ export default function App() {
     ['gigs', 'Gigs'],
     ['venues', 'Venues'],
     ['clients', 'Clients'],
+    ['suppliers', 'Suppliers'],
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
   ];
@@ -230,6 +233,7 @@ export default function App() {
         {view === 'enquiries' && isAdmin && <EnquiriesList />}
         {view === 'venues' && (isAdmin || isBandLeader) && <VenuesList />}
         {view === 'clients' && (isAdmin || isBandLeader) && <ClientsList />}
+        {view === 'suppliers' && (isAdmin || isBandLeader) && <SuppliersList />}
         {view === 'bands' && (isAdmin || isBandLeader) && <BandsList />}
         {view === 'musicians' && (isAdmin || isBandLeader) && <MusiciansList />}
         {view === 'repertoire' && isAdmin && <SongsList />}
