@@ -2892,9 +2892,10 @@ input:not([type]) {
 }
 
 .date-picker {
+  position: relative;
   background: var(--paper-raised);
   border-radius: 16px;
-  padding: 16px;
+  padding: 40px 16px 16px;
   width: 100%;
   max-width: 320px;
   box-shadow: 0 20px 50px rgba(30, 27, 22, 0.25);
@@ -2904,6 +2905,29 @@ input:not([type]) {
 .date-picker--closing {
   opacity: 0;
   transform: translateY(4px) scale(0.98);
+}
+
+.date-picker__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.date-picker__close:hover {
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .date-picker__header {
@@ -2999,9 +3023,10 @@ input:not([type]) {
 
 /* ---------- Custom time picker (TimeInput.jsx) ---------- */
 .time-picker {
+  position: relative;
   background: var(--paper-raised);
   border-radius: 16px;
-  padding: 16px;
+  padding: 40px 16px 16px;
   width: 100%;
   max-width: 320px;
   box-shadow: 0 20px 50px rgba(30, 27, 22, 0.25);

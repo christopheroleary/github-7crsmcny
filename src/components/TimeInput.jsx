@@ -80,6 +80,7 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
       {open && (
         <div className="modal-overlay date-picker-overlay" onClick={closePicker}>
           <div className={'time-picker' + (closing ? ' date-picker--closing' : '')} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="date-picker__close" onClick={closePicker} aria-label="Close">×</button>
             <div className="time-picker__custom">
               <input
                 type="text"

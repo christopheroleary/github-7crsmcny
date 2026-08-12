@@ -133,6 +133,7 @@ export default function DateInput({ value, onChange, id, required, placeholder =
             ref={panelRef}
             onClick={(e) => e.stopPropagation()}
           >
+            <button type="button" className="date-picker__close" onClick={closePicker} aria-label="Close">×</button>
             <div className="date-picker__header">
               <button type="button" className="date-picker__nav" onClick={prevMonth} aria-label="Previous month">‹</button>
               <span className="date-picker__title">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
