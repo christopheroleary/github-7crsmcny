@@ -11,10 +11,17 @@ function statusText(openingHours) {
 }
 
 function CarParkRow({ carPark }) {
-  const { name, lat, lon, distanceKm, minutes, openingHours, isAlwaysOpen } = carPark;
+  const { name, lat, lon, distanceKm, minutes, openingHours, isAlwaysOpen, fee, capacity } = carPark;
   const miles = (distanceKm * 0.621371).toFixed(1);
   const directionsHref = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=driving';
   const hoursText = statusText(openingHours);
+  const detailBits = [
+    miles + ' mi',
+    '~' + minutes + ' min drive',
+    hoursText,
+    fee,
+    capacity ? capacity + ' spaces' : null,
+  ].filter(Boolean);
 
   return (
     <div className="day-sheet__roster-row">
@@ -27,9 +34,7 @@ function CarParkRow({ carPark }) {
             </span>
           )}
         </span>
-        <span className="day-sheet__roster-instrument">
-          {miles} mi · ~{minutes} min drive{hoursText ? ' · ' + hoursText : ''}
-        </span>
+        <span className="day-sheet__roster-instrument">{detailBits.join(' · ')}</span>
       </div>
       <button
         type="button"
@@ -43,9 +48,9 @@ function CarParkRow({ carPark }) {
   );
 }
 
-export default function NearbyCarPark({ lat, lon, isOffline }) {
+export default function NearbyCarPark({ lat, lon, isOffline, bare }) {
   return (
-    <NearbySection title="Nearby car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark}>
+    <NearbySection title="Nearby car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark} bare={bare}>
       {(carParks) =>
         carParks.length === 0 ? (
           <p className="day-sheet__text day-sheet__text--muted">No car parks available within 20 minutes.</p>

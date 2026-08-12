@@ -43,9 +43,9 @@ function FuelRow({ station }) {
   );
 }
 
-export default function NearbyFuel({ lat, lon, isOffline }) {
+export default function NearbyFuel({ lat, lon, isOffline, bare }) {
   return (
-    <NearbySection title="Nearby fuel" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFuel}>
+    <NearbySection title="Nearby fuel" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFuel} bare={bare}>
       {(stations) =>
         stations.length === 0 ? (
           <p className="day-sheet__text day-sheet__text--muted">No fuel stations available within 20 minutes.</p>

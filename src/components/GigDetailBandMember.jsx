@@ -4,11 +4,7 @@ import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import GigMessages from './GigMessages.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
-import NearbyFood from './NearbyFood.jsx';
-import NearbyFuel from './NearbyFuel.jsx';
-import NearbyHotel from './NearbyHotel.jsx';
-import NearbyMusicShop from './NearbyMusicShop.jsx';
-import NearbyCarPark from './NearbyCarPark.jsx';
+import NearbyPlaces from './NearbyPlaces.jsx';
 import { notify } from '../utils/toastService.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
 
@@ -490,11 +486,9 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
         </div>
       )}
 
-      {hasPin && <NearbyFood lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
-      {hasPin && <NearbyFuel lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
-      {hasPin && <NearbyHotel lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
-      {hasPin && <NearbyMusicShop lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
-      {hasPin && <NearbyCarPark lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} />}
+      {hasPin && (
+        <NearbyPlaces lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} venueName={venue.name} />
+      )}
     </div>
   );
 }
