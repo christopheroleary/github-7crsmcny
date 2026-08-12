@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ContractPrintModal from './ContractPrintModal.jsx';
 import SignatureCapture from './SignatureCapture.jsx';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -317,7 +318,7 @@ function ContractEditor({ contract, onSaved }) {
         </label>
         <label className="field">
           <span className="field__label">Deposit (£)</span>
-          <input type="number" step="0.01" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="e.g. 250.00" />
+          <NumberInput decimals={2} min={0} prefix="£" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="e.g. 250.00" />
         </label>
       </div>
 

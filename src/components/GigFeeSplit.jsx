@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import { notify } from '../utils/toastService.js';
+import NumberInput from './NumberInput.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -171,17 +172,14 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
                 <td>{name}</td>
                 <td>{role}</td>
                 <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    £
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      defaultValue={l.fee_pence != null ? poundsFromPence(l.fee_pence) : ''}
-                      onBlur={(e) => handleOverride(l.id, e.target.value)}
-                      style={{ width: 80, border: '1px solid var(--line)', borderRadius: 6, padding: '4px 6px' }}
-                    />
-                  </div>
+                  <NumberInput
+                    min={0}
+                    prefix="£"
+                    value={l.fee_pence != null ? poundsFromPence(l.fee_pence) : ''}
+                    onChange={() => {}}
+                    onClose={(finalValue) => handleOverride(l.id, finalValue)}
+                    style={{ width: 80 }}
+                  />
                 </td>
               </tr>
             );

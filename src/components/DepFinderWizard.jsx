@@ -5,6 +5,7 @@ import { fetchDrivingMiles } from '../utils/distance.js';
 import { formatShortDate } from '../utils/formatDate.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
 import EquipmentTags from './EquipmentTags.jsx';
+import NumberInput from './NumberInput.jsx';
 
 const DAY_KEYS = ['avail_sun', 'avail_mon', 'avail_tue', 'avail_wed', 'avail_thu', 'avail_fri', 'avail_sat'];
 
@@ -328,14 +329,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
           </label>
           <label className="field" style={{ flex: '0 1 140px', marginBottom: 0 }}>
             <span className="field__label">Within (miles)</span>
-            <input
-              type="number"
-              min="1"
-              inputMode="numeric"
-              value={maxMiles}
-              onChange={(e) => setMaxMiles(e.target.value)}
-              placeholder="No limit"
-            />
+            <NumberInput min={1} value={maxMiles} onChange={(e) => setMaxMiles(e.target.value)} placeholder="No limit" />
           </label>
         </div>
 

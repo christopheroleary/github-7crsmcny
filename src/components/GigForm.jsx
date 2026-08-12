@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import TimeInput from './TimeInput.jsx';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import InfoTooltip from './InfoTooltip.jsx';
@@ -405,14 +406,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           Fee (£)
           <InfoTooltip text="Enter as a whole number, e.g. 650 rather than 650.50." />
         </span>
-        <input
-          type="number"
-          step="1"
-          min="0"
-          value={feeAmount}
-          onChange={(e) => setFeeAmount(e.target.value)}
-          placeholder="e.g. 650"
-        />
+        <NumberInput min={0} prefix="£" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="e.g. 650" />
       </label>
 
       <label className="field">
@@ -420,26 +414,12 @@ export default function GigForm({ gig, onSaved, onCancel }) {
           Mileage rate
           <InfoTooltip text="Pence per mile, e.g. 35 = 35p/mile. Used to calculate musician travel costs for this gig." />
         </span>
-        <input
-          type="number"
-          step="1"
-          min="0"
-          value={mileageRatePence}
-          onChange={(e) => setMileageRatePence(e.target.value)}
-          placeholder="e.g. 35"
-        />
+        <NumberInput min={0} suffix="p" value={mileageRatePence} onChange={(e) => setMileageRatePence(e.target.value)} placeholder="e.g. 35" />
       </label>
 
       <label className="field">
         <span className="field__label">Guest count (optional)</span>
-        <input
-          type="number"
-          step="1"
-          min="0"
-          value={guestCount}
-          onChange={(e) => setGuestCount(e.target.value)}
-          placeholder="e.g. 120"
-        />
+        <NumberInput min={0} value={guestCount} onChange={(e) => setGuestCount(e.target.value)} placeholder="e.g. 120" />
       </label>
 
       <label className="field">
@@ -535,7 +515,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
               <option value="">Choose instrument…</option>
               {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
             </select>
-            <input type="number" min="1" value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
+            <NumberInput min={1} value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
             <button
               type="button"
               className="link-button link-button--danger requirement-row__remove"
@@ -561,25 +541,11 @@ export default function GigForm({ gig, onSaved, onCancel }) {
             Planned headcount
             <InfoTooltip text="Regular musicians only — for the projection below, not the real roster. Doesn't affect who can actually be added to this gig." />
           </span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={plannedHeadcount}
-            onChange={(e) => setPlannedHeadcount(e.target.value)}
-            placeholder="e.g. 4"
-          />
+          <NumberInput min={0} value={plannedHeadcount} onChange={(e) => setPlannedHeadcount(e.target.value)} placeholder="e.g. 4" />
         </label>
         <label className="field">
           <span className="field__label">Estimated fuel / travel (£)</span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={estimatedTravelPounds}
-            onChange={(e) => setEstimatedTravelPounds(e.target.value)}
-            placeholder="e.g. 80"
-          />
+          <NumberInput min={0} prefix="£" value={estimatedTravelPounds} onChange={(e) => setEstimatedTravelPounds(e.target.value)} placeholder="e.g. 80" />
         </label>
       </div>
 

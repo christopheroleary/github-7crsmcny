@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -330,15 +331,14 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <label className="field" style={{ flex: '1 1 100px' }}>
                       <span className="field__label">Amount (£)</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
+                      <NumberInput
+                        decimals={2}
+                        min={0.01}
+                        prefix="£"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
                         placeholder={poundsFromPence(Math.max(0, balance))}
                         required
-                        autoFocus
                       />
                     </label>
                     <label className="field" style={{ flex: '1 1 140px' }}>

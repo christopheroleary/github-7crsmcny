@@ -5,6 +5,7 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { EXPENSE_CATEGORIES } from '../utils/expenseCategories.js';
 import { SA103_EXPENSE_BOX } from '../utils/sa103Boxes.js';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -146,17 +147,7 @@ export default function MyExpenses({ profileId }) {
           </label>
           <label className="field">
             <span className="field__label">Amount (£)</span>
-            <input
-              type="number"
-              step="0.01"
-              value={amountPounds}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setAmountPounds(v);
-              }}
-              placeholder="0.00"
-              required
-            />
+            <NumberInput decimals={2} min={0} prefix="£" value={amountPounds} onChange={(e) => setAmountPounds(e.target.value)} placeholder="0.00" required />
           </label>
           {error && <p className="form-error">{error}</p>}
           <div className="form-actions">

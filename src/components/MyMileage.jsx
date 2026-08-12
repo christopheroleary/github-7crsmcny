@@ -4,6 +4,7 @@ import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 
@@ -119,15 +120,7 @@ export default function MyMileage({ profileId }) {
             </label>
             <label className="field" style={{ flex: '1 1 100px' }}>
               <span className="field__label">Miles</span>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={miles}
-                onChange={(e) => setMiles(e.target.value)}
-                placeholder="0.0"
-                required
-              />
+              <NumberInput decimals={1} min={0} value={miles} onChange={(e) => setMiles(e.target.value)} placeholder="0.0" required />
             </label>
           </div>
           <label className="field">

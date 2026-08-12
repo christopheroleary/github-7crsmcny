@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { printHtmlDocument } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
+import NumberInput from './NumberInput.jsx';
 
 function poundsFromPence(p) {
   return (p / 100).toFixed(2);
@@ -632,14 +633,12 @@ export default function MusicianClaim({ gigId, myProfileId }) {
               </label>
               <label className="field" style={{ flex: '0 1 110px', marginBottom: 0 }}>
                 <span className="field__label">Amount (£)</span>
-                <input
-                  type="number"
-                  step="0.01"
+                <NumberInput
+                  decimals={2}
+                  min={0}
+                  prefix="£"
                   value={item.amountPounds}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) updateItem(i, { amountPounds: v });
-                  }}
+                  onChange={(e) => updateItem(i, { amountPounds: e.target.value })}
                   placeholder="0.00"
                   required
                 />

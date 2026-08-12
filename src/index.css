@@ -1121,7 +1121,8 @@ input:not([type]) {
     flex: 1 1 0%;
     min-width: 0;
   }
-  .requirement-row input[type="number"] {
+  .requirement-row input[type="number"],
+  .requirement-row .number-input-trigger {
     flex: 0 0 50px;
     min-width: 0;
     max-width: 50px !important;
@@ -2864,7 +2865,8 @@ input:not([type]) {
    built after native date fields overlapped each other on a real
    iPhone. See DateInput.jsx for why. */
 .date-input-trigger,
-.time-input-trigger {
+.time-input-trigger,
+.number-input-trigger {
   cursor: pointer;
   background-repeat: no-repeat;
   background-position: right 10px center;
@@ -2876,6 +2878,9 @@ input:not([type]) {
 }
 .time-input-trigger {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6357' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15.5 14'/%3E%3C/svg%3E");
+}
+.number-input-trigger {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6357' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cline x1='7.5' y1='7.5' x2='16.5' y2='7.5'/%3E%3Cline x1='7.5' y1='12' x2='7.5' y2='12'/%3E%3Cline x1='12' y1='12' x2='12' y2='12'/%3E%3Cline x1='16.5' y1='12' x2='16.5' y2='12'/%3E%3Cline x1='7.5' y1='16' x2='7.5' y2='16'/%3E%3Cline x1='12' y1='16' x2='12' y2='16'/%3E%3Cline x1='16.5' y1='16' x2='16.5' y2='16'/%3E%3C/svg%3E");
 }
 
 @keyframes datePickerOverlayFadeIn {
@@ -3080,6 +3085,78 @@ input:not([type]) {
 }
 .time-picker__option--selected:hover {
   background: var(--amber-dark);
+}
+
+/* ---------- Custom number/money keypad (NumberInput.jsx) ---------- */
+.number-picker {
+  position: relative;
+  background: var(--paper-raised);
+  border-radius: 16px;
+  padding: 40px 16px 16px;
+  width: 100%;
+  max-width: 300px;
+  box-shadow: 0 20px 50px rgba(30, 27, 22, 0.25);
+  animation: datePickerPanelIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 130ms ease, transform 130ms ease;
+}
+.number-picker__display {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--ink);
+  padding: 8px 4px 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+  min-height: 1.3em;
+}
+.number-picker__display--empty {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.number-picker__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.number-picker__key {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 0;
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.12s ease, transform 0.08s ease;
+}
+.number-picker__key:hover {
+  background: rgba(200, 134, 46, 0.14);
+}
+.number-picker__key:active {
+  transform: scale(0.94);
+}
+.number-picker__key--empty {
+  background: none;
+  border: none;
+  cursor: default;
+}
+.number-picker__key--backspace {
+  font-size: 16px;
+}
+.number-picker__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.number-picker__footer .btn {
+  width: auto;
+  flex: 1;
 }
 
 .kpi-card__label {

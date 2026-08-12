@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { prepareLogoUpload } from '../utils/resizeImage.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import NumberInput from './NumberInput.jsx';
 
 const LOGO_BUCKET = 'band-logos';
 
@@ -252,15 +253,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
         {vatNumber && (
           <label className="field" style={{ maxWidth: 140 }}>
             <span className="field__label">VAT rate (%)</span>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={vatRate}
-              onChange={(e) => setVatRate(e.target.value)}
-              placeholder="e.g. 20"
-            />
+            <NumberInput decimals={1} min={0} max={100} suffix="%" value={vatRate} onChange={(e) => setVatRate(e.target.value)} placeholder="e.g. 20" />
           </label>
         )}
       </div>
@@ -379,12 +372,12 @@ export default function BandForm({ band, onSaved, onCancel }) {
       <div className="field-row">
         <label className="field">
           <span className="field__label">Owner / band-leader profit (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 30" />
+          <NumberInput decimals={1} min={0} max={100} suffix="%" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 30" />
           <span className="field__hint">A band-level pot — e.g. an agent's cut. Not paid to any individual musician, even if they're also playing.</span>
         </label>
         <label className="field">
           <span className="field__label">Captain bonus (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+          <NumberInput decimals={1} min={0} max={100} suffix="%" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
           <span className="field__hint">Extra pay for whoever leads on the day — a real payout, separate from owner profit above.</span>
         </label>
       </div>
@@ -392,15 +385,15 @@ export default function BandForm({ band, onSaved, onCancel }) {
       <div className="field-row">
         <label className="field">
           <span className="field__label">Singer bonus (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+          <NumberInput decimals={1} min={0} max={100} suffix="%" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
         </label>
         <label className="field">
           <span className="field__label">DJ (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />
+          <NumberInput decimals={1} min={0} max={100} suffix="%" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />
         </label>
         <label className="field">
           <span className="field__label">Roadie (%)</span>
-          <input type="number" min="0" max="100" step="0.1" value={roadiePct} onChange={(e) => setRoadiePct(e.target.value)} placeholder="e.g. 7.5" />
+          <NumberInput decimals={1} min={0} max={100} suffix="%" value={roadiePct} onChange={(e) => setRoadiePct(e.target.value)} placeholder="e.g. 7.5" />
         </label>
       </div>
 

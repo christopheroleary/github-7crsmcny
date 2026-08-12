@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import DateInput from './DateInput.jsx';
+import NumberInput from './NumberInput.jsx';
 
 export default function EnquiryForm() {
   const [name, setName] = useState('');
@@ -119,14 +120,7 @@ export default function EnquiryForm() {
           <div className="field-row">
             <label className="field">
               <span className="field__label">Estimated budget (£)</span>
-              <input
-                type="number"
-                min="0"
-                step="50"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                placeholder="e.g. 1500"
-              />
+              <NumberInput min={0} prefix="£" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="e.g. 1500" />
             </label>
             <label className="field">
               <span className="field__label">Band size preference</span>
