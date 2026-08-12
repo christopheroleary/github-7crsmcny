@@ -1,4 +1,4 @@
-import { fetchNearbyFuel } from '../utils/nearbyFuel.js';
+import { fetchNearbyCarPark } from '../utils/nearbyCarPark.js';
 import { parseOpeningHours } from '../utils/overpassPlaces.js';
 import NearbySection from './NearbySection.jsx';
 
@@ -10,8 +10,8 @@ function statusText(openingHours) {
   return hours.opensAt ? 'Closed · opens ' + hours.opensAt + (hours.opensDayLabel ? ' ' + hours.opensDayLabel : '') : 'Closed now';
 }
 
-function FuelRow({ station }) {
-  const { name, lat, lon, distanceKm, minutes, openingHours, isAlwaysOpen } = station;
+function CarParkRow({ carPark }) {
+  const { name, lat, lon, distanceKm, minutes, openingHours, isAlwaysOpen } = carPark;
   const miles = (distanceKm * 0.621371).toFixed(1);
   const directionsHref = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=driving';
   const hoursText = statusText(openingHours);
@@ -43,16 +43,16 @@ function FuelRow({ station }) {
   );
 }
 
-export default function NearbyFuel({ lat, lon, isOffline }) {
+export default function NearbyCarPark({ lat, lon, isOffline }) {
   return (
-    <NearbySection title="Nearby fuel" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFuel}>
-      {(stations) =>
-        stations.length === 0 ? (
-          <p className="day-sheet__text day-sheet__text--muted">No fuel stations available within 20 minutes.</p>
+    <NearbySection title="Nearby car parks" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyCarPark}>
+      {(carParks) =>
+        carParks.length === 0 ? (
+          <p className="day-sheet__text day-sheet__text--muted">No car parks available within 20 minutes.</p>
         ) : (
           <div className="day-sheet__roster">
-            {stations.map((station) => (
-              <FuelRow key={station.lat + ',' + station.lon} station={station} />
+            {carParks.map((carPark) => (
+              <CarParkRow key={carPark.lat + ',' + carPark.lon} carPark={carPark} />
             ))}
           </div>
         )

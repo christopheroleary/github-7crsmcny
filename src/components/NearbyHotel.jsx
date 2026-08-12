@@ -1,14 +1,5 @@
-import { FOOD_BRANDS, fetchNearbyFood } from '../utils/nearbyFood.js';
-import { parseOpeningHours } from '../utils/overpassPlaces.js';
+import { HOTEL_BRANDS, fetchNearbyHotel } from '../utils/nearbyHotel.js';
 import NearbySection from './NearbySection.jsx';
-
-function statusText(openingHours) {
-  const hours = parseOpeningHours(openingHours);
-  if (!hours.supported) return hours.raw ? 'Hours: ' + hours.raw : null;
-  if (hours.always) return 'Open 24 hours';
-  if (hours.isOpen) return 'Open now · closes ' + hours.closesAt;
-  return hours.opensAt ? 'Closed · opens ' + hours.opensAt + (hours.opensDayLabel ? ' ' + hours.opensDayLabel : '') : 'Closed now';
-}
 
 function BrandRow({ brand, result }) {
   if (!result) {
@@ -18,18 +9,15 @@ function BrandRow({ brand, result }) {
       </div>
     );
   }
-  const { lat, lon, distanceKm, minutes, openingHours } = result;
+  const { lat, lon, distanceKm, minutes } = result;
   const miles = (distanceKm * 0.621371).toFixed(1);
   const directionsHref = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=driving';
-  const hoursText = statusText(openingHours);
 
   return (
     <div className="day-sheet__roster-row">
       <div>
         <span className="day-sheet__roster-name">{brand.label}</span>
-        <span className="day-sheet__roster-instrument">
-          {miles} mi · ~{minutes} min drive{hoursText ? ' · ' + hoursText : ''}
-        </span>
+        <span className="day-sheet__roster-instrument">{miles} mi · ~{minutes} min drive</span>
       </div>
       <button
         type="button"
@@ -43,12 +31,12 @@ function BrandRow({ brand, result }) {
   );
 }
 
-export default function NearbyFood({ lat, lon, isOffline }) {
+export default function NearbyHotel({ lat, lon, isOffline }) {
   return (
-    <NearbySection title="Nearby food" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFood}>
+    <NearbySection title="Nearby hotels" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyHotel}>
       {(results) => (
         <div className="day-sheet__roster">
-          {FOOD_BRANDS.map((brand) => (
+          {HOTEL_BRANDS.map((brand) => (
             <BrandRow key={brand.key} brand={brand} result={results[brand.key]} />
           ))}
         </div>

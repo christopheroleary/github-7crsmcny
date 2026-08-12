@@ -160,7 +160,7 @@ async function fetchWithTimeout(url, body, parentSignal) {
   }
 }
 
-export async function fetchOverpassElements(query, signal) {
+async function fetchOverpassElementsInner(query, signal) {
   const body = 'data=' + encodeURIComponent(query);
   let lastErr = new Error('Overpass request failed');
   for (const url of ENDPOINTS) {
@@ -179,4 +179,25 @@ export async function fetchOverpassElements(query, signal) {
     }
   }
   throw lastErr;
+}
+
+// The free Overpass mirrors above are shared, rate-limited public servers --
+// every "Nearby X" section on a gig page (food, fuel, hotels, music shops,
+// car parks) queries them independently, and if two of those sections
+// happen to fire at the same moment (e.g. two fold-outs opened within the
+// same render) the servers throttle or time out both requests instead of
+// just queueing them. This module-level chain forces every call anywhere
+// in the app to run one at a time, in the order they were requested,
+// regardless of which component or section they came from -- the same
+// fix a single component can't provide on its own since it has no way to
+// know what any *other* component is doing at the same moment.
+let queue = Promise.resolve();
+export function fetchOverpassElements(query, signal) {
+  const run = () => fetchOverpassElementsInner(query, signal);
+  const result = queue.then(run, run);
+  queue = result.then(
+    () => {},
+    () => {} // a failed request still frees the queue for the next one
+  );
+  return result;
 }

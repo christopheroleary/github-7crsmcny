@@ -1,4 +1,4 @@
-import { fetchNearbyFuel } from '../utils/nearbyFuel.js';
+import { fetchNearbyMusicShop } from '../utils/nearbyMusicShop.js';
 import { parseOpeningHours } from '../utils/overpassPlaces.js';
 import NearbySection from './NearbySection.jsx';
 
@@ -10,8 +10,8 @@ function statusText(openingHours) {
   return hours.opensAt ? 'Closed · opens ' + hours.opensAt + (hours.opensDayLabel ? ' ' + hours.opensDayLabel : '') : 'Closed now';
 }
 
-function FuelRow({ station }) {
-  const { name, lat, lon, distanceKm, minutes, openingHours, isAlwaysOpen } = station;
+function ShopRow({ shop }) {
+  const { name, lat, lon, distanceKm, minutes, openingHours } = shop;
   const miles = (distanceKm * 0.621371).toFixed(1);
   const directionsHref = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=driving';
   const hoursText = statusText(openingHours);
@@ -19,14 +19,7 @@ function FuelRow({ station }) {
   return (
     <div className="day-sheet__roster-row">
       <div>
-        <span className="day-sheet__roster-name">
-          {name}
-          {isAlwaysOpen && (
-            <span className="status-tag" style={{ marginLeft: 6, background: 'var(--rust)22', color: 'var(--rust)', border: '1px solid var(--rust)44' }}>
-              24/7
-            </span>
-          )}
-        </span>
+        <span className="day-sheet__roster-name">{name}</span>
         <span className="day-sheet__roster-instrument">
           {miles} mi · ~{minutes} min drive{hoursText ? ' · ' + hoursText : ''}
         </span>
@@ -43,16 +36,16 @@ function FuelRow({ station }) {
   );
 }
 
-export default function NearbyFuel({ lat, lon, isOffline }) {
+export default function NearbyMusicShop({ lat, lon, isOffline }) {
   return (
-    <NearbySection title="Nearby fuel" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyFuel}>
-      {(stations) =>
-        stations.length === 0 ? (
-          <p className="day-sheet__text day-sheet__text--muted">No fuel stations available within 20 minutes.</p>
+    <NearbySection title="Nearby music shops" lat={lat} lon={lon} isOffline={isOffline} fetchFn={fetchNearbyMusicShop}>
+      {(shops) =>
+        shops.length === 0 ? (
+          <p className="day-sheet__text day-sheet__text--muted">No music instrument shops available within 20 minutes.</p>
         ) : (
           <div className="day-sheet__roster">
-            {stations.map((station) => (
-              <FuelRow key={station.lat + ',' + station.lon} station={station} />
+            {shops.map((shop) => (
+              <ShopRow key={shop.lat + ',' + shop.lon} shop={shop} />
             ))}
           </div>
         )
