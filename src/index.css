@@ -1127,6 +1127,98 @@ input:not([type]) {
     max-width: 50px !important;
   }
 }
+
+/* ============================================================
+   Invoice/quote line items — a card per item rather than a table,
+   since a 5-column table (description/qty/unit/total/remove) has no
+   room to negotiate on a phone screen. See LineItemsEditor.jsx.
+   ============================================================ */
+.line-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.line-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--paper);
+}
+.line-item__desc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.line-item__desc-row input {
+  flex: 1;
+  min-width: 0;
+}
+.line-item__remove {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.line-item__numbers-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: flex-end;
+}
+.line-item__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 0%;
+  min-width: 0;
+}
+.line-item__field span,
+.line-item__total span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.line-item__total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 0%;
+  min-width: 0;
+  text-align: right;
+}
+.line-item__total strong {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 7px 0;
+  display: block;
+}
+.line-item__desc-row input,
+.line-item__field input {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 14px;
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+.line-item__desc-row input:focus,
+.line-item__field input:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+.line-items__grand-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 2px solid var(--ink);
+  padding-top: 8px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+.line-items__grand-total strong {
+  font-family: var(--font-mono);
+}
 .tag-input select {
   width: 100%;
   border: none;

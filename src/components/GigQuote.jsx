@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import QuotePrintModal from './QuotePrintModal.jsx';
+import LineItemsEditor from './LineItemsEditor.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -307,16 +308,6 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  function addItem() {
-    setItems([...items, { id: null, description: '', quantity: 1, unit_amount_pence: 0, sort_order: items.length }]);
-  }
-  function updateItem(index, field, value) {
-    setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
-  }
-  function removeItem(index) {
-    setItems(items.filter((_, i) => i !== index));
-  }
-
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
@@ -348,8 +339,6 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
     onSaved();
   }
 
-  const total = items.reduce((sum, i) => sum + (Number(i.unit_amount_pence) || 0) * (Number(i.quantity) || 1), 0);
-
   return (
     <form onSubmit={handleSave}>
       <div className="field-row">
@@ -375,42 +364,7 @@ function QuoteEditor({ quote, items: initialItems, onSaved }) {
 
       <div className="field" style={{ marginTop: 8 }}>
         <span className="field__label">Line items</span>
-        <div style={{ overflowX: 'auto' }}>
-        <table className="travel-table">
-          <thead>
-            <tr><th>Description</th><th style={{ width: 60 }}>Qty</th><th style={{ width: 100 }}>Unit (£)</th><th style={{ width: 90 }}>Total</th><th></th></tr>
-          </thead>
-          <tbody>
-            {items.map((item, i) => (
-              <tr key={i}>
-                <td>
-                  <input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)}
-                    style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 6px' }} />
-                </td>
-                <td>
-                  <input type="number" min="1" step="0.5" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                    style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 6px' }} />
-                </td>
-                <td>
-                  <input type="number" step="0.01" value={(item.unit_amount_pence / 100).toFixed(2)}
-                    onChange={(e) => updateItem(i, 'unit_amount_pence', Math.round(Number(e.target.value) * 100))}
-                    style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 6px' }} />
-                </td>
-                <td>£{poundsFromPence((Number(item.unit_amount_pence) || 0) * (Number(item.quantity) || 1))}</td>
-                <td><button type="button" className="link-button link-button--danger" onClick={() => removeItem(i)}>×</button></td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3}><strong>Total</strong></td>
-              <td><strong>£{poundsFromPence(total)}</strong></td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-        </div>
-        <button type="button" className="link-button" style={{ marginTop: 8 }} onClick={addItem}>+ Add line item</button>
+        <LineItemsEditor items={items} onChange={setItems} />
       </div>
 
       <label className="field" style={{ marginTop: 8 }}>
