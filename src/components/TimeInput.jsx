@@ -26,6 +26,7 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
   const [focusedIndex, setFocusedIndex] = useState(0);
   const closeTimerRef = useRef(null);
   const optionRefs = useRef([]);
+  const customInputRef = useRef(null);
   const panelId = useId();
 
   useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
@@ -52,13 +53,23 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
 
   // Line up the roving-tabindex position with wherever the current value
   // (or the nearest option) is, and scroll it into view. Doesn't steal DOM
-  // focus from the manual-entry field's own autoFocus -- that only happens
-  // once the user actually starts navigating the list with arrow keys.
+  // focus from the manual-entry field -- that only happens once the user
+  // actually starts navigating the list with arrow keys.
   useEffect(() => {
     if (!open) return;
     const idx = TIME_OPTIONS.indexOf(value);
     setFocusedIndex(idx >= 0 ? idx : 0);
   }, [open, value]);
+
+  // Auto-focus the manual-entry field on open so desktop users can just
+  // start typing -- but only on a fine pointer (mouse/trackpad). On a
+  // touchscreen this would pop the on-screen keyboard immediately and
+  // bury the whole option grid behind it before the user's even seen it.
+  useEffect(() => {
+    if (!open) return;
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    if (!isTouch) customInputRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -137,7 +148,7 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
                 value={customValue}
                 onChange={(e) => setCustomValue(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomSubmit(); } }}
-                autoFocus
+                ref={customInputRef}
               />
               <button type="button" className="btn btn--primary btn--small" disabled={!isValidTime(customValue)} onClick={handleCustomSubmit}>
                 Set
