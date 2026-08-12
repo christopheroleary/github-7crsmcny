@@ -160,7 +160,7 @@ async function fetchWithTimeout(url, body, parentSignal) {
   }
 }
 
-async function fetchOverpassElementsInner(query, signal) {
+async function fetchOverpassElementsOnePass(query, signal) {
   const body = 'data=' + encodeURIComponent(query);
   let lastErr = new Error('Overpass request failed');
   for (const url of ENDPOINTS) {
@@ -169,6 +169,7 @@ async function fetchOverpassElementsInner(query, signal) {
       const res = await fetchWithTimeout(url, body, signal);
       if (!res.ok) {
         lastErr = new Error('Overpass request failed (' + res.status + ')');
+        lastErr.status = res.status;
         continue;
       }
       const json = await res.json();
@@ -179,6 +180,37 @@ async function fetchOverpassElementsInner(query, signal) {
     }
   }
   throw lastErr;
+}
+
+const RETRY_BACKOFF_MS = 5000;
+
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+// One full pass already tries both mirrors -- but on a day (like today's
+// testing) where both are actively rate-limited, that first pass fails
+// immediately and every "Nearby X" section reports "busy" even though the
+// limit often clears within a few seconds, not minutes. A single backed-off
+// retry recovers most of those transient windows without the user needing
+// to notice anything or click "Try again" themselves -- this applies
+// uniformly whether the request came from a background warm-up or someone
+// manually opening a row, since both go through this same function.
+async function fetchOverpassElementsInner(query, signal) {
+  try {
+    return await fetchOverpassElementsOnePass(query, signal);
+  } catch (firstErr) {
+    if (signal?.aborted) throw firstErr;
+    await delay(RETRY_BACKOFF_MS, signal);
+    return await fetchOverpassElementsOnePass(query, signal);
+  }
 }
 
 // The free Overpass mirrors above are shared, rate-limited public servers --
