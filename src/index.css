@@ -1585,19 +1585,29 @@ input:not([type]) {
 }
 
 .gig-grid table {
+  /* table-layout:fixed only fixes the ALGORITHM, not the table's own
+     width -- without an explicit width the browser still auto-sizes the
+     table to content (shrinking below the card on desktop, growing past
+     it on phones despite the column widths below). Pinning it to 100%
+     makes the <col> widths true fixed proportions of whatever room is
+     actually available, so it both fills a wide screen and never
+     outgrows a narrow one -- text that no longer fits is left to the
+     ellipsis already set on every cell instead of forcing scroll. */
+  width: 100%;
   border-collapse: collapse;
   font-size: 10px;
   white-space: nowrap;
   table-layout: fixed;
 }
 
-/* Mobile-first column widths, tight enough to fit a phone in portrait
-   without horizontal scroll. Widened on bigger screens — town/address
-   gets the most extra room since it's the one most often truncated. */
+/* Mobile-first column widths -- now relative weights (the table is
+   pinned to 100% above), not literal pixel sizes. Widened on bigger
+   screens — town/band gets the most extra room since those are the
+   fields most often truncated. */
 .gig-grid__col-date { width: 27px; }
-.gig-grid__col-town { width: 44px; }
-.gig-grid__col-time { width: 27px; }
-.gig-grid__col-role { width: 19px; }
+.gig-grid__col-town { width: 40px; }
+.gig-grid__col-time { width: 25px; }
+.gig-grid__col-role { width: 22px; }
 
 @media (min-width: 480px) {
   .gig-grid__col-date { width: 36px; }
@@ -1607,8 +1617,11 @@ input:not([type]) {
 }
 
 @media (min-width: 768px) {
+  .gig-grid table { font-size: 12px; }
+  .gig-grid__col-date { width: 44px; }
   .gig-grid__col-town { width: 160px; }
-  .gig-grid__col-role { width: 30px; }
+  .gig-grid__col-time { width: 40px; }
+  .gig-grid__col-role { width: 34px; }
 }
 
 .gig-grid__th-split {
@@ -1634,9 +1647,9 @@ input:not([type]) {
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   font-size: 9px;
-  padding: 4px 2px;
+  padding: 4px 1px;
   z-index: 1;
 }
 

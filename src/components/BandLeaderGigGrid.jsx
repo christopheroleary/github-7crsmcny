@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDate.js';
 import { parseTownFromAddress } from '../utils/parseAddress.js';
+import { displayBandName } from '../utils/bandName.js';
 
 // Which role group an instrument's cells belong to. Anything not listed here
 // (Saxophone, Backing Vocals, etc.) is out of scope for this grid.
@@ -29,8 +30,6 @@ const GROUPS_RIGHT = [
   { key: 'roadie', label: 'Rd', title: 'Roadie' },
 ];
 
-const TOWN_MAX_CHARS = 11;
-const BAND_MAX_CHARS = 10;
 const BASE_TOTAL_COLS = 4 + GROUPS_LEFT.length + 2 + GROUPS_RIGHT.length;
 
 function initialsFor(name) {
@@ -41,9 +40,12 @@ function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function truncate(text, maxChars) {
-  if (!text) return '—';
-  return text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
+// Cells are a fixed pixel/percentage slice of the table (table-layout:
+// fixed + width:100%), so text just needs the CSS ellipsis already on
+// every cell -- not a hardcoded JS character cap that has no idea how
+// wide the column actually ends up being at the viewport's current size.
+function cellText(text) {
+  return text || '—';
 }
 
 function formatTime(t) {
@@ -104,8 +106,8 @@ export default function BandLeaderGigGrid() {
     for (const g of gigs) {
       gigMap[g.id] = {
         ...g,
-        town: truncate(parseTownFromAddress(g.venues?.address), TOWN_MAX_CHARS),
-        bandName: truncate(g.bands?.name, BAND_MAX_CHARS),
+        town: cellText(parseTownFromAddress(g.venues?.address)),
+        bandName: cellText(displayBandName(g.bands?.name)),
         arrival: g.load_in_time || g.start_time,
         finish: g.end_time,
         people: { drummer: [], bass: [], guitarKeys: [], singer: [], dj: [], roadie: [] },

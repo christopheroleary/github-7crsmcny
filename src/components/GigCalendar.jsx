@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { WEEKDAY_LABELS, MONTH_LABELS, buildMonthGrid } from '../utils/monthGrid.js';
 import { todayStr } from '../utils/formatDate.js';
+import { displayBandName } from '../utils/bandName.js';
 
 function parseISO(iso) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -15,7 +16,7 @@ const MAX_CHIPS_PER_DAY = 2;
 function GigChip({ gig, isAdmin, isOffline, isCached, onSelectGig, solo }) {
   const disabled = isOffline && !isCached;
   const venueName = gig.venues?.name;
-  const bandName = gig.bands?.name;
+  const bandName = displayBandName(gig.bands?.name);
   const feeLabel = isAdmin && gig.fee_amount != null
     ? '£' + Math.round(Number(gig.fee_amount)).toLocaleString('en-GB')
     : null;
