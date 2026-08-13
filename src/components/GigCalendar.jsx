@@ -12,17 +12,24 @@ function toISO(y, m, d) {
 
 const MAX_CHIPS_PER_DAY = 2;
 
-function GigChip({ gig, isAdmin, isOffline, isCached, onSelectGig }) {
+function GigChip({ gig, isAdmin, isOffline, isCached, onSelectGig, solo }) {
   const disabled = isOffline && !isCached;
-  const titleBits = [gig.venues?.name || 'No venue', gig.bands?.name].filter(Boolean);
-  if (isAdmin && gig.fee_amount != null) {
-    titleBits.push('£' + Math.round(Number(gig.fee_amount)).toLocaleString('en-GB'));
-  }
+  const venueName = gig.venues?.name;
+  const bandName = gig.bands?.name;
+  const feeLabel = isAdmin && gig.fee_amount != null
+    ? '£' + Math.round(Number(gig.fee_amount)).toLocaleString('en-GB')
+    : null;
+  const titleBits = [venueName || 'No venue', bandName, feeLabel].filter(Boolean);
+  // Solo (only gig that day) gets the whole cell, so there's room for a
+  // second line -- band name, and fee for admins -- instead of just the
+  // single truncated label a cramped multi-gig chip is limited to.
+  const subBits = solo ? [bandName, feeLabel].filter(Boolean) : [];
   return (
     <button
       type="button"
       className={
         'calendar-chip status-tag status-tag--' + gig.status
+        + (solo ? ' calendar-chip--solo' : '')
         + (disabled ? ' calendar-chip--offline-unavailable' : '')
       }
       disabled={disabled}
@@ -30,7 +37,8 @@ function GigChip({ gig, isAdmin, isOffline, isCached, onSelectGig }) {
       title={titleBits.join(' · ')}
     >
       {gig.start_time && <span className="calendar-chip__time">{gig.start_time.slice(0, 5)}</span>}
-      <span className="calendar-chip__label">{gig.venues?.name || gig.bands?.name || 'Gig'}</span>
+      <span className="calendar-chip__label">{venueName || bandName || 'Gig'}</span>
+      {subBits.length > 0 && <span className="calendar-chip__sub">{subBits.join(' · ')}</span>}
     </button>
   );
 }
@@ -164,6 +172,7 @@ export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, on
                       isOffline={isOffline}
                       isCached={cachedGigIds.includes(gig.id)}
                       onSelectGig={onSelectGig}
+                      solo={dayGigs.length === 1}
                     />
                   ))}
                   {overflowCount > 0 && (

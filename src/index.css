@@ -3285,6 +3285,7 @@ input:not([type]) {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1; /* lets a lone solo chip stretch to fill whatever height the cell ends up with */
 }
 .calendar-chip {
   display: flex;
@@ -3316,6 +3317,42 @@ input:not([type]) {
 .calendar-chip--offline-unavailable {
   opacity: 0.4;
   cursor: default;
+}
+
+/* The lone gig on a day gets the whole cell instead of sitting as a thin
+   sliver at the top -- room enough to show venue + band instead of just a
+   truncated single line. */
+.calendar-chip--solo {
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px;
+}
+.calendar-chip--solo .calendar-chip__time {
+  font-size: 12.5px;
+}
+.calendar-chip--solo .calendar-chip__label {
+  /* Single truncated line, same reliable technique as the compact chip
+     label above -- -webkit-line-clamp was tried for a wrapped 2-line
+     version but isn't supported in every environment this renders in, and
+     silently falls back to clipping text from both sides with no ellipsis. */
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.calendar-chip--solo .calendar-chip__sub {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .calendar-day__overflow {
   background: none;
@@ -3373,6 +3410,22 @@ input:not([type]) {
   .calendar-day__overflow {
     font-size: 9.5px;
     padding: 1px 4px;
+  }
+  /* Solo still gets the extra room -- with nothing else in the cell there's
+     space for a short venue line even at phone width. */
+  .calendar-chip--solo {
+    justify-content: center;
+    align-items: center;
+    padding: 4px;
+    text-align: center;
+  }
+  .calendar-chip--solo .calendar-chip__label {
+    display: block;
+    font-size: 9.5px;
+    text-align: center;
+  }
+  .calendar-chip--solo .calendar-chip__sub {
+    display: none; /* one extra field is already a stretch at this width */
   }
 }
 
