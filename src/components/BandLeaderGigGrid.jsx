@@ -59,7 +59,7 @@ function formatTime(t) {
 // per role. The Band column only appears when more than one band shows
 // up in the current result set, so a single-band leader's view stays as
 // compact as before.
-export default function BandLeaderGigGrid() {
+export default function BandLeaderGigGrid({ onSelectGig }) {
   const [rows, setRows] = useState([]);
   const [showBandColumn, setShowBandColumn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -227,6 +227,7 @@ export default function BandLeaderGigGrid() {
                 monthLabel={formatMonthYear(firstGig.gig_date)}
                 showBandColumn={showBandColumn}
                 totalCols={totalCols}
+                onSelectGig={onSelectGig}
               />
             );
           })}
@@ -239,7 +240,7 @@ export default function BandLeaderGigGrid() {
   );
 }
 
-function GigGroupRows({ group, showMonthRow, monthLabel, showBandColumn, totalCols }) {
+function GigGroupRows({ group, showMonthRow, monthLabel, showBandColumn, totalCols, onSelectGig }) {
   return (
     <>
       {showMonthRow && (
@@ -248,7 +249,11 @@ function GigGroupRows({ group, showMonthRow, monthLabel, showBandColumn, totalCo
         </tr>
       )}
       {group.map((gig, idx) => (
-        <tr key={gig.id}>
+        <tr
+          key={gig.id}
+          className={onSelectGig ? 'gig-grid__row--clickable' : undefined}
+          onClick={onSelectGig ? () => onSelectGig(gig.id) : undefined}
+        >
           {idx === 0 && (
             <td rowSpan={group.length} className="gig-grid__date">
               {formatCompactDate(gig.gig_date)}

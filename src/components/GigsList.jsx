@@ -8,6 +8,7 @@ import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
 import CalendarFeed from './CalendarFeed.jsx';
 import GigCalendar from './GigCalendar.jsx';
+import BandLeaderGigGrid from './BandLeaderGigGrid.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
@@ -231,20 +232,27 @@ export default function GigsList() {
         )}
       </div>
 
-      <div className="view-toggle" style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+      <div className="view-toggle" style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           className={`btn btn--small ${viewMode === 'list' ? 'btn--primary' : 'btn--ghost'}`}
-          style={{ width: 'auto' }}
+          style={{ width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
           onClick={() => changeViewMode('list')}
         >
           List
         </button>
         <button
           className={`btn btn--small ${viewMode === 'calendar' ? 'btn--primary' : 'btn--ghost'}`}
-          style={{ width: 'auto' }}
+          style={{ width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
           onClick={() => changeViewMode('calendar')}
         >
           Calendar
+        </button>
+        <button
+          className={`btn btn--small ${viewMode === 'grid' ? 'btn--primary' : 'btn--ghost'}`}
+          style={{ width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
+          onClick={() => changeViewMode('grid')}
+        >
+          Grid
         </button>
       </div>
 
@@ -359,6 +367,10 @@ export default function GigsList() {
           onSelectGig={selectGig}
           onAddGig={startAddGig}
         />
+      )}
+
+      {viewMode === 'grid' && (
+        <BandLeaderGigGrid onSelectGig={selectGig} />
       )}
 
       {viewMode === 'list' && (

@@ -1666,6 +1666,16 @@ input:not([type]) {
   white-space: nowrap;
 }
 
+.gig-grid__row--clickable {
+  cursor: pointer;
+}
+.gig-grid__row--clickable:hover td {
+  background: var(--paper);
+}
+.gig-grid__row--clickable:hover .gig-grid__cell {
+  filter: brightness(0.97);
+}
+
 /* Extra top padding pulls this row away from the previous month's last
    gig row, and the amber underline makes the month break unmistakable
    even at a glance/scroll speed. */
