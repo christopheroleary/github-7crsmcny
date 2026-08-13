@@ -43,7 +43,7 @@ function GigChip({ gig, isAdmin, isOffline, isCached, onSelectGig, solo }) {
   );
 }
 
-function DayPopover({ iso, gigs, isAdmin, isOffline, cachedGigIds, onSelectGig, onClose }) {
+function DayPopover({ iso, gigs, isAdmin, isOffline, cachedGigIds, onSelectGig, onAddGig, onClose }) {
   const d = parseISO(iso);
   const label = new Date(d.y, d.m - 1, d.d).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -65,6 +65,15 @@ function DayPopover({ iso, gigs, isAdmin, isOffline, cachedGigIds, onSelectGig, 
             />
           ))}
         </div>
+        {isAdmin && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--small calendar-popover__add"
+            onClick={() => { onAddGig(iso); onClose(); }}
+          >
+            + Add another gig on this date
+          </button>
+        )}
       </div>
     </div>
   );
@@ -77,7 +86,7 @@ function DayPopover({ iso, gigs, isAdmin, isOffline, cachedGigIds, onSelectGig, 
 // already-fetched gigs as a prop rather than fetching its own -- GigsList
 // stays the single source of truth (and the single offline cache) for both
 // view modes.
-export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, onSelectGig }) {
+export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, onSelectGig, onAddGig }) {
   const today = parseISO(todayStr());
   const [viewYear, setViewYear] = useState(today.y);
   const [viewMonth, setViewMonth] = useState(today.m);
@@ -144,6 +153,13 @@ export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, on
           const visibleChips = dayGigs.slice(0, MAX_CHIPS_PER_DAY);
           const overflowCount = dayGigs.length - visibleChips.length;
           const hasGigs = dayGigs.length > 0;
+          // Empty day: clicking it starts a new gig on that date (admin
+          // only -- band members have no reason to see an add affordance
+          // here). A day with gigs already offers both view and add via
+          // the popover, so its own cell click still just opens that.
+          const canAdd = isAdmin && Boolean(onAddGig);
+          const interactive = hasGigs || canAdd;
+          const activate = () => { if (hasGigs) setPopoverDate(iso); else if (canAdd) onAddGig(iso); };
 
           return (
             <div
@@ -153,12 +169,14 @@ export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, on
                 + (c.monthOffset !== 0 ? ' calendar-day--muted' : '')
                 + (isToday ? ' calendar-day--today' : '')
                 + (hasGigs ? ' calendar-day--has-gigs' : '')
+                + (!hasGigs && canAdd ? ' calendar-day--addable' : '')
               }
-              role={hasGigs ? 'button' : undefined}
-              tabIndex={hasGigs ? 0 : undefined}
-              onClick={hasGigs ? () => setPopoverDate(iso) : undefined}
-              onKeyDown={hasGigs ? (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPopoverDate(iso); }
+              role={interactive ? 'button' : undefined}
+              tabIndex={interactive ? 0 : undefined}
+              aria-label={!hasGigs && canAdd ? 'Add a gig on ' + iso : undefined}
+              onClick={interactive ? activate : undefined}
+              onKeyDown={interactive ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
               } : undefined}
             >
               <span className="calendar-day__number">{c.day}</span>
@@ -199,6 +217,7 @@ export default function GigCalendar({ gigs, isAdmin, isOffline, cachedGigIds, on
           isOffline={isOffline}
           cachedGigIds={cachedGigIds}
           onSelectGig={onSelectGig}
+          onAddGig={onAddGig}
           onClose={() => setPopoverDate(null)}
         />
       )}

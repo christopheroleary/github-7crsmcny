@@ -3271,6 +3271,19 @@ input:not([type]) {
 .calendar-day--has-gigs:hover {
   border-color: var(--amber);
 }
+.calendar-day--addable {
+  cursor: pointer;
+}
+.calendar-day--addable:hover {
+  border-style: dashed;
+  border-color: var(--amber);
+}
+.calendar-day--addable:hover .calendar-day__number::after {
+  content: '+';
+  margin-left: 4px;
+  color: var(--amber);
+  font-weight: 700;
+}
 .calendar-day__number {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -3392,6 +3405,10 @@ input:not([type]) {
   font-size: 13px;
   padding: 8px 10px;
   border-radius: 8px;
+}
+.calendar-popover__add {
+  margin-top: 10px;
+  width: 100%;
 }
 
 @media (max-width: 480px) {

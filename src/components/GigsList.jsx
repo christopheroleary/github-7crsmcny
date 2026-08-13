@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigList } from '../hooks/useOfflineGigList.js';
@@ -77,6 +77,21 @@ export default function GigsList() {
 
   const [showHistoric, setShowHistoric] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  // Set when "add a gig" is triggered from a specific calendar date (an
+  // empty day, or the "Add gig" option in a day's popover) rather than the
+  // page-level "+ Add gig" button -- prefills GigForm's date field via the
+  // same _isConvert prefill shape EnquiriesList already uses to hand it a
+  // partial gig without being mistaken for editing a real one.
+  const [addGigDate, setAddGigDate] = useState(null);
+  const addFormRef = useRef(null);
+  function startAddGig(iso) {
+    setAddGigDate(iso);
+    setShowAddForm(true);
+  }
+  function closeAddForm() {
+    setShowAddForm(false);
+    setAddGigDate(null);
+  }
   const [showNeedsInvoicing, setShowNeedsInvoicing] = useState(false);   // admin
   const [showUnclaimedGigs, setShowUnclaimedGigs] = useState(false);     // band member
   const [showPendingClaims, setShowPendingClaims] = useState(false);     // admin
@@ -156,6 +171,15 @@ export default function GigsList() {
     return () => window.removeEventListener('gig-selected', handleGigSelected);
   }, []);
 
+  // The form renders above the calendar, off the bottom of the viewport
+  // when it's opened by clicking a date -- scroll it into view so it
+  // doesn't look like the click did nothing.
+  useEffect(() => {
+    if (showAddForm && addGigDate) {
+      addFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showAddForm, addGigDate]);
+
   // ── Delete (admin only) ──────────────────────────────────────────────────────
   async function handleDelete(gig, e) {
     e.stopPropagation();
@@ -200,7 +224,7 @@ export default function GigsList() {
         {isAdmin && (
           <button
             className="btn btn--primary btn--small"
-            onClick={() => setShowAddForm((v) => !v)}
+            onClick={() => (showAddForm ? closeAddForm() : startAddGig(null))}
           >
             {showAddForm ? 'Close' : '+ Add gig'}
           </button>
@@ -317,10 +341,13 @@ export default function GigsList() {
       {!isAdmin && me && <CalendarFeed profileId={me.id} />}
 
       {isAdmin && showAddForm && (
-        <GigForm
-          onSaved={() => { setShowAddForm(false); loadGigs(); }}
-          onCancel={() => setShowAddForm(false)}
-        />
+        <div ref={addFormRef}>
+          <GigForm
+            gig={addGigDate ? { _isConvert: true, gig_date: addGigDate } : undefined}
+            onSaved={() => { closeAddForm(); loadGigs(); }}
+            onCancel={closeAddForm}
+          />
+        </div>
       )}
 
       {viewMode === 'calendar' && (
@@ -330,6 +357,7 @@ export default function GigsList() {
           isOffline={isOffline}
           cachedGigIds={cachedGigIds}
           onSelectGig={selectGig}
+          onAddGig={startAddGig}
         />
       )}
 
