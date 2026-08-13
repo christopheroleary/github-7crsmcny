@@ -255,12 +255,14 @@ export default function Dashboard({ onNavigate }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             className={'btn btn--small ' + (view === 'overview' ? 'btn--primary' : 'btn--ghost')}
+            style={{ width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => setView('overview')}
           >
             Overview
           </button>
           <button
             className={'btn btn--small ' + (view === 'grid' ? 'btn--primary' : 'btn--ghost')}
+            style={{ width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => setView('grid')}
           >
             Gig grid

@@ -2,5 +2,5 @@
 // grid's band column) shows more of what actually identifies the band.
 export function displayBandName(name) {
   if (!name) return name;
-  return name.replace(/^the\s+/i, '');
+  return name.replace(/^the\s+/i, '').trim();
 }
