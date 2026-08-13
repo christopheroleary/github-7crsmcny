@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDate.js';
 import { parseTownFromAddress } from '../utils/parseAddress.js';
@@ -64,6 +64,24 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
   const [showBandColumn, setShowBandColumn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // The sticky month row needs to sit right below the sticky header, not
+  // under it -- its `top` offset has to equal the header's actual rendered
+  // height, which shifts with the font-size the header switches to at
+  // each breakpoint (and if the header's own content ever changes). A
+  // ResizeObserver keeps that offset correct instead of hardcoding a
+  // number per breakpoint that would silently drift out of sync.
+  const theadRef = useRef(null);
+  const [headerH, setHeaderH] = useState(30);
+  useEffect(() => {
+    const el = theadRef.current;
+    if (!el) return;
+    const update = () => setHeaderH(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,7 +193,7 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
   let prevMonth = null;
 
   return (
-    <div className="gig-grid">
+    <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
       <table>
         <colgroup>
           <col className="gig-grid__col-date" />
@@ -192,7 +210,7 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
             <col key={g.key} className="gig-grid__col-role" />
           ))}
         </colgroup>
-        <thead>
+        <thead ref={theadRef}>
           <tr>
             <th>Date</th>
             {showBandColumn && <th>Band</th>}
