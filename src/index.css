@@ -1585,11 +1585,14 @@ input:not([type]) {
    the same non-visible value anyway, so there's no version of this that
    scrolls horizontally without also becoming the vertical scroll
    container. Might as well make that deliberate and give it real height. */
+.gig-grid-wrap {
+  margin-top: 8px;
+}
+
 .gig-grid {
   max-height: 70vh;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  margin-top: 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
 }
@@ -1620,11 +1623,14 @@ input:not([type]) {
    container, and a squeezed date is the one column where losing a digit
    ("Fri 1…") actually costs you information, not just polish. min-width
    holds it at its declared size and lets the other columns absorb the
-   compression instead. */
-.gig-grid__col-date { width: 27px; min-width: 27px; }
-.gig-grid__col-town { width: 37px; }
-.gig-grid__col-time { width: 24px; }
-.gig-grid__col-role { width: 24px; }
+   compression instead. 36px (not 27px) because the content itself varies
+   -- "Fri 14" fits in 27px but "Sat 29"/"Sun 30" (double-digit day) needs
+   more, and the column has to fit its widest realistic case, not its
+   shortest. */
+.gig-grid__col-date { width: 36px; min-width: 36px; }
+.gig-grid__col-town { width: 34px; }
+.gig-grid__col-time { width: 22px; }
+.gig-grid__col-role { width: 22px; }
 
 @media (min-width: 480px) {
   .gig-grid__col-date { width: 36px; min-width: 36px; }

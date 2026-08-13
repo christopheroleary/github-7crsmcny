@@ -193,64 +193,66 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
   let prevMonth = null;
 
   return (
-    <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
-      <table>
-        <colgroup>
-          <col className="gig-grid__col-date" />
-          {showBandColumn && <col className="gig-grid__col-town" />}
-          <col className="gig-grid__col-town" />
-          <col className="gig-grid__col-time" />
-          <col className="gig-grid__col-time" />
-          {GROUPS_LEFT.map((g) => (
-            <col key={g.key} className="gig-grid__col-role" />
-          ))}
-          <col className="gig-grid__col-role" />
-          <col className="gig-grid__col-role" />
-          {GROUPS_RIGHT.map((g) => (
-            <col key={g.key} className="gig-grid__col-role" />
-          ))}
-        </colgroup>
-        <thead ref={theadRef}>
-          <tr>
-            <th>Date</th>
-            {showBandColumn && <th>Band</th>}
-            <th>Town</th>
-            <th title="Arrival">Arr</th>
-            <th title="Finish">Fin</th>
+    <div className="gig-grid-wrap">
+      <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
+        <table>
+          <colgroup>
+            <col className="gig-grid__col-date" />
+            {showBandColumn && <col className="gig-grid__col-town" />}
+            <col className="gig-grid__col-town" />
+            <col className="gig-grid__col-time" />
+            <col className="gig-grid__col-time" />
             {GROUPS_LEFT.map((g) => (
-              <th key={g.key} title={g.title}>{g.label}</th>
+              <col key={g.key} className="gig-grid__col-role" />
             ))}
-            <th title="Guitar 1">Gtr</th>
-            <th title="Guitar 2 or Keys" className="gig-grid__th-split">
-              <div>Gt2</div>
-              <div>Key</div>
-            </th>
+            <col className="gig-grid__col-role" />
+            <col className="gig-grid__col-role" />
             {GROUPS_RIGHT.map((g) => (
-              <th key={g.key} title={g.title}>{g.label}</th>
+              <col key={g.key} className="gig-grid__col-role" />
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((group, groupIdx) => {
-            const firstGig = group[0];
-            const monthKey = firstGig.gig_date.slice(0, 7);
-            const showMonthRow = monthKey !== prevMonth;
-            prevMonth = monthKey;
+          </colgroup>
+          <thead ref={theadRef}>
+            <tr>
+              <th>Date</th>
+              {showBandColumn && <th>Band</th>}
+              <th>Town</th>
+              <th title="Arrival">Arr</th>
+              <th title="Finish">Fin</th>
+              {GROUPS_LEFT.map((g) => (
+                <th key={g.key} title={g.title}>{g.label}</th>
+              ))}
+              <th title="Guitar 1">Gtr</th>
+              <th title="Guitar 2 or Keys" className="gig-grid__th-split">
+                <div>Gt2</div>
+                <div>Key</div>
+              </th>
+              {GROUPS_RIGHT.map((g) => (
+                <th key={g.key} title={g.title}>{g.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((group, groupIdx) => {
+              const firstGig = group[0];
+              const monthKey = firstGig.gig_date.slice(0, 7);
+              const showMonthRow = monthKey !== prevMonth;
+              prevMonth = monthKey;
 
-            return (
-              <GigGroupRows
-                key={groupIdx}
-                group={group}
-                showMonthRow={showMonthRow}
-                monthLabel={formatMonthYear(firstGig.gig_date)}
-                showBandColumn={showBandColumn}
-                totalCols={totalCols}
-                onSelectGig={onSelectGig}
-              />
-            );
-          })}
-        </tbody>
-      </table>
+              return (
+                <GigGroupRows
+                  key={groupIdx}
+                  group={group}
+                  showMonthRow={showMonthRow}
+                  monthLabel={formatMonthYear(firstGig.gig_date)}
+                  showBandColumn={showBandColumn}
+                  totalCols={totalCols}
+                  onSelectGig={onSelectGig}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <p className="gig-grid__legend">
         Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2 or Keys &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
       </p>
