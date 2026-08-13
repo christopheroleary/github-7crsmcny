@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect, useId } from 'react';
 import { todayStr } from '../utils/formatDate.js';
-
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MONTH_LABELS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import { WEEKDAY_LABELS, MONTH_LABELS, mondayIndex, buildMonthGrid } from '../utils/monthGrid.js';
 
 function parseISO(iso) {
   if (!iso) return null;
@@ -22,33 +17,6 @@ function formatDisplay(iso) {
   const p = parseISO(iso);
   if (!p) return '';
   return new Date(p.y, p.m - 1, p.d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-// Monday-first index (0=Mon..6=Sun) for a JS Date.getDay() (0=Sun..6=Sat).
-function mondayIndex(jsDay) {
-  return (jsDay + 6) % 7;
-}
-
-// Always exactly 42 cells (6 full weeks) so the panel is the same height
-// every month -- otherwise a 4-week Feb next to a 6-week Aug would jump
-// the whole page as you page through months.
-function buildMonthGrid(year, month) {
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const firstWeekday = mondayIndex(new Date(year, month - 1, 1).getDay());
-  const prevMonthDays = new Date(year, month - 1, 0).getDate();
-
-  const cells = [];
-  for (let i = 0; i < firstWeekday; i++) {
-    cells.push({ day: prevMonthDays - firstWeekday + 1 + i, monthOffset: -1 });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, monthOffset: 0 });
-  }
-  let nextDay = 1;
-  while (cells.length < 42) {
-    cells.push({ day: nextDay++, monthOffset: 1 });
-  }
-  return cells;
 }
 
 // Custom calendar picker, styled the same on every platform instead of

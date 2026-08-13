@@ -7,6 +7,7 @@ import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
 import CalendarFeed from './CalendarFeed.jsx';
+import GigCalendar from './GigCalendar.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
@@ -64,6 +65,16 @@ export default function GigsList() {
     setSelectedSection(null);
   }
 
+  // Persisted like selected_gig_id below — the chosen view survives a
+  // reload/PWA restart instead of always resetting to List.
+  const [viewMode, setViewMode] = useState(
+    () => localStorage.getItem('gig_manager_view_mode') || 'list'
+  );
+  function changeViewMode(mode) {
+    localStorage.setItem('gig_manager_view_mode', mode);
+    setViewMode(mode);
+  }
+
   const [showHistoric, setShowHistoric] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNeedsInvoicing, setShowNeedsInvoicing] = useState(false);   // admin
@@ -85,7 +96,10 @@ export default function GigsList() {
     profileId: me?.id,
     // these filters target past gigs, so force historic on when any is active.
     // showIncompleteRoster is deliberately excluded — it's an upcoming-gigs concern.
-    showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs || showPendingClaims,
+    // Calendar mode also forces it on — paging back to a past month needs the
+    // full history, and the hook can't be called conditionally to fetch a
+    // narrower range only in list mode.
+    showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || viewMode === 'calendar',
   });
 
   // ── Client-side filters ───────────────────────────────────────────────────────
@@ -193,67 +207,88 @@ export default function GigsList() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 6, marginBottom: 16 }}>
+      <div className="view-toggle" style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         <button
-          className="btn btn--ghost btn--small"
-          onClick={() => setShowHistoric((v) => !v)}
+          className={`btn btn--small ${viewMode === 'list' ? 'btn--primary' : 'btn--ghost'}`}
+          style={{ width: 'auto' }}
+          onClick={() => changeViewMode('list')}
         >
-          {showHistoric ? 'Hide historic' : 'Show historic'}
+          List
         </button>
-        {isAdmin && (
-          <button
-            className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
-            onClick={() => {
-              setShowNeedsInvoicing((v) => !v);
-              setShowPendingClaims(false);
-              setShowIncompleteRoster(false);
-            }}
-          >
-            {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            className={`btn btn--small ${showPendingClaims ? 'btn--primary' : 'btn--ghost'}`}
-            onClick={() => {
-              setShowPendingClaims((v) => !v);
-              setShowNeedsInvoicing(false);
-              setShowIncompleteRoster(false);
-            }}
-          >
-            {showPendingClaims ? 'Pending claims ✕' : 'Pending claims'}
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            className={`btn btn--small ${showIncompleteRoster ? 'btn--primary' : 'btn--ghost'}`}
-            onClick={() => {
-              setShowIncompleteRoster((v) => !v);
-              setShowNeedsInvoicing(false);
-              setShowPendingClaims(false);
-            }}
-          >
-            {showIncompleteRoster ? 'Roster incomplete ✕' : 'Roster incomplete'}
-          </button>
-        )}
-        {!isAdmin && (
-          <button
-            className={`btn btn--small ${showUnclaimedGigs ? 'btn--primary' : 'btn--ghost'}`}
-            onClick={() => setShowUnclaimedGigs((v) => !v)}
-          >
-            {showUnclaimedGigs ? 'Unpaid claims ✕' : 'Unpaid claims'}
-          </button>
-        )}
+        <button
+          className={`btn btn--small ${viewMode === 'calendar' ? 'btn--primary' : 'btn--ghost'}`}
+          style={{ width: 'auto' }}
+          onClick={() => changeViewMode('calendar')}
+        >
+          Calendar
+        </button>
       </div>
 
-      {/* ── Active filter hint ───────────────────────────────────────────────── */}
-      {(showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || showIncompleteRoster) && (
-        <p className="filter-hint">
-          {showNeedsInvoicing && 'Showing past gigs with unsettled invoices.'}
-          {showUnclaimedGigs && 'Showing past gigs with outstanding or missing claims.'}
-          {showPendingClaims && 'Showing gigs with a musician claim awaiting your review.'}
-          {showIncompleteRoster && "Showing gigs whose roster isn't fully booked yet."}
-        </p>
+      {viewMode === 'list' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 6, marginBottom: 16 }}>
+            <button
+              className="btn btn--ghost btn--small"
+              onClick={() => setShowHistoric((v) => !v)}
+            >
+              {showHistoric ? 'Hide historic' : 'Show historic'}
+            </button>
+            {isAdmin && (
+              <button
+                className={`btn btn--small ${showNeedsInvoicing ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={() => {
+                  setShowNeedsInvoicing((v) => !v);
+                  setShowPendingClaims(false);
+                  setShowIncompleteRoster(false);
+                }}
+              >
+                {showNeedsInvoicing ? 'Needs invoicing ✕' : 'Needs invoicing'}
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                className={`btn btn--small ${showPendingClaims ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={() => {
+                  setShowPendingClaims((v) => !v);
+                  setShowNeedsInvoicing(false);
+                  setShowIncompleteRoster(false);
+                }}
+              >
+                {showPendingClaims ? 'Pending claims ✕' : 'Pending claims'}
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                className={`btn btn--small ${showIncompleteRoster ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={() => {
+                  setShowIncompleteRoster((v) => !v);
+                  setShowNeedsInvoicing(false);
+                  setShowPendingClaims(false);
+                }}
+              >
+                {showIncompleteRoster ? 'Roster incomplete ✕' : 'Roster incomplete'}
+              </button>
+            )}
+            {!isAdmin && (
+              <button
+                className={`btn btn--small ${showUnclaimedGigs ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={() => setShowUnclaimedGigs((v) => !v)}
+              >
+                {showUnclaimedGigs ? 'Unpaid claims ✕' : 'Unpaid claims'}
+              </button>
+            )}
+          </div>
+
+          {/* ── Active filter hint ───────────────────────────────────────────── */}
+          {(showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || showIncompleteRoster) && (
+            <p className="filter-hint">
+              {showNeedsInvoicing && 'Showing past gigs with unsettled invoices.'}
+              {showUnclaimedGigs && 'Showing past gigs with outstanding or missing claims.'}
+              {showPendingClaims && 'Showing gigs with a musician claim awaiting your review.'}
+              {showIncompleteRoster && "Showing gigs whose roster isn't fully booked yet."}
+            </p>
+          )}
+        </>
       )}
 
       {/* ── Offline / sync status bar ────────────────────────────────────────── */}
@@ -288,6 +323,18 @@ export default function GigsList() {
         />
       )}
 
+      {viewMode === 'calendar' && (
+        <GigCalendar
+          gigs={rawGigs}
+          isAdmin={isAdmin}
+          isOffline={isOffline}
+          cachedGigIds={cachedGigIds}
+          onSelectGig={selectGig}
+        />
+      )}
+
+      {viewMode === 'list' && (
+      <>
       {gigs.length > 0 && (
         <SearchBox
           value={query}
@@ -422,6 +469,8 @@ export default function GigsList() {
             </p>
           )}
         </>
+      )}
+      </>
       )}
     </div>
   );

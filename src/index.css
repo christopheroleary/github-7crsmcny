@@ -3204,6 +3204,178 @@ input:not([type]) {
   flex: 1;
 }
 
+/* ---------- Calendar view (GigCalendar.jsx) ----------
+   Month-grid alternative to the flat gig list, reusing DateInput's
+   42-cell-always grid math (see utils/monthGrid.js) and the existing
+   .date-picker__nav/__title classes for the header, scaled up to a full
+   page instead of a small popover. */
+.calendar {
+  margin-top: 4px;
+}
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.calendar-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+.calendar-weekdays span {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 4px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.calendar-day {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  min-height: 84px;
+  min-width: 0; /* grid items don't shrink below their content's intrinsic width by default -- without this, a long venue name widens the whole grid past the viewport instead of ellipsizing */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.calendar-day--muted {
+  background: var(--paper);
+  opacity: 0.5;
+}
+.calendar-day--today {
+  box-shadow: inset 0 0 0 1.5px var(--amber);
+}
+.calendar-day--has-gigs {
+  cursor: pointer;
+}
+.calendar-day--has-gigs:hover {
+  border-color: var(--amber);
+}
+.calendar-day__number {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.calendar-day--muted .calendar-day__number {
+  color: var(--text-muted);
+}
+
+.calendar-day__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.calendar-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 6px;
+  font-size: 10.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+}
+.calendar-chip__time {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.calendar-chip__label {
+  min-width: 0; /* required alongside overflow:hidden for a flex child's text-overflow:ellipsis to actually apply */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-chip--offline-unavailable {
+  opacity: 0.4;
+  cursor: default;
+}
+.calendar-day__overflow {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.calendar-day__overflow:hover {
+  color: var(--ink);
+}
+
+.calendar-popover {
+  position: relative;
+  background: var(--paper-raised);
+  border-radius: 16px;
+  padding: 40px 16px 16px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(30, 27, 22, 0.25);
+  animation: datePickerPanelIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.calendar-popover__title {
+  margin-bottom: 12px;
+}
+.calendar-popover__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.calendar-popover__list .calendar-chip {
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+@media (max-width: 480px) {
+  .calendar-day {
+    min-height: 52px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .calendar-chip__label {
+    display: none;
+  }
+  .calendar-chip {
+    justify-content: center;
+    padding: 2px;
+  }
+  .calendar-day__overflow {
+    font-size: 9.5px;
+    padding: 1px 4px;
+  }
+}
+
 .kpi-card__label {
   font-size: 12px;
   font-weight: 600;
