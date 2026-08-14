@@ -20,6 +20,14 @@ function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
 }
 
+// Stripe rejects GBP Checkout Sessions below this -- checked client-side so
+// the failure shows up as a clear inline message next to the amount field
+// instead of round-tripping to the server just to bounce back with a
+// generic "couldn't start payment" (which is exactly what happened before
+// this existed: someone tried a token/pence-sized test amount and got no
+// indication of why).
+const MIN_PAYMENT_PENCE = 30;
+
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr + 'T00:00:00');
@@ -131,13 +139,30 @@ export default function PublicDocumentView({ type, token }) {
       setPayError('Enter an amount up to the balance due.');
       return;
     }
+    if (amountPence < MIN_PAYMENT_PENCE) {
+      setPayError(`Card payments must be at least £${poundsFromPence(MIN_PAYMENT_PENCE)}.`);
+      return;
+    }
     setPayLoading(true);
     const { data: result, error } = await supabase.functions.invoke('create-invoice-checkout', {
       body: { share_token: token, amount_pence: amountPence },
     });
     if (error || !result?.url) {
       setPayLoading(false);
-      setPayError("Couldn't start payment — please try again, or use the bank details below.");
+      // The function returns a JSON body with a specific reason even on
+      // failure -- surface that instead of a one-size-fits-all message
+      // whenever it's available, since "please try again" is useless
+      // advice for e.g. an amount Stripe itself rejected as too small.
+      let serverMessage = null;
+      if (error?.context?.json) {
+        try {
+          const body = await error.context.json();
+          serverMessage = body?.error || null;
+        } catch {
+          // response body wasn't JSON -- fall through to the generic message
+        }
+      }
+      setPayError(serverMessage || "Couldn't start payment — please try again, or use the bank details below.");
       return;
     }
     // Full navigation, not a soft redirect -- Stripe Checkout is a page it

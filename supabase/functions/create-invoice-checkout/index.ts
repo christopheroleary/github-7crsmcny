@@ -5,8 +5,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 // Where to send the client back to after paying/cancelling -- the deployed
-// app origin in production, falls back to the local dev server.
-const APP_URL = Deno.env.get('APP_URL') || 'http://localhost:5173';
+// app origin in production, falls back to the local dev server. Trailing
+// slash stripped so `${APP_URL}/invoice/...` below can't end up as a
+// double slash depending on how the secret happened to be entered --
+// Cloudflare Pages' SPA fallback doesn't match that route and it silently
+// dumps the user on the sign-in page after a real, successful payment.
+const APP_URL = (Deno.env.get('APP_URL') || 'http://localhost:5173').replace(/\/+$/, '');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -43,6 +47,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (invoiceError || !invoice) {
+      // A real DB/auth error was previously indistinguishable from a
+      // genuinely bad token -- both returned the same generic 404, which
+      // made a misconfigured service-role key look identical to a client
+      // just guessing at URLs. Logging the real cause costs nothing and
+      // saves the next debugging session.
+      if (invoiceError) console.error('create-invoice-checkout invoice lookup failed:', JSON.stringify(invoiceError));
       return new Response(JSON.stringify({ error: 'Invoice not found' }), {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -69,8 +79,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // The frontend already blocks this, but this endpoint is reachable
+    // directly -- checking here too means a bypassed request gets this
+    // exact explanation instead of Stripe's less friendly rejection text.
+    if (amount_pence < 30) {
+      return new Response(JSON.stringify({ error: 'Card payments must be at least £0.30.' }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      // This account has Managed Payments on by default, which requires a
+      // Stripe product tax code on every line item unless explicitly turned
+      // off. The app already computes its own VAT (bands.vat_rate) and the
+      // invoice amount is already final -- Stripe Tax would be redundant
+      // and risks double-taxing, so this session opts out rather than
+      // wiring up product tax codes for a calculation we don't need.
+      // @ts-ignore -- not yet in this pinned SDK version's TS types
+      managed_payments: { enabled: false },
       line_items: [{
         price_data: {
           currency: 'gbp',
@@ -90,7 +118,11 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('create-invoice-checkout error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    // err.message (e.g. Stripe's "amount_too_small" rejection text) reads
+    // as a real explanation; String(err) prefixes the error class name,
+    // which is engineer-speak nobody paying an invoice needs to see.
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
