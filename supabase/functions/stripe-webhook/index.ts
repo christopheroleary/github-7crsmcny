@@ -42,24 +42,63 @@ Deno.serve(async (req) => {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      const invoiceId = session.metadata?.invoice_id;
 
-      if (invoiceId && session.payment_status === 'paid' && session.amount_total) {
-        const paymentIntentId = typeof session.payment_intent === 'string'
-          ? session.payment_intent
-          : session.payment_intent?.id ?? null;
+      if (session.mode === 'subscription') {
+        // Belt-and-braces with customer.subscription.updated below: this
+        // flips the profile to Pro the moment checkout completes, rather
+        // than waiting on a second event that normally arrives moments
+        // later anyway.
+        const profileId = session.metadata?.profile_id;
+        const subscriptionId = typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription?.id ?? null;
+        if (profileId && subscriptionId) {
+          const { error: updateError } = await admin
+            .from('profiles')
+            .update({ subscription_tier: 'pro', stripe_subscription_id: subscriptionId })
+            .eq('id', profileId);
+          if (updateError) throw updateError;
+        }
+      } else {
+        const invoiceId = session.metadata?.invoice_id;
 
-        // Same RPC the admin's manual "Record payment" button in
-        // GigInvoice.jsx calls -- one place decides when an invoice flips
-        // to paid, whether the payment came in by card or bank transfer.
-        const { error: rpcError } = await admin.rpc('record_invoice_payment', {
-          p_invoice_id: invoiceId,
-          p_amount_pence: session.amount_total,
-          p_paid_date: new Date().toISOString().slice(0, 10),
-          p_note: 'Paid online by card',
-          p_stripe_payment_intent_id: paymentIntentId,
-        });
-        if (rpcError) throw rpcError;
+        if (invoiceId && session.payment_status === 'paid' && session.amount_total) {
+          const paymentIntentId = typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id ?? null;
+
+          // Same RPC the admin's manual "Record payment" button in
+          // GigInvoice.jsx calls -- one place decides when an invoice flips
+          // to paid, whether the payment came in by card or bank transfer.
+          const { error: rpcError } = await admin.rpc('record_invoice_payment', {
+            p_invoice_id: invoiceId,
+            p_amount_pence: session.amount_total,
+            p_paid_date: new Date().toISOString().slice(0, 10),
+            p_note: 'Paid online by card',
+            p_stripe_payment_intent_id: paymentIntentId,
+          });
+          if (rpcError) throw rpcError;
+        }
+      }
+    }
+
+    // Handles renewals, cancellations, and Customer Portal changes -- the
+    // profile_id metadata carries over from checkout's subscription_data,
+    // so this works without needing to look the profile up by customer id.
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as Stripe.Subscription;
+      const profileId = subscription.metadata?.profile_id;
+      if (profileId) {
+        const isActive = event.type === 'customer.subscription.updated'
+          && (subscription.status === 'active' || subscription.status === 'trialing');
+        const { error: updateError } = await admin
+          .from('profiles')
+          .update({
+            subscription_tier: isActive ? 'pro' : 'free',
+            stripe_subscription_id: isActive ? subscription.id : null,
+          })
+          .eq('id', profileId);
+        if (updateError) throw updateError;
       }
     }
 

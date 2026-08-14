@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error: invoiceError } = await admin
       .from('invoices')
-      .select('id, invoice_items(unit_amount_pence, quantity), invoice_payments(amount_pence)')
+      .select('id, gigs(band_id), invoice_items(unit_amount_pence, quantity), invoice_payments(amount_pence)')
       .eq('share_token', share_token)
       .single();
 
@@ -57,6 +57,31 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Mirrors get_invoice_by_token's stripe_payments_enabled logic exactly --
+    // that RPC is what the public page uses to decide whether to even show
+    // a "Pay now" button, but this endpoint is reachable directly, so it
+    // needs its own copy of the same rule rather than trusting the client
+    // didn't just skip the UI check.
+    const bandId = (invoice.gigs as { band_id: string } | null)?.band_id;
+    if (bandId) {
+      const { data: leaders } = await admin
+        .from('band_leaders')
+        .select('profiles(role, subscription_tier)')
+        .eq('band_id', bandId);
+      if (leaders && leaders.length > 0) {
+        const enabled = leaders.some((l) => {
+          const p = l.profiles as unknown as { role: string; subscription_tier: string } | null;
+          return p?.role === 'admin' || p?.subscription_tier === 'pro';
+        });
+        if (!enabled) {
+          return new Response(JSON.stringify({ error: 'Card payments are not set up for this band yet.' }), {
+            status: 403,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          });
+        }
+      }
     }
 
     const totalDue = (invoice.invoice_items || []).reduce(

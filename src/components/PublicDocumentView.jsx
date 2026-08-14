@@ -347,7 +347,7 @@ export default function PublicDocumentView({ type, token }) {
             </div>
           )}
 
-          {type === 'invoice' && balance > 0 && (
+          {type === 'invoice' && balance > 0 && data.stripe_payments_enabled && (
             <div className="invoice-payment">
               <p className="invoice-payment__heading">Pay now</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>

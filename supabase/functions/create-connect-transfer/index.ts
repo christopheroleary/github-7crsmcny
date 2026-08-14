@@ -67,6 +67,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Paying musicians via Stripe is a Pro feature for the band leader doing
+    // the paying -- checked against the CALLER's own profile, not the
+    // musician's, since the caller is the one whose subscription unlocks it.
+    const { data: { user: caller } } = await callerClient.auth.getUser();
+    const { data: callerProfile } = await admin
+      .from('profiles')
+      .select('role, subscription_tier')
+      .eq('id', caller?.id)
+      .single();
+    if (callerProfile?.role !== 'admin' && callerProfile?.subscription_tier !== 'pro') {
+      return new Response(JSON.stringify({ error: 'Paying musicians via Stripe is a Pro feature — upgrade in My Profile.' }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (claim.status !== 'approved') {
       return new Response(JSON.stringify({ error: 'Only an approved claim can be paid' }), {
         status: 400,

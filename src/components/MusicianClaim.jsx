@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { printHtmlDocument } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import NumberInput from './NumberInput.jsx';
@@ -376,6 +377,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 // 3. Main component
 // -------------------------------------------------------------------
 export default function MusicianClaim({ gigId, myProfileId }) {
+  const { isPro } = useCurrentProfile();
   const [claim, setClaim]       = useState(null);
   const [myLineup, setMyLineup] = useState(null);
   const [gig, setGig]           = useState(null);
@@ -526,7 +528,18 @@ export default function MusicianClaim({ gigId, myProfileId }) {
     const { error: rpcError } = claimId
       ? await supabase.rpc('update_musician_claim', { p_claim_id: claimId, p_notes: notes || null, p_items: parsedItems })
       : await supabase.rpc('create_musician_claim', { p_gig_id: gigId, p_notes: notes || null, p_items: parsedItems });
-    if (rpcError) { setError(rpcError.message); setSaving(false); return; }
+    if (rpcError) {
+      // Raised by create_musician_claim/update_musician_claim's own Pro
+      // check when this is reached directly rather than via the (already
+      // hidden, for a free-tier musician) submit button -- strip the
+      // machine-readable prefix so the message reads cleanly.
+      const message = rpcError.message?.startsWith('PRO_REQUIRED: ')
+        ? rpcError.message.slice('PRO_REQUIRED: '.length)
+        : rpcError.message;
+      setError(message);
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setEditing(false);
@@ -553,13 +566,17 @@ export default function MusicianClaim({ gigId, myProfileId }) {
               will be added as its own line when you start a claim.
             </p>
           )}
-          <button
-            className="btn btn--primary btn--small"
-            style={{ marginTop: 8 }}
-            onClick={startCreate}
-          >
-            Submit a claim for this gig
-          </button>
+          {isPro ? (
+            <button
+              className="btn btn--primary btn--small"
+              style={{ marginTop: 8 }}
+              onClick={startCreate}
+            >
+              Submit a claim for this gig
+            </button>
+          ) : (
+            <p className="field__hint" style={{ marginTop: 8 }}>Claims are a Pro feature — upgrade in My Profile to submit one.</p>
+          )}
         </>
       )}
 
@@ -591,7 +608,7 @@ export default function MusicianClaim({ gigId, myProfileId }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            {(claim.status === 'pending' || claim.status === 'rejected') && (
+            {isPro && (claim.status === 'pending' || claim.status === 'rejected') && (
               <button
                 className="link-button"
                 style={{ marginTop: '12px' }}

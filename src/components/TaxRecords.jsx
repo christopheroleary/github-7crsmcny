@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { taxYearOptions } from '../utils/taxYear.js';
 import { SA103_EXPENSE_BOX, SA103_TURNOVER_BOX, SA103_OTHER_INCOME_BOX } from '../utils/sa103Boxes.js';
 import { mileageRateForTaxYear } from '../utils/mileageRates.js';
@@ -41,6 +42,11 @@ function groupSum(rows) {
 // separate "date paid" column to bucket by instead. Expenses are the
 // standalone expenses table, bucketed by its own date column.
 export default function TaxRecords({ profileId }) {
+  // Gated on the CURRENT viewer's own Pro status, not profileId's -- an
+  // admin viewing any musician's records via MusiciansList is always Pro
+  // (same admin bypass as everywhere else), so this only actually blocks a
+  // musician viewing their own tax records without their own subscription.
+  const { isPro } = useCurrentProfile();
   const [loading, setLoading] = useState(true);
   const options = taxYearOptions();
   const [startYear, setStartYear] = useState(options[0].startYear);
@@ -124,6 +130,15 @@ export default function TaxRecords({ profileId }) {
   }, [load]);
 
   if (loading) return null;
+
+  if (!isPro) {
+    return (
+      <div className="day-sheet__section">
+        <h3 className="day-sheet__section-title">Tax records</h3>
+        <p className="field__hint">Making Tax Digital records are a Pro feature — upgrade in My Profile to view and export them.</p>
+      </div>
+    );
+  }
 
   const incomeTotal = income.reduce((sum, i) => sum + i.amount_pence, 0);
   const otherIncomeTotal = otherIncomeRows.reduce((sum, r) => sum + r.amount_pence, 0);

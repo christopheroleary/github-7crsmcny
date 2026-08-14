@@ -18,7 +18,7 @@ function vatPenceFor(subtotalPence, ratePercent) {
 }
 
 export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
-  const { isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
@@ -213,9 +213,13 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
           </p>
         )}
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-          {creating ? 'Creating…' : 'Create invoice'}
-        </button>
+        {isPro ? (
+          <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating…' : 'Create invoice'}
+          </button>
+        ) : (
+          <p className="field__hint" style={{ marginTop: 12 }}>Invoicing is a Pro feature — upgrade in My Profile to create one.</p>
+        )}
       </div>
     );
   }

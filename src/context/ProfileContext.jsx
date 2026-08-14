@@ -94,7 +94,7 @@ export function ProfileProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, ui_theme, avatar_url')
+        .select('id, full_name, role, ui_theme, avatar_url, subscription_tier')
         .eq('id', uid)
         .single();
       if (error) throw error;
@@ -150,6 +150,11 @@ export function ProfileProvider({ children }) {
         profile,
         isAdmin: profile?.role === 'admin',
         isBandLeader: profile?.role === 'band_leader',
+        // Admins always have full access -- same reasoning as is_admin()
+        // bypassing everything else in RLS -- everyone else needs an
+        // active £1/month subscription. One flag, checked everywhere a
+        // Pro-gated feature needs to decide whether to allow or upsell.
+        isPro: profile?.role === 'admin' || profile?.subscription_tier === 'pro',
         ledBandIds,
         loading,
         // Re-fetches and re-caches the profile -- for callers that just wrote

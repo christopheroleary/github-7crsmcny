@@ -241,7 +241,18 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       if (ue) { setError(ue.message); setSubmitting(false); return; }
     } else {
       const { data: ng, error: ie } = await supabase.from('gigs').insert(payload).select().single();
-      if (ie) { setError(ie.message); setSubmitting(false); return; }
+      if (ie) {
+        // Raised by the enforce_gig_free_tier_cap_trigger DB trigger, not
+        // caught client-side beforehand -- the trigger is the actual source
+        // of truth for the 12-gig free limit, this just strips the
+        // machine-readable prefix so the message reads cleanly.
+        const message = ie.message?.startsWith('FREE_TIER_GIG_LIMIT: ')
+          ? ie.message.slice('FREE_TIER_GIG_LIMIT: '.length)
+          : ie.message;
+        setError(message);
+        setSubmitting(false);
+        return;
+      }
       gigId = ng.id;
     }
 

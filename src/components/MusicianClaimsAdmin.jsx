@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { confirmAsync } from '../utils/confirmService.js';
 import { promptAsync } from '../utils/promptService.js';
 import { notify } from '../utils/toastService.js';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 
 function sortedItems(claim) {
   return [...(claim.musician_claim_items || [])].sort((a, b) => a.sort_order - b.sort_order);
@@ -24,6 +25,7 @@ const STATUS_COLORS = {
 };
 
 export default function MusicianClaimsAdmin({ gigId }) {
+  const { isPro } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
   const [expectedByProfile, setExpectedByProfile] = useState({});
   const [loading, setLoading] = useState(true);
@@ -188,7 +190,7 @@ export default function MusicianClaimsAdmin({ gigId }) {
                 )}
                 {claim.status === 'approved' && (
                   <>
-                    {claim.profiles?.stripe_connect_status === 'active' && (
+                    {isPro && claim.profiles?.stripe_connect_status === 'active' && (
                       <button
                         className="link-button"
                         onClick={() => payViaStripe(claim)}

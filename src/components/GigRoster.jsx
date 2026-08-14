@@ -80,7 +80,7 @@ function CaptainBadge() {
 }
 
 export default function GigRoster({ gigId }) {
-  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
   const [lineup, setLineup] = useState([]);
@@ -505,7 +505,7 @@ export default function GigRoster({ gigId }) {
     <div className="roster-section">
       <h3 className="roster-section__title">Roster &amp; vacancies</h3>
 
-      {isAdmin && (
+      {isAdmin && isPro && (
         <button
           type="button"
           className="btn btn--ghost btn--small"
@@ -514,6 +514,9 @@ export default function GigRoster({ gigId }) {
         >
           🔍 Find a dep
         </button>
+      )}
+      {isAdmin && !isPro && (
+        <p className="field__hint" style={{ marginBottom: 12 }}>The dep finder wizard is a Pro feature — upgrade in My Profile.</p>
       )}
 
       {(requirements.length > 0 || gigNeeds.needs_dj || gigNeeds.needs_roadie) && (
@@ -526,7 +529,7 @@ export default function GigRoster({ gigId }) {
                 <span>{r.instruments?.name}</span>
                 <span>
                   {filled}/{r.quantity} filled{vacant > 0 ? ' — need ' + vacant + ' more' : ''}
-                  {isAdmin && vacant > 0 && (
+                  {isAdmin && isPro && vacant > 0 && (
                     <button
                       type="button"
                       className="link-button"

@@ -13,7 +13,7 @@ function poundsFromPence(pence) {
 }
 
 export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
-  const { isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [quote, setQuote] = useState(null);
   const [items, setItems] = useState([]);
@@ -178,9 +178,13 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
           </p>
         )}
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-          {creating ? 'Creating…' : 'Create quote'}
-        </button>
+        {isPro ? (
+          <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating…' : 'Create quote'}
+          </button>
+        ) : (
+          <p className="field__hint" style={{ marginTop: 12 }}>Quotes are a Pro feature — upgrade in My Profile to create one.</p>
+        )}
       </div>
     );
   }
@@ -273,7 +277,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
                   <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>
                 </>
               )}
-              {quote.status === 'accepted' && !locked && (
+              {quote.status === 'accepted' && !locked && isPro && (
                 <button className="btn btn--ghost" onClick={handleConvertToInvoice} disabled={converting}>
                   {converting ? 'Converting…' : 'Convert to invoice'}
                 </button>

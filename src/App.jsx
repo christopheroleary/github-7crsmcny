@@ -67,16 +67,18 @@ export default function App() {
   // session would fall straight through to the normal signed-in app instead
   // of prompting for a new password.
   const [passwordRecovery, setPasswordRecovery] = useState(false);
-  const { profile, isAdmin, isBandLeader, loading: profileLoading } = useCurrentProfile();
+  const { profile, isAdmin, isBandLeader, loading: profileLoading, refreshProfile } = useCurrentProfile();
   // localStorage, not sessionStorage: a PWA fully exited (e.g. backgrounded
   // at a venue with no signal, then killed by the OS) loses sessionStorage
   // on relaunch — this needs to survive that so the user lands back on the
   // gig they were on instead of defaulting to Dashboard.
   const [view, setView] = useState(() => {
-    // Stripe's Account Link onboarding redirects back here with this flag
-    // rather than to a dedicated URL -- this app has no router, so a query
-    // param is the only way it can tell the SPA where to land.
+    // Stripe's Account Link onboarding / subscription checkout both redirect
+    // back here with a flag rather than a dedicated URL -- this app has no
+    // router, so a query param is the only way it can tell the SPA where to
+    // land.
     if (window.location.search.includes('stripe_connect=1')) return 'profile';
+    if (window.location.search.includes('pro=1') || window.location.search.includes('pro=0')) return 'profile';
     return localStorage.getItem('gig_view') || 'dashboard';
   });
   const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
@@ -86,6 +88,17 @@ export default function App() {
   // on every future reload, not just this one return trip.
   useEffect(() => {
     if (window.location.search.includes('stripe_connect=1')) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (window.location.search.includes('pro=1')) {
+      window.history.replaceState({}, '', window.location.pathname);
+      // The webhook that flips subscription_tier to 'pro' normally lands
+      // well before this redirect completes, but isn't guaranteed to --
+      // re-fetching here rather than trusting the cached profile means a
+      // slow webhook just shows "free" for a moment on refresh rather than
+      // baking a stale value into the cache.
+      refreshProfile();
+    } else if (window.location.search.includes('pro=0')) {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);

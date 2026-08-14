@@ -14,7 +14,7 @@ function poundsFromPence(pence) {
 }
 
 export default function GigContract({ gigId, gigFeeAmount }) {
-  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [contract, setContract] = useState(null);
   const [gig, setGig] = useState(null);
@@ -119,9 +119,13 @@ export default function GigContract({ gigId, gigFeeAmount }) {
         <h3 className="roster-section__title">Contract</h3>
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No contract yet for this gig.</p>
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-          {creating ? 'Creating…' : 'Create contract'}
-        </button>
+        {isPro ? (
+          <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating…' : 'Create contract'}
+          </button>
+        ) : (
+          <p className="field__hint" style={{ marginTop: 12 }}>Contracts are a Pro feature — upgrade in My Profile to create one.</p>
+        )}
       </div>
     );
   }
