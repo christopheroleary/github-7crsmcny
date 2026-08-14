@@ -144,15 +144,6 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
   // payment is later removed/reduced below that -- but never touches
   // status if it was set some other way (e.g. an admin manually marking a
   // cash-in-hand payment as 'paid' with no ledger entry at all).
-  async function syncStatusToPayments(invoiceId, currentStatus, totalPaidPence, totalDuePence) {
-    if (totalDuePence > 0 && totalPaidPence >= totalDuePence && currentStatus !== 'paid') {
-      const latestDate = payments.reduce((max, p) => (p.paid_date > max ? p.paid_date : max), paymentDate || '');
-      await supabase.from('invoices').update({ status: 'paid', paid_date: latestDate || null }).eq('id', invoiceId);
-    } else if (currentStatus === 'paid' && totalPaidPence < totalDuePence) {
-      await supabase.from('invoices').update({ status: 'sent', paid_date: null }).eq('id', invoiceId);
-    }
-  }
-
   function startAddPayment() {
     setPaymentAmount('');
     setPaymentDate(new Date().toISOString().slice(0, 10));
@@ -173,11 +164,15 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       return;
     }
 
-    const { error: saveError } = await supabase.from('invoice_payments').insert({
-      invoice_id: invoice.id,
-      amount_pence: amountPence,
-      paid_date: paymentDate || new Date().toISOString().slice(0, 10),
-      note: paymentNote.trim() || null,
+    // record_invoice_payment does the insert and the paid/sent status flip
+    // atomically server-side -- the same RPC a Stripe webhook calls when a
+    // client pays online, so there's exactly one place that status-sync
+    // logic lives instead of two copies drifting apart.
+    const { error: saveError } = await supabase.rpc('record_invoice_payment', {
+      p_invoice_id: invoice.id,
+      p_amount_pence: amountPence,
+      p_paid_date: paymentDate || new Date().toISOString().slice(0, 10),
+      p_note: paymentNote.trim() || null,
     });
 
     if (saveError) {
@@ -185,9 +180,6 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       setSavingPayment(false);
       return;
     }
-
-    const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) + amountPence;
-    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, grandTotal);
 
     setSavingPayment(false);
     setAddingPayment(false);
@@ -202,8 +194,8 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       notify("Couldn't remove payment: " + deleteError.message);
       return;
     }
-    const newTotalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0) - payment.amount_pence;
-    await syncStatusToPayments(invoice.id, invoice.status, newTotalPaid, grandTotal);
+    const { error: syncError } = await supabase.rpc('sync_invoice_payment_status', { p_invoice_id: invoice.id });
+    if (syncError) notify("Payment removed, but couldn't update invoice status: " + syncError.message);
     load();
   }
 
@@ -310,7 +302,12 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
                     <li className="simple-list__item" key={p.id}>
                       <div className="simple-list__row">
                         <div>
-                          <span className="simple-list__title">£{poundsFromPence(p.amount_pence)}</span>
+                          <span className="simple-list__title">
+                            £{poundsFromPence(p.amount_pence)}
+                            {p.stripe_payment_intent_id && (
+                              <span className="status-tag status-tag--confirmed" style={{ marginLeft: 6, fontSize: 10 }}>Card</span>
+                            )}
+                          </span>
                           <span className="simple-list__subtitle">{p.paid_date}{p.note ? ' · ' + p.note : ''}</span>
                         </div>
                         <button className="link-button link-button--danger" onClick={() => handleDeletePayment(p)}>Remove</button>

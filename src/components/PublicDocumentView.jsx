@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { displayUrl } from '../utils/formatUrl.js';
 import SignatureCapture from './SignatureCapture.jsx';
+import NumberInput from './NumberInput.jsx';
 
 const RPC_BY_TYPE = {
   invoice: 'get_invoice_by_token',
@@ -45,6 +46,14 @@ export default function PublicDocumentView({ type, token }) {
   const [notFound, setNotFound] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState(null);
+  // Stripe redirects here with ?paid=1 on a genuine successful checkout --
+  // safe to acknowledge immediately even if the webhook (which is what
+  // actually updates the ledger) hasn't landed yet by the time the page
+  // reloads.
+  const [justPaid] = useState(() => new URLSearchParams(window.location.search).get('paid') === '1');
 
   const loadData = useCallback(() => {
     return supabase.rpc(RPC_BY_TYPE[type], { p_token: token }).then(({ data, error }) => {
@@ -114,6 +123,27 @@ export default function PublicDocumentView({ type, token }) {
   const isPaid = type === 'invoice' && doc.status === 'paid';
   const isOverdue = type === 'invoice' && doc.status === 'overdue';
   const isPartiallyPaid = type === 'invoice' && !isPaid && totalPaid > 0;
+
+  async function handlePayNow() {
+    setPayError(null);
+    const amountPence = payAmount === '' ? Math.max(0, balance) : Math.round(Number(payAmount) * 100);
+    if (!amountPence || amountPence <= 0 || amountPence > balance) {
+      setPayError('Enter an amount up to the balance due.');
+      return;
+    }
+    setPayLoading(true);
+    const { data: result, error } = await supabase.functions.invoke('create-invoice-checkout', {
+      body: { share_token: token, amount_pence: amountPence },
+    });
+    if (error || !result?.url) {
+      setPayLoading(false);
+      setPayError("Couldn't start payment — please try again, or use the bank details below.");
+      return;
+    }
+    // Full navigation, not a soft redirect -- Stripe Checkout is a page it
+    // hosts itself, and success_url brings the browser straight back here.
+    window.location.href = result.url;
+  }
 
   return (
     <div className="enquiry-page">
@@ -284,6 +314,41 @@ export default function PublicDocumentView({ type, token }) {
                 )}
               </div>
             </>
+          )}
+
+          {type === 'invoice' && justPaid && (
+            <div className="invoice-payment" style={{ borderColor: 'var(--teal)' }}>
+              <p className="invoice-payment__heading" style={{ color: 'var(--teal)' }}>Payment received — thank you!</p>
+            </div>
+          )}
+
+          {type === 'invoice' && balance > 0 && (
+            <div className="invoice-payment">
+              <p className="invoice-payment__heading">Pay now</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <label className="field" style={{ flex: '1 1 140px', margin: 0 }}>
+                  <span className="field__label">Amount (£)</span>
+                  <NumberInput
+                    decimals={2}
+                    min={0.01}
+                    prefix="£"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder={poundsFromPence(balance)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  style={{ width: 'auto' }}
+                  onClick={handlePayNow}
+                  disabled={payLoading}
+                >
+                  {payLoading ? 'Redirecting…' : 'Pay by card'}
+                </button>
+              </div>
+              {payError && <p className="form-error">{payError}</p>}
+            </div>
           )}
 
           {type === 'invoice' && payments.length > 0 && (
