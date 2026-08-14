@@ -1,0 +1,93 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@20?target=deno';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-07-29.dahlia' });
+
+// Called by ConnectPayoutSetup on mount. The stripe-connect-webhook
+// (account.updated) is the primary way stripe_connect_status stays current,
+// but webhooks can be missed, delayed, or -- as happened testing this --
+// simply not registered yet at the moment an account first goes active.
+// This gives the payouts page its own belt-and-braces check against
+// Stripe directly, using the exact same v2 read the webhook does, so a
+// stuck "pending" self-heals the next time the musician looks at the page
+// instead of needing a webhook redelivery or manual DB fix.
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await callerClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Not signed in' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('stripe_connect_account_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return new Response(JSON.stringify({ error: 'Profile not found' }), {
+        status: 404,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!profile.stripe_connect_account_id) {
+      return new Response(JSON.stringify({ status: null }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const account = await stripe.v2.core.accounts.retrieve(profile.stripe_connect_account_id, {
+      include: ['configuration.recipient'],
+    });
+    const status =
+      account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status || 'pending';
+
+    const { error: updateError } = await admin
+      .from('profiles')
+      .update({ stripe_connect_status: status })
+      .eq('id', user.id);
+    if (updateError) throw updateError;
+
+    return new Response(JSON.stringify({ status }), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('sync-connect-status error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+});

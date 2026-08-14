@@ -1,0 +1,78 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@20?target=deno';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
+// Separate secret from STRIPE_WEBHOOK_SECRET (the invoice-payments webhook)
+// -- this is a different registered endpoint in Stripe with its own signing
+// key, not a second use of the same one.
+const STRIPE_CONNECT_WEBHOOK_SECRET = Deno.env.get('STRIPE_CONNECT_WEBHOOK_SECRET')!;
+
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-07-29.dahlia' });
+
+Deno.serve(async (req) => {
+  const rawBody = await req.text();
+  const signature = req.headers.get('Stripe-Signature');
+
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(rawBody, signature ?? '', STRIPE_CONNECT_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('stripe-connect-webhook signature verification failed:', err);
+    return new Response('Invalid signature', { status: 400 });
+  }
+
+  try {
+    const { error: dupeError } = await admin.from('stripe_webhook_events').insert({ id: event.id });
+    if (dupeError) {
+      if ((dupeError as { code?: string }).code === '23505') {
+        return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw dupeError;
+    }
+
+    if (event.type === 'account.updated') {
+      // account.updated is a v1-shaped event regardless of whether the
+      // account was created via the v1 or v2 API, and v1's capability
+      // fields don't line up with the v2 configuration.recipient shape
+      // this app creates accounts with -- rather than parse the v1 payload,
+      // treat the event purely as a "something changed, go check" signal
+      // and re-fetch the account through the same v2 API/shape
+      // create-connect-account already uses, so there's exactly one place
+      // that understands what "active" means for these accounts.
+      const accountId = (event.data.object as { id: string }).id;
+
+      const account = await stripe.v2.core.accounts.retrieve(accountId, {
+        include: ['configuration.recipient'],
+      });
+
+      const transferStatus =
+        account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status;
+      // Whatever Stripe's status string is (active / pending / restricted /
+      // etc) gets stored as-is -- the UI already falls back to a generic
+      // "still in progress" message for anything it doesn't specifically
+      // recognise, so this doesn't need to enumerate every possible value.
+      const newStatus = transferStatus || 'pending';
+
+      const { error: updateError } = await admin
+        .from('profiles')
+        .update({ stripe_connect_status: newStatus })
+        .eq('stripe_connect_account_id', accountId);
+      if (updateError) throw updateError;
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('stripe-connect-webhook error:', err);
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+});

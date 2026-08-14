@@ -27,13 +27,14 @@ export default function MusicianClaimsAdmin({ gigId }) {
   const [claims, setClaims] = useState([]);
   const [expectedByProfile, setExpectedByProfile] = useState({});
   const [loading, setLoading] = useState(true);
+  const [payingId, setPayingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data }, { data: lineup }] = await Promise.all([
       supabase
         .from('musician_claims')
-        .select('*, profiles(full_name), musician_claim_items(*)')
+        .select('*, profiles(full_name, stripe_connect_status), musician_claim_items(*)')
         .eq('gig_id', gigId)
         .order('created_at'),
       // What the roster/fee-split view actually allocated this musician for
@@ -93,6 +94,43 @@ export default function MusicianClaimsAdmin({ gigId }) {
     load();
   }
 
+  // The automated alternative to "Mark paid" -- only offered once the
+  // musician's Connect account is actually active (checked server-side
+  // too, this is just so the button doesn't appear for someone who isn't
+  // ready yet). The claim only flips to 'paid' once Stripe confirms the
+  // transfer went through -- see create-connect-transfer's own comment for
+  // why that ordering matters.
+  async function payViaStripe(claim) {
+    setPayingId(claim.id);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const { data, error } = await supabase.functions.invoke('create-connect-transfer', {
+      body: { claim_id: claim.id },
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    setPayingId(null);
+    if (error || !data?.ok) {
+      // supabase-js only parses the response body into `data` on a 2xx --
+      // for a non-2xx it's `data: null, error: FunctionsHttpError`, whose
+      // own .message is just the generic "non-2xx status code". The
+      // function's actual reason (e.g. "insufficient funds") only comes
+      // through by reading the raw response body error.context wraps.
+      let serverMessage = data?.error || null;
+      if (!serverMessage && error?.context?.json) {
+        try {
+          const body = await error.context.json();
+          serverMessage = body?.error || null;
+        } catch {
+          // response body wasn't JSON -- fall through to the generic message
+        }
+      }
+      notify("Couldn't pay via Stripe: " + (serverMessage || error?.message || 'unknown error'));
+      return;
+    }
+    notify('Paid £' + poundsFromPence(data.amount_pence) + ' via Stripe.');
+    load();
+  }
+
   if (loading) return null;
   if (claims.length === 0) return (
     <div className="roster-section">
@@ -120,6 +158,11 @@ export default function MusicianClaimsAdmin({ gigId }) {
                   </span>
                 ))}
                 {claim.notes && <span className="simple-list__subtitle">{claim.notes}</span>}
+                {claim.status === 'paid' && claim.stripe_transfer_id && (
+                  <span className="status-tag status-tag--confirmed" style={{ marginTop: 4, fontSize: 10 }}>
+                    Paid via Stripe
+                  </span>
+                )}
                 {expectedByProfile[claim.profile_id] != null && (() => {
                   const diff = claimTotalPence(claim) - expectedByProfile[claim.profile_id];
                   return diff === 0 ? (
@@ -144,7 +187,18 @@ export default function MusicianClaimsAdmin({ gigId }) {
                   </>
                 )}
                 {claim.status === 'approved' && (
-                  <button className="link-button" onClick={() => updateStatus(claim, 'paid')}>Mark paid</button>
+                  <>
+                    {claim.profiles?.stripe_connect_status === 'active' && (
+                      <button
+                        className="link-button"
+                        onClick={() => payViaStripe(claim)}
+                        disabled={payingId === claim.id}
+                      >
+                        {payingId === claim.id ? 'Paying…' : 'Pay via Stripe'}
+                      </button>
+                    )}
+                    <button className="link-button" onClick={() => updateStatus(claim, 'paid')}>Mark paid manually</button>
+                  </>
                 )}
               </div>
             </div>

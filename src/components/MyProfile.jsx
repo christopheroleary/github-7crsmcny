@@ -6,6 +6,7 @@ import EquipmentFields from './EquipmentFields.jsx';
 import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import ProfilePaymentDetails from './ProfilePaymentDetails';
+import ConnectPayoutSetup from './ConnectPayoutSetup.jsx';
 import PwaSetupGuide from './PwaSetupGuide.jsx';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
@@ -382,6 +383,7 @@ export default function MyProfile() {
         <PwaSetupGuide showHeader={false} />
       </div>
 
+      {userId && <ConnectPayoutSetup profileId={userId} />}
       {userId && <ProfilePaymentDetails profileId={userId} />}
       {userId && <MyAvailability profileId={userId} />}
       {userId && <MyRepertoire profileId={userId} />}

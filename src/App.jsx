@@ -72,9 +72,23 @@ export default function App() {
   // at a venue with no signal, then killed by the OS) loses sessionStorage
   // on relaunch — this needs to survive that so the user lands back on the
   // gig they were on instead of defaulting to Dashboard.
-  const [view, setView] = useState(() => localStorage.getItem('gig_view') || 'dashboard');
+  const [view, setView] = useState(() => {
+    // Stripe's Account Link onboarding redirects back here with this flag
+    // rather than to a dedicated URL -- this app has no router, so a query
+    // param is the only way it can tell the SPA where to land.
+    if (window.location.search.includes('stripe_connect=1')) return 'profile';
+    return localStorage.getItem('gig_view') || 'dashboard';
+  });
   const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // Strip the query param once read -- otherwise it'd force back to Profile
+  // on every future reload, not just this one return trip.
+  useEffect(() => {
+    if (window.location.search.includes('stripe_connect=1')) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   function updateView(v) {
     localStorage.setItem('gig_view', v);
