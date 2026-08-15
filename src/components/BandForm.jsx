@@ -67,9 +67,15 @@ export default function BandForm({ band, onSaved, onCancel }) {
       }
       const blob = await prepared.toBlob(invert);
       const path = band.id + '/logo.webp';
+      // canvas.toBlob('image/webp') silently falls back to image/png on any
+      // browser/OS that can't encode WebP -- declaring contentType:
+      // 'image/webp' regardless of what blob actually is causes Storage to
+      // reject the mismatch outright (found via a real failed upload on an
+      // iPhone). The path keeps its .webp name either way; browsers render
+      // off the real Content-Type header, not the URL extension.
       const { error: uploadError } = await supabase.storage
         .from(LOGO_BUCKET)
-        .upload(path, blob, { upsert: true, contentType: 'image/webp' });
+        .upload(path, blob, { upsert: true, contentType: blob.type || 'image/webp' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
       // Cache-bust so replacing an existing logo shows immediately instead

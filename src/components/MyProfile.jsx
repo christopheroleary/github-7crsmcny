@@ -122,9 +122,15 @@ export default function MyProfile() {
       // header icon), never full-screen, and storage is tight.
       const blob = await resizeImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85, maxBytes: 60 * 1024 });
       const path = userId + '/avatar.webp';
+      // canvas.toBlob('image/webp') silently falls back to image/png on any
+      // browser/OS that can't encode WebP (some iOS Safari versions among
+      // them) -- declaring contentType: 'image/webp' regardless of what blob
+      // actually is causes Storage to reject the mismatch outright. The path
+      // keeps its .webp name either way; browsers render off the real
+      // Content-Type header, not the URL extension, so this is safe.
       const { error: uploadError } = await supabase.storage
         .from(AVATAR_BUCKET)
-        .upload(path, blob, { upsert: true, contentType: 'image/webp' });
+        .upload(path, blob, { upsert: true, contentType: blob.type || 'image/webp' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
       // Cache-bust so replacing an existing photo shows immediately instead
@@ -250,6 +256,11 @@ export default function MyProfile() {
           <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
             Shown on the roster, gig day sheets and here in the app. Resized and compressed automatically — any reasonable photo works.
           </span>
+          {/* The general form error below is easy to miss on a phone -- it
+              renders near the Save button, far below this section. Showing
+              it here too means an upload/remove failure is visible right
+              next to the button that caused it. */}
+          {error && <p className="form-error" style={{ marginTop: 6 }}>{error}</p>}
         </div>
 
         <label className="field">
