@@ -40,6 +40,13 @@ Deno.serve(async (req) => {
       throw dupeError;
     }
 
+    // Everything below is wrapped separately from the dedupe insert above:
+    // if processing throws (a transient DB error, a bug, the missing-grant
+    // permission error that bit the subscription flip once already), the
+    // event id gets un-recorded so a genuine Stripe retry can actually
+    // redo the work, instead of hitting the duplicate check above and
+    // silently coming back "ok" without ever having flipped anything.
+    try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
 
@@ -100,6 +107,11 @@ Deno.serve(async (req) => {
           .eq('id', profileId);
         if (updateError) throw updateError;
       }
+    }
+
+    } catch (processingErr) {
+      await admin.from('stripe_webhook_events').delete().eq('id', event.id);
+      throw processingErr;
     }
 
     return new Response(JSON.stringify({ ok: true }), {

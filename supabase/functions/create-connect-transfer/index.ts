@@ -117,12 +117,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // A deterministic idempotency key, not a DB-level lock, is what actually
+    // closes the race -- two concurrent requests (double-click, retry, two
+    // tabs) can both pass the status check above before either write lands,
+    // but Stripe itself will only ever create one real transfer for this
+    // key and hands back the same transfer object to both callers.
     const transfer = await stripe.transfers.create({
       amount: totalPence,
       currency: 'gbp',
       destination: profile.stripe_connect_account_id,
       metadata: { claim_id, gig_id: claim.gig_id },
-    });
+    }, { idempotencyKey: `connect-transfer-${claim_id}` });
 
     const { error: updateError } = await admin
       .from('musician_claims')

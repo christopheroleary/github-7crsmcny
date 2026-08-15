@@ -35,6 +35,10 @@ Deno.serve(async (req) => {
       throw dupeError;
     }
 
+    // Same failure-resilience as stripe-webhook: if processing throws, the
+    // event id gets un-recorded so a genuine Stripe retry can redo the
+    // work instead of being silently swallowed as "already handled".
+    try {
     if (event.type === 'account.updated') {
       // account.updated is a v1-shaped event regardless of whether the
       // account was created via the v1 or v2 API, and v1's capability
@@ -63,6 +67,10 @@ Deno.serve(async (req) => {
         .update({ stripe_connect_status: newStatus })
         .eq('stripe_connect_account_id', accountId);
       if (updateError) throw updateError;
+    }
+    } catch (processingErr) {
+      await admin.from('stripe_webhook_events').delete().eq('id', event.id);
+      throw processingErr;
     }
 
     return new Response(JSON.stringify({ ok: true }), {
