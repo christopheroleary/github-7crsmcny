@@ -78,6 +78,12 @@ Deno.serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
+      // Same Managed Payments opt-out as create-invoice-checkout -- this
+      // account requires a Stripe product tax code on every line item
+      // unless a session explicitly disables it, and the Pro price wasn't
+      // created with one.
+      // @ts-ignore -- not yet in this pinned SDK version's TS types
+      managed_payments: { enabled: false },
       line_items: [{ price: PRO_PRICE_ID, quantity: 1 }],
       // Metadata on the session itself is only visible to checkout.session.*
       // events -- copying it onto subscription_data.metadata means it's also
