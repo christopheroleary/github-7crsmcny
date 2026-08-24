@@ -94,7 +94,7 @@ Deno.serve(async (_req) => {
     // telling musicians "you're on today" for one would be actively wrong.
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
-      .select('id, load_in_time, start_time, venues(name)')
+      .select('id, load_in_time, start_time, venues(name), bands(name)')
       .eq('gig_date', today)
       .eq('status', 'confirmed');
 
@@ -105,8 +105,15 @@ Deno.serve(async (_req) => {
       });
     }
 
+    // Admins previously only heard about a gig day if they personally
+    // happened to be on that gig's roster -- the common case, an admin who
+    // isn't playing but still wants to know a gig is on today, got nothing.
+    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
+    const adminIds = (admins || []).map((a) => a.id);
+
     let remindedGigs = 0;
     let remindedMusicians = 0;
+    let remindedAdmins = 0;
 
     for (const gig of gigs) {
       // Defends against double-sending if this ever runs twice for the same
@@ -126,26 +133,42 @@ Deno.serve(async (_req) => {
         .not('profile_id', 'is', null);
 
       const profileIds = Array.from(new Set((lineup || []).map((l) => l.profile_id).filter(Boolean))) as string[];
-      if (profileIds.length === 0) continue;
 
       const venueName = (gig as any).venues?.name || 'your gig';
+      const bandName = (gig as any).bands?.name || null;
       const loadIn = formatTime(gig.load_in_time);
       const onStage = formatTime(gig.start_time);
       const timeBits = [loadIn && 'Load-in ' + loadIn, onStage && 'on stage ' + onStage].filter(Boolean).join(', ');
 
-      await notifyGigDay(profileIds, {
-        title: 'Gig day: ' + venueName,
-        body: (timeBits ? timeBits + '. ' : '') + "You're on today — tap for details.",
-        tag: 'gig-day-' + gig.id,
-        url: '/gigs',
-        gig_id: gig.id,
-      });
+      if (profileIds.length > 0) {
+        await notifyGigDay(profileIds, {
+          title: 'Gig day: ' + venueName,
+          body: (timeBits ? timeBits + '. ' : '') + "You're on today — tap for details.",
+          tag: 'gig-day-' + gig.id,
+          url: '/gigs',
+          gig_id: gig.id,
+        });
+        remindedMusicians += profileIds.length;
+      }
 
-      remindedGigs += 1;
-      remindedMusicians += profileIds.length;
+      // An admin who's also personally on this gig's roster already got the
+      // musician-worded message above -- don't also send them this one.
+      const adminOnlyIds = adminIds.filter((id) => !profileIds.includes(id));
+      if (adminOnlyIds.length > 0) {
+        await notifyGigDay(adminOnlyIds, {
+          title: 'Gig day: ' + venueName,
+          body: (timeBits ? timeBits + '. ' : '') + (bandName ? bandName + ' play' : 'A gig is on') + ' today — tap for details.',
+          tag: 'gig-day-' + gig.id,
+          url: '/gigs',
+          gig_id: gig.id,
+        });
+        remindedAdmins += adminOnlyIds.length;
+      }
+
+      if (profileIds.length > 0 || adminOnlyIds.length > 0) remindedGigs += 1;
     }
 
-    return new Response(JSON.stringify({ ok: true, gigs: gigs.length, remindedGigs, remindedMusicians }), {
+    return new Response(JSON.stringify({ ok: true, gigs: gigs.length, remindedGigs, remindedMusicians, remindedAdmins }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
