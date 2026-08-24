@@ -17,7 +17,7 @@ export default function DailyNewsWidget() {
       .from('news_articles')
       .select('id, title, summary, url, source, published_at')
       .order('published_at', { ascending: false })
-      .limit(5)
+      .limit(10)
       .then(({ data }) => {
         if (!active) return;
         const list = data || [];
@@ -58,7 +58,7 @@ export default function DailyNewsWidget() {
           </span>
         )}
       </h3>
-      <ul className="simple-list">
+      <ul className="simple-list" style={{ maxHeight: 260, overflowY: 'auto' }}>
         {articles.map((a) => (
           <li className="simple-list__item" key={a.id}>
             <a

@@ -5,8 +5,14 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const TARGET_UK_HOUR = 6; // Runs once, first thing in the morning.
-const MAX_ARTICLES = 5;
-const MAX_AGE_HOURS = 24;
+const MAX_ARTICLES = 10;
+// A week, not 24h -- practical/niche gigging topics don't publish daily in
+// the UK press. Confirmed empirically: even at a week, the practical topic
+// queries alone (no MusicRadar/Rolling Stone) return only ~3 candidates
+// total -- there just isn't much UK press coverage of "session musician
+// tips" or "how to get more gigs" on any timescale a free RSS digest can
+// realistically pull from.
+const MAX_AGE_HOURS = 24 * 7;
 const CLEANUP_AFTER_DAYS = 14;
 
 // Google News' search RSS (news.google.com/rss/search?q=...) needs no API
@@ -17,9 +23,20 @@ const CLEANUP_AFTER_DAYS = 14;
 // exists specifically because "wedding band" without it returns jewellery
 // results as often as music ones.
 //
-// Each query keeps "UK" in it to bias results, except the three
-// hand-picked publications (chris flagged these as reliably good), which
-// are trusted to be relevant without needing a geography qualifier.
+// Practical/how-to topics are listed FIRST and the two broad publication
+// queries LAST -- order matters because the round-robin selection below
+// takes queries in this order, so practical content wins the available
+// slots whenever it exists, and musicradar.com/rollingstone.com (dominated
+// by celebrity-interview content -- exactly what a gigging-musician digest
+// isn't for) only fill in the remaining slots. They can't just be dropped:
+// tested removing them entirely and the practical topics alone returned 3
+// candidates for a 10-article digest, not 10 -- worse than a digest that's
+// mostly-practical-with-some-general-music-news.
+// musiciansunion.org.uk keeps its own query too -- confirmed by checking
+// its feed directly that it's genuinely practical (funding, touring
+// support, career advice), even though it's mostly evergreen resource
+// pages rather than dated news, so it rarely has anything inside even the
+// 7-day window.
 const QUERIES = [
   'function band UK musician -ring -jewellery -jewelry -diamond -engagement',
   'wedding entertainment band UK music -ring -jewellery -jewelry -diamond',
@@ -28,6 +45,12 @@ const QUERIES = [
   'live music performance UK venue',
   'music technology gear UK',
   'musical instrument news UK',
+  'gigging musician tips UK',
+  'live sound PA gear musician UK',
+  'how to get more gigs band UK',
+  'cover band UK',
+  'busking UK musicians',
+  'musicians union UK',
   'site:musiciansunion.org.uk',
   'site:musicradar.com',
   'site:rollingstone.com music',
@@ -40,7 +63,18 @@ const QUERIES = [
 const JEWELLERY_TERMS = /\b(engagement ring|wedding ring|diamond ring|jewellery|jewelry|jeweller)\b/i;
 const MUSIC_TERMS = /\b(band|music|musician|singer|guitar|drummer|bassist|keyboard|gig|concert|tour|touring|song|album|venue|performance|instrument|orchestra|dj|wedding)\b/i;
 
+// MusicRadar/Rolling Stone-style celebrity interview pieces are almost
+// always headlined as a direct quote ("I guess some of you..."), which is
+// a strong, cheap signal for "famous person says something" content --
+// exactly what a performing musician doesn't need in a gigging-focused
+// digest -- as opposed to practical/how-to journalism, which is essentially
+// never quote-led.
+function looksLikeCelebrityQuote(title: string): boolean {
+  return /^["“]/.test(title.trim());
+}
+
 function isRelevant(title: string, description: string): boolean {
+  if (looksLikeCelebrityQuote(title)) return false;
   const text = (title + ' ' + description).toLowerCase();
   if (JEWELLERY_TERMS.test(text)) return false;
   return MUSIC_TERMS.test(text);
@@ -198,14 +232,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Round-robin across queries (topics + the three preferred sources)
-    // rather than a flat sort -- a flat "most recent wins" sort let whichever
-    // single query happened to have the most fresh hits (in practice,
-    // musicradar.com alone) fill every slot, crowding out every other topic
-    // even when they had relevant candidates too. Taking each query's best
-    // (most recent) unclaimed item in turn, one round at a time, spreads the
-    // final picks across topics/sources while still favouring recency
-    // within each.
+    // Round-robin across queries rather than a flat sort -- a flat "most
+    // recent wins" sort let whichever single query happened to have the
+    // most fresh hits fill every slot, crowding out every other topic even
+    // when they had relevant candidates too. Taking each query's best (most
+    // recent) unclaimed item in turn, one round at a time, spreads the
+    // final picks across topics while still favouring recency within each.
     const byQuery = new Map<number, typeof candidates>();
     for (const c of candidates) {
       const list = byQuery.get(c.queryIndex) ?? [];
@@ -216,14 +248,32 @@ Deno.serve(async (req) => {
       list.sort((a, b) => b.publishedAt - a.publishedAt);
     }
 
+    // Even round-robin wasn't enough on its own: MusicRadar/Rolling Stone
+    // between them have far more daily supply than the practical topics do,
+    // so once practical queries run dry (round 2-3), round-robin just keeps
+    // handing every remaining slot to whichever of the two still has stock
+    // -- confirmed live, 7 of 10 chosen articles were MusicRadar/Rolling
+    // Stone on a normal day. Capping their combined contribution at half
+    // the digest means the count sometimes falls short of MAX_ARTICLES on a
+    // quiet day for practical topics, which is the honest tradeoff: fewer
+    // articles, not more famous-band coverage padding the list back to 10.
+    const fallbackQueryIndices = new Set(
+      [QUERIES.indexOf('site:musicradar.com'), QUERIES.indexOf('site:rollingstone.com music')].filter((i) => i >= 0)
+    );
+    const fallbackCap = Math.ceil(MAX_ARTICLES / 2);
+
     const chosen: typeof candidates = [];
+    let fallbackCount = 0;
     let round = 0;
     while (chosen.length < MAX_ARTICLES) {
       let addedAny = false;
-      for (const list of byQuery.values()) {
+      for (const [queryIndex, list] of byQuery.entries()) {
         if (chosen.length >= MAX_ARTICLES) break;
+        const isFallback = fallbackQueryIndices.has(queryIndex);
+        if (isFallback && fallbackCount >= fallbackCap) continue;
         if (list[round]) {
           chosen.push(list[round]);
+          if (isFallback) fallbackCount++;
           addedAny = true;
         }
       }
