@@ -8,6 +8,7 @@ const LIST_KEY = (isAdmin, showHistoric) =>
   `gigcache:list:${isAdmin ? 'admin' : 'member'}:${showHistoric ? 'all' : 'upcoming'}`;
 const GIG_KEY = (gigId) => 'gigcache:' + gigId;
 const PRECACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+const PRECACHE_CONCURRENCY = 3;
 
 // ─── Cache helpers ────────────────────────────────────────────────────────────
 
@@ -41,11 +42,21 @@ function writeGigCache(gigId, data) {
   } catch {}
 }
 
+// Walks localStorage keys by index rather than materialising the whole
+// key list via Object.keys(localStorage), which on some browsers reads every
+// value as well. This runs synchronously on the main thread during mount, so
+// on a device with a lot of cached gigs the difference is visible as a stall
+// before first paint.
 function getKnownCachedIds() {
   try {
-    return Object.keys(localStorage)
-      .filter((k) => k.startsWith('gigcache:') && !k.startsWith('gigcache:list'))
-      .map((k) => k.replace('gigcache:', ''));
+    const ids = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('gigcache:') && !k.startsWith('gigcache:list')) {
+        ids.push(k.slice('gigcache:'.length));
+      }
+    }
+    return ids;
   } catch {
     return [];
   }
@@ -83,16 +94,28 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
     const fetchedGigIds = (data || []).map((g) => g.id);
     if (fetchedGigIds.length === 0) return [];
 
+    // ── Enrichment queries ──────────────────────────────────────────────────
+    // All four depend only on fetchedGigIds and not on each other, so they go
+    // out together. Previously this was three sequential awaits (invoices,
+    // then claims, then a Promise.all for the roster pair) = four serial
+    // round trips to build one list, which on a mobile connection is roughly
+    // half a second of dead time before anything reaches the screen.
+    const [
+      { data: invoices },
+      { data: claims },
+      { data: requirements },
+      { data: lineup },
+    ] = await Promise.all([
+      supabase.from('invoices').select('gig_id, status').in('gig_id', fetchedGigIds),
+      supabase.from('musician_claims').select('gig_id, status').in('gig_id', fetchedGigIds).eq('status', 'pending'),
+      supabase.from('gig_requirements').select('gig_id, instrument_id, quantity').in('gig_id', fetchedGigIds),
+      supabase.from('gig_lineup').select('gig_id, instrument_id, is_dj, is_roadie').in('gig_id', fetchedGigIds),
+    ]);
+
     // ── Merge invoice status onto each gig ──────────────────────────────────
-    // Fetched separately since invoices live in their own table.
     // null invoice_status = no invoice created yet; 'draft'/'overdue' = unsettled.
     // GigsList filters on 'sent' | 'paid' to hide settled gigs.
     // If a gig ever has multiple invoices, the most advanced status wins.
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('gig_id, status')
-      .in('gig_id', fetchedGigIds);
-
     const STATUS_PRIORITY = { paid: 4, sent: 3, overdue: 2, draft: 1 };
     const invoiceMap = {};
     for (const inv of (invoices || [])) {
@@ -104,19 +127,10 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
 
     // ── Merge "has a pending musician claim" onto each gig ──────────────────
     // pending = submitted but admin hasn't approved, paid, or rejected it yet.
-    const { data: claims } = await supabase
-      .from('musician_claims')
-      .select('gig_id, status')
-      .in('gig_id', fetchedGigIds)
-      .eq('status', 'pending');
     const pendingClaimGigIds = new Set((claims || []).map((c) => c.gig_id));
 
     // ── Merge "roster incomplete" onto each gig ─────────────────────────────
     // Incomplete = nobody booked at all, or a required instrument is short.
-    const [{ data: requirements }, { data: lineup }] = await Promise.all([
-      supabase.from('gig_requirements').select('gig_id, instrument_id, quantity').in('gig_id', fetchedGigIds),
-      supabase.from('gig_lineup').select('gig_id, instrument_id, is_dj, is_roadie').in('gig_id', fetchedGigIds),
-    ]);
 
     const lineupCountByGig = {};
     const filledByGigInstrument = {};
@@ -159,11 +173,18 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
     }));
   }
 
-  // band_member — find their lineup gig IDs first
-  const { data: lineupRows, error: lineupError } = await supabase
-    .from('gig_lineup')
-    .select('gig_id, confirmed')
-    .eq('profile_id', profileId);
+  // band_member — find their lineup gig IDs first.
+  // The claims query only ever filters by profile_id, so it does not actually
+  // depend on the gig ids and can go out in the same round trip rather than
+  // waiting behind the gigs query. Any claim rows for gigs outside this list
+  // simply never get looked up below. 3 serial round trips -> 2.
+  const [
+    { data: lineupRows, error: lineupError },
+    { data: claims },
+  ] = await Promise.all([
+    supabase.from('gig_lineup').select('gig_id, confirmed').eq('profile_id', profileId),
+    supabase.from('musician_claims').select('gig_id, status').eq('profile_id', profileId),
+  ]);
 
   if (lineupError) throw new Error(lineupError.message);
 
@@ -191,15 +212,9 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
   if (fetchedGigIds.length === 0) return [];
 
   // ── Merge musician claim status onto each gig ──────────────────────────────
-  // Fetched separately because claim rows live in musician_claims, not gigs.
+  // Claims were fetched in parallel above; build the lookup here.
   // null claim_status = no claim submitted yet; 'pending' / 'rejected' = not
   // yet settled. GigsList filters on 'approved' | 'paid' to hide settled gigs.
-  const { data: claims } = await supabase
-    .from('musician_claims')
-    .select('gig_id, status')
-    .eq('profile_id', profileId)
-    .in('gig_id', fetchedGigIds);
-
   const claimMap = Object.fromEntries(
     (claims || []).map((c) => [c.gig_id, c.status])
   );
@@ -287,44 +302,47 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
 
   const activeRef = useRef(true);
 
-  // ── Online / offline listeners ──────────────────────────────────────────────
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-
   // ── Background pre-cacher ───────────────────────────────────────────────────
+  // Runs a small number of fetches at a time rather than strictly one after
+  // another with a fixed 300ms sleep between each. The old shape meant ~20
+  // upcoming gigs held the connection for roughly 10 seconds, and 50 for
+  // nearly half a minute, competing the whole time with whatever the user was
+  // actually tapping. Bounded concurrency finishes the same work sooner and
+  // hands the network back sooner, which is what the foreground actually
+  // cares about. PRECACHE_CONCURRENCY is deliberately low so this stays
+  // background work and doesn't saturate a weak venue connection.
   const preCacheGigs = useCallback(async (gigList) => {
     // Only pre-cache upcoming gigs (no point caching past ones)
-    const upcoming = gigList.filter((g) => g.gig_date >= today());
-
-    for (const gig of upcoming) {
-      if (!activeRef.current || !navigator.onLine) break;
-
-      const existing = readGigCache(gig.id);
+    const queue = gigList.filter((g) => {
+      if (g.gig_date < today()) return false;
+      const existing = readGigCache(g.id);
       if (existing?.synced_at) {
         const age = Date.now() - new Date(existing.synced_at).getTime();
-        if (age < PRECACHE_MAX_AGE_MS) continue;
+        if (age < PRECACHE_MAX_AGE_MS) return false;
       }
+      return true;
+    });
 
-      try {
-        const data = await fetchGigData(gig.id);
-        writeGigCache(gig.id, data);
-        if (activeRef.current) {
-          setCachedGigIds((prev) => (prev.includes(gig.id) ? prev : [...prev, gig.id]));
+    let cursor = 0;
+    async function worker() {
+      while (cursor < queue.length) {
+        if (!activeRef.current || !navigator.onLine) return;
+        const gig = queue[cursor++];
+        try {
+          const data = await fetchGigData(gig.id);
+          writeGigCache(gig.id, data);
+          if (activeRef.current) {
+            setCachedGigIds((prev) => (prev.includes(gig.id) ? prev : [...prev, gig.id]));
+          }
+        } catch {
+          // Non-fatal — skip this gig and carry on
         }
-      } catch {
-        // Non-fatal — skip this gig and carry on
       }
-
-      await new Promise((res) => setTimeout(res, 300));
     }
+
+    await Promise.all(
+      Array.from({ length: Math.min(PRECACHE_CONCURRENCY, queue.length) }, worker)
+    );
   }, []);
 
   // ── Main refresh ────────────────────────────────────────────────────────────
@@ -350,6 +368,23 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
       if (activeRef.current) setSyncing(false);
     }
   }, [isAdmin, profileId, showHistoric, cacheKey, preCacheGigs]);
+
+  // ── Online / offline listeners ──────────────────────────────────────────────
+  // Re-fetches the list the moment connectivity returns -- without this, a
+  // list opened while offline keeps showing that stale snapshot (e.g. a gig
+  // someone else just confirmed, or an invoice that got paid) until this
+  // component happens to unmount/remount. Declared after `refresh` so it can
+  // call it directly.
+  useEffect(() => {
+    const up = () => { setIsOffline(false); refresh(); };
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, [refresh]);
 
   // ── Claim-updated listener ──────────────────────────────────────────────────
   // MusicianClaim dispatches 'claim-updated' after a successful save so the list

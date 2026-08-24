@@ -414,8 +414,18 @@ export default function GigRoster({ gigId }) {
   async function handleConfirm(entry) {
     if (busyEntryId === entry.id) return;
     setBusyEntryId(entry.id);
+    // Optimistic: tick the row immediately instead of waiting on the write
+    // plus the full load() refetch behind it. A band leader confirming a
+    // roster often taps several rows in a row, and each one previously cost
+    // two round trips before the UI moved. Reverted below if the write fails.
+    setLineup((prev) => prev.map((l) => (l.id === entry.id ? { ...l, confirmed: true } : l)));
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', entry.id);
-    if (error) { notify("Couldn't confirm: " + error.message); setBusyEntryId(null); return; }
+    if (error) {
+      setLineup((prev) => prev.map((l) => (l.id === entry.id ? { ...l, confirmed: entry.confirmed } : l)));
+      notify("Couldn't confirm: " + error.message);
+      setBusyEntryId(null);
+      return;
+    }
     await load();
     setBusyEntryId(null);
   }

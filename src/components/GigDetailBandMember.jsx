@@ -65,6 +65,9 @@ function formatSyncTime(iso) {
 export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled, backLabel = '← Back to my gigs' }) {
   const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
   const [confirming, setConfirming] = useState(false);
+  // Holds the lineup row id the user just confirmed, so the banner can show
+  // the confirmed state before the refetch lands. Cleared only on failure.
+  const [justConfirmedId, setJustConfirmedId] = useState(null);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
 
@@ -88,10 +91,18 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   }, [scrollToSection, gig, onScrolled]);
 
   async function handleConfirm(myEntry) {
+    // Optimistic: flip the banner immediately rather than making the musician
+    // watch a spinner through a write round trip AND the full refetch that
+    // follows it. Confirming availability is the single most common thing a
+    // musician does in this app, often on a weak venue connection where those
+    // two trips are the difference between "instant" and "did that work?".
+    // Rolled back below if the write actually fails.
+    setJustConfirmedId(myEntry.id);
     setConfirming(true);
     const { error } = await supabase.from('gig_lineup').update({ confirmed: true }).eq('id', myEntry.id);
     setConfirming(false);
     if (error) {
+      setJustConfirmedId(null);
       notify("Couldn't confirm: " + error.message);
       return;
     }
@@ -144,7 +155,12 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       venue.latitude + ',' + venue.longitude
     : null;
 
-  const myEntry = lineup.find((l) => l.profile_id === myProfileId) || null;
+  const rawMyEntry = lineup.find((l) => l.profile_id === myProfileId) || null;
+  // Overlay the optimistic confirm until the refetch catches up.
+  const myEntry =
+    rawMyEntry && justConfirmedId === rawMyEntry.id && !rawMyEntry.confirmed
+      ? { ...rawMyEntry, confirmed: true }
+      : rawMyEntry;
   const myTravel = myEntry?.travel_cost_pence;
 
   // Captain always leads the list; a pure DJ/roadie (no instrument, so not
