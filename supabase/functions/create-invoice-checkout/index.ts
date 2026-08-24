@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error: invoiceError } = await admin
       .from('invoices')
-      .select('id, gigs(band_id), invoice_items(unit_amount_pence, quantity), invoice_payments(amount_pence)')
+      .select('id, share_token_expires_at, share_token_revoked_at, gigs(band_id), invoice_items(unit_amount_pence, quantity), invoice_payments(amount_pence)')
       .eq('share_token', share_token)
       .single();
 
@@ -53,6 +53,23 @@ Deno.serve(async (req) => {
       // just guessing at URLs. Logging the real cause costs nothing and
       // saves the next debugging session.
       if (invoiceError) console.error('create-invoice-checkout invoice lookup failed:', JSON.stringify(invoiceError));
+      return new Response(JSON.stringify({ error: 'Invoice not found' }), {
+        status: 404,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // This runs on the service-role client, so RLS and the liveness check
+    // baked into get_invoice_by_token are both bypassed here -- an expired
+    // or revoked link would otherwise still be able to open a Checkout
+    // session even though the invoice page itself refuses to load. Mirrors
+    // public.share_token_is_live(). Same generic 404 as a bad token, so
+    // this cannot be used to probe whether a token once existed.
+    const revoked = invoice.share_token_revoked_at !== null;
+    const expired =
+      invoice.share_token_expires_at !== null &&
+      new Date(invoice.share_token_expires_at) <= new Date();
+    if (revoked || expired) {
       return new Response(JSON.stringify({ error: 'Invoice not found' }), {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

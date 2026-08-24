@@ -5,6 +5,7 @@ import ContractPrintModal from './ContractPrintModal.jsx';
 import SignatureCapture from './SignatureCapture.jsx';
 import DateInput from './DateInput.jsx';
 import NumberInput from './NumberInput.jsx';
+import ShareLinkField from './ShareLinkField.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
@@ -210,23 +211,7 @@ export default function GigContract({ gigId, gigFeeAmount }) {
               </div>
             )}
 
-            <div className="field" style={{ marginTop: 12 }}>
-              <span className="field__label">Client view link</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  value={window.location.origin + '/contract/' + contract.share_token}
-                  readOnly
-                  style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--paper)', fontFamily: 'var(--font-mono)' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--small"
-                  onClick={() => navigator.clipboard.writeText(window.location.origin + '/contract/' + contract.share_token)}
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
+            <ShareLinkField docType="contract" doc={contract} onChange={setContract} />
 
             {locked && (
               <p className="field__hint">Marked signed and locked from edits or deletion.</p>

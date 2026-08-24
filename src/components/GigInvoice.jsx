@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import ShareLinkField from './ShareLinkField.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
@@ -364,23 +365,7 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
               )}
             </div>
 
-            <div className="field" style={{ marginTop: 12 }}>
-              <span className="field__label">Client payment link</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  value={window.location.origin + '/invoice/' + invoice.share_token}
-                  readOnly
-                  style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--paper)', fontFamily: 'var(--font-mono)' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--small"
-                  onClick={() => navigator.clipboard.writeText(window.location.origin + '/invoice/' + invoice.share_token)}
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
+            <ShareLinkField docType="invoice" doc={invoice} onChange={setInvoice} label="Client payment link" />
 
             {invoice.status === 'paid' && (
               <p className="field__hint">Invoice is marked paid and locked from edits or deletion.</p>

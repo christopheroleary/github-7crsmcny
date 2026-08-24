@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import ShareLinkField from './ShareLinkField.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import QuotePrintModal from './QuotePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
@@ -233,23 +234,7 @@ export default function GigQuote({ gigId, gigFeeAmount, onConverted }) {
             </table>
             </div>
 
-            <div className="field" style={{ marginTop: 12 }}>
-              <span className="field__label">Client view link</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  value={window.location.origin + '/quote/' + quote.share_token}
-                  readOnly
-                  style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--paper)', fontFamily: 'var(--font-mono)' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--small"
-                  onClick={() => navigator.clipboard.writeText(window.location.origin + '/quote/' + quote.share_token)}
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
+            <ShareLinkField docType="quote" doc={quote} onChange={setQuote} />
 
             {locked && (
               <p className="field__hint">Converted to invoice — locked from further edits. Manage billing from the Invoice section below.</p>
