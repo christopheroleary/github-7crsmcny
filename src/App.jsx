@@ -293,7 +293,20 @@ export default function App() {
           <button
             key={key}
             className={view === key ? 'tab tab--active' : 'tab'}
-            onClick={() => updateView(key)}
+            onClick={() => {
+              // Clicking Gigs/My gigs always lands on the list, even when a
+              // gig's detail view is already open there -- updateView alone
+              // is a no-op in that case since `view` doesn't change, so the
+              // click would otherwise do nothing. selected_gig_id is left
+              // untouched by every OTHER tab switch (and across a full PWA
+              // restart) so those still resume the same gig; this only
+              // clears it on an explicit click of the Gigs tab itself.
+              if (key === 'gigs') {
+                localStorage.removeItem('selected_gig_id');
+                window.dispatchEvent(new CustomEvent('gig-selected', { detail: { gig_id: null, section: null } }));
+              }
+              updateView(key);
+            }}
           >
             {label}
           </button>
