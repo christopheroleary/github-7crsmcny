@@ -686,9 +686,24 @@ input {
   color: var(--text-muted);
 }
 
+/* Brief slide-and-fade played when an edge swipe-back gesture fires (see
+   useSwipeBack.js) -- there's no page-stack to drag interactively here, just
+   a quick nod to the direction of travel before the screen unmounts. */
+.swipe-back-exiting {
+  animation: swipeBackExit 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes swipeBackExit {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(40px); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn {
     transition: none;
+  }
+  .swipe-back-exiting {
+    animation: none;
   }
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
+import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigMessages from './GigMessages.jsx';
@@ -29,6 +30,21 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
   const [showViewAsPicker, setShowViewAsPicker] = useState(false);
   const [viewAsProfileId, setViewAsProfileId] = useState(null);
+  // Plays a quick slide-out (see .swipe-back-exiting) before actually
+  // navigating away, matched to the animation's own duration. Disabled
+  // while editing or viewing as another musician -- those have their own
+  // way back (GigForm's Cancel, GigDetailBandMember's own swipe-back), and
+  // an edge swipe there should act on whichever screen is actually showing,
+  // not jump straight out of the gig entirely.
+  const [exiting, setExiting] = useState(false);
+  useSwipeBack(
+    exiting || editing || viewAsProfileId
+      ? null
+      : () => {
+          setExiting(true);
+          setTimeout(onBack, 180);
+        }
+  );
 
   // Scroll to the section a notification pointed at (e.g. straight to the
   // roster or the claims list) once the gig has actually rendered, rather
@@ -58,7 +74,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
   if (!gig && error) {
     return (
-      <div>
+      <div className={exiting ? 'swipe-back-exiting' : ''}>
         <button className="link-button" onClick={onBack}>← Back to gigs</button>
         <p className="state-message state-message--error" style={{ marginTop: 16 }}>
           Couldn't load gig: {error}
@@ -152,7 +168,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   );
 
   return (
-    <div className="entity-detail">
+    <div className={'entity-detail' + (exiting ? ' swipe-back-exiting' : '')}>
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
 
       {/* ── Offline / sync status bar (mirrors GigDetailBandMember) ─────────── */}

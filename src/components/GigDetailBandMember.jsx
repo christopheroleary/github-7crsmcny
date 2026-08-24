@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
+import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigMessages from './GigMessages.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
@@ -65,6 +66,18 @@ function formatSyncTime(iso) {
 export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled, backLabel = '← Back to my gigs' }) {
   const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
   const [confirming, setConfirming] = useState(false);
+  // Plays a quick slide-out (see .swipe-back-exiting) before actually
+  // navigating away, so an edge swipe doesn't just instantly snap to the
+  // list -- matched to the animation's own duration.
+  const [exiting, setExiting] = useState(false);
+  useSwipeBack(
+    exiting
+      ? null
+      : () => {
+          setExiting(true);
+          setTimeout(onBack, 180);
+        }
+  );
   // Holds the lineup row id the user just confirmed, so the banner can show
   // the confirmed state before the refetch lands. Cleared only on failure.
   const [justConfirmedId, setJustConfirmedId] = useState(null);
@@ -116,7 +129,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
 
   if (!gig && error) {
     return (
-      <div>
+      <div className={exiting ? 'swipe-back-exiting' : ''}>
         <button className="link-button" onClick={onBack}>{backLabel}</button>
         <div className="day-sheet__section" style={{ marginTop: 16 }}>
           <p className="state-message state-message--error" style={{ padding: 0 }}>{error}</p>
@@ -173,7 +186,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
 
   return (
-    <div className="day-sheet">
+    <div className={'day-sheet' + (exiting ? ' swipe-back-exiting' : '')}>
       <button className="link-button" onClick={onBack}>{backLabel}</button>
 
       {/* Sync status bar */}
