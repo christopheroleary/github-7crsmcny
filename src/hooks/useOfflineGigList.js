@@ -27,7 +27,10 @@ function writeListCache(key, gigs) {
   } catch {}
 }
 
-function readGigCache(gigId) {
+// Exported for BandLeaderGigGrid, which needs to read the same per-gig
+// cache entries this file's background precacher already populates,
+// rather than maintaining a second grid-specific cache.
+export function readGigCache(gigId) {
   try {
     const raw = localStorage.getItem(GIG_KEY(gigId));
     return raw ? JSON.parse(raw) : null;
@@ -47,7 +50,7 @@ function writeGigCache(gigId, data) {
 // value as well. This runs synchronously on the main thread during mount, so
 // on a device with a lot of cached gigs the difference is visible as a stall
 // before first paint.
-function getKnownCachedIds() {
+export function getKnownCachedIds() {
   try {
     const ids = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -226,17 +229,27 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
   }));
 }
 
-/** Full detail fetch for a single gig — used for background pre-caching. */
+/**
+ * Full detail fetch for a single gig — used for background pre-caching.
+ *
+ * is_captain/is_dj/is_roadie on lineup and needs_dj/needs_roadie/requirements
+ * exist purely for BandLeaderGigGrid's offline mode — no other consumer of
+ * this cache entry needs them, but they're cheap to carry and keeping one
+ * canonical per-gig cache entry (rather than a second cache Grid maintains
+ * itself) means the same background precache walk that already keeps
+ * List/Calendar's offline data warm covers Grid for free.
+ */
 async function fetchGigData(gigId) {
   const [
     { data: gigData, error: gigError },
     { data: lineupData },
+    { data: requirementsData },
     { data: setlistLinks },
   ] = await Promise.all([
     supabase
       .from('gigs')
       .select(
-        'id, gig_date, start_time, end_time, load_in_time, soundcheck_time, status, parking_notes, notes, fee_amount, mileage_rate_pence, band_id, venues(name, address, latitude, longitude), bands(name), clients(name)'
+        'id, gig_date, start_time, end_time, load_in_time, soundcheck_time, status, parking_notes, notes, fee_amount, mileage_rate_pence, band_id, needs_dj, needs_roadie, venues(name, address, latitude, longitude), bands(name), clients(name)'
       )
       .eq('id', gigId)
       .single(),
@@ -244,8 +257,13 @@ async function fetchGigData(gigId) {
     supabase
       .from('gig_lineup')
       .select(
-        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, profiles(full_name), instruments(name), placeholder_musicians(name)'
+        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, is_captain, is_dj, is_roadie, profiles(full_name), instruments(name), placeholder_musicians(name)'
       )
+      .eq('gig_id', gigId),
+
+    supabase
+      .from('gig_requirements')
+      .select('gig_id, quantity, instruments(name)')
       .eq('gig_id', gigId),
 
     supabase
@@ -266,7 +284,7 @@ async function fetchGigData(gigId) {
       setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
     }));
 
-  return { gig: gigData, lineup: lineupData || [], setlists };
+  return { gig: gigData, lineup: lineupData || [], requirements: requirementsData || [], setlists };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

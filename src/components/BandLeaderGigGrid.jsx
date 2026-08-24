@@ -4,13 +4,15 @@ import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDat
 import { parseTownFromAddress } from '../utils/parseAddress.js';
 import { displayBandName } from '../utils/bandName.js';
 import { isLikelyOfflineError } from '../utils/networkError.js';
+import { readGigCache, getKnownCachedIds } from '../hooks/useOfflineGigList.js';
 
-// Unlike List/Calendar (useOfflineGigList, backed by a localStorage cache),
-// this view has no offline cache of its own -- it always needs a live round
-// trip for the lineup/requirements data behind each cell. Naming the
-// working alternative is more useful than just "you're offline", since
-// there's somewhere to actually go.
-const OFFLINE_MESSAGE = "You're offline — grid view needs a live connection to load musician assignments. Try List or Calendar view, which work offline.";
+// Shown only when offline AND no per-gig cache exists yet for anything
+// upcoming -- naming the working alternative is more useful than just
+// "you're offline", and it's genuinely correct advice: List/Calendar's
+// background precache (useOfflineGigList) is what populates the same
+// per-gig cache entries this view now reads, so opening one of those while
+// online is exactly what warms this view's data too.
+const OFFLINE_MESSAGE = "You're offline and haven't loaded grid view's data before — open List or Calendar view while online first, which pre-caches everything this view needs too.";
 
 // Which role group an instrument's cells belong to. Anything not listed here
 // (Saxophone, Backing Vocals, etc.) is out of scope for this grid.
@@ -60,6 +62,68 @@ function formatTime(t) {
   return t ? t.slice(0, 5) : '';
 }
 
+// Pure: turns flat gigs/lineupRows/reqRows arrays into the grouped `rows`
+// shape the table renders. Shared between the online path (a fresh bulk
+// fetch) and the offline path (reassembled from per-gig caches) so both
+// produce identical output from the same logic.
+function buildRows(gigs, lineupRows, reqRows) {
+  const gigMap = {};
+  for (const g of gigs) {
+    gigMap[g.id] = {
+      ...g,
+      town: cellText(parseTownFromAddress(g.venues?.address)),
+      bandName: cellText(displayBandName(g.bands?.name)),
+      arrival: g.load_in_time || g.start_time,
+      finish: g.end_time,
+      people: { drummer: [], bass: [], guitarKeys: [], singer: [], dj: [], roadie: [] },
+      required: { drummer: 0, bass: 0, guitarKeys: 0, singer: 0, dj: g.needs_dj ? 1 : 0, roadie: g.needs_roadie ? 1 : 0 },
+    };
+  }
+
+  for (const row of lineupRows || []) {
+    const gig = gigMap[row.gig_id];
+    if (!gig) continue;
+    const name = row.profiles?.full_name || row.placeholder_musicians?.name || '';
+    const entry = { initials: initialsFor(name), isCaptain: !!row.is_captain, sortKey: name };
+
+    const instrumentGroup = INSTRUMENT_TO_GROUP[row.instruments?.name];
+    if (instrumentGroup) gig.people[instrumentGroup].push(entry);
+    if (row.is_dj) gig.people.dj.push(entry);
+    if (row.is_roadie) gig.people.roadie.push(entry);
+  }
+
+  for (const row of reqRows || []) {
+    const gig = gigMap[row.gig_id];
+    if (!gig) continue;
+    const group = INSTRUMENT_TO_GROUP[row.instruments?.name];
+    if (group) gig.required[group] += row.quantity || 0;
+  }
+
+  for (const gig of Object.values(gigMap)) {
+    for (const key of Object.keys(gig.people)) {
+      gig.people[key].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    }
+    gig.people.guitar1 = gig.people.guitarKeys.slice(0, 1);
+    gig.people.guitar2Keys = gig.people.guitarKeys.slice(1);
+    gig.required.guitar1 = Math.min(1, gig.required.guitarKeys);
+    gig.required.guitar2Keys = Math.max(0, gig.required.guitarKeys - 1);
+  }
+
+  // ── Group consecutive rows sharing date + band for the merged date cell ─
+  const grouped = [];
+  for (const g of gigs) {
+    const gig = gigMap[g.id];
+    const last = grouped[grouped.length - 1];
+    if (last && last[0].gig_date === gig.gig_date && last[0].band_id === gig.band_id) {
+      last.push(gig);
+    } else {
+      grouped.push([gig]);
+    }
+  }
+
+  return { grouped, showBandColumn: new Set(gigs.map((g) => g.band_id)).size > 1 };
+}
+
 // Everyone gets this grid (admin sees every band's gigs, a band leader
 // sees gigs for the bands they lead plus any they personally perform on,
 // a plain band member sees just their own gigs) — the `gigs` query below
@@ -91,9 +155,55 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
     return () => ro.disconnect();
   }, []);
 
+  // Reassembles rows from whatever per-gig caches exist -- the same
+  // gigcache:<id> entries List/Calendar's background precache
+  // (useOfflineGigList) already populates, widened to also carry what this
+  // view needs (is_captain/is_dj/is_roadie, gig_requirements). Used both
+  // when genuinely offline and as a fallback when a fresh fetch fails for
+  // what looks like a network reason. A gig with no cache entry at all
+  // (never opened/precached while online) is left out rather than shown as
+  // a broken row -- partial data offline, not all-or-nothing.
+  const loadFromCache = useCallback(() => {
+    const today = todayStr();
+    const gigs = [];
+    const lineupRows = [];
+    const reqRows = [];
+    for (const id of getKnownCachedIds()) {
+      const cached = readGigCache(id);
+      const g = cached?.gig;
+      if (!g || g.gig_date < today || g.status === 'cancelled') continue;
+      gigs.push(g);
+      for (const l of cached.lineup || []) lineupRows.push({ ...l, gig_id: id });
+      for (const r of cached.requirements || []) reqRows.push({ ...r, gig_id: id });
+    }
+
+    if (gigs.length === 0) {
+      setError(OFFLINE_MESSAGE);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    gigs.sort((a, b) =>
+      a.gig_date !== b.gig_date
+        ? a.gig_date < b.gig_date ? -1 : 1
+        : (a.band_id || '').localeCompare(b.band_id || '')
+    );
+    const { grouped, showBandColumn: sbc } = buildRows(gigs, lineupRows, reqRows);
+    setRows(grouped);
+    setShowBandColumn(sbc);
+    setError(null);
+    setLoading(false);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (!navigator.onLine) {
+      loadFromCache();
+      return;
+    }
 
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
@@ -104,7 +214,12 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
       .order('band_id', { ascending: true });
 
     if (gigsError) {
-      setError(isLikelyOfflineError(gigsError) ? OFFLINE_MESSAGE : gigsError.message);
+      // Fails for what looks like a network reason despite navigator.onLine
+      // still reading true (flaky wifi, a captive portal) -- fall back to
+      // whatever's cached rather than just showing an error, same
+      // resilience useOfflineGigList already has for List/Calendar.
+      if (isLikelyOfflineError(gigsError)) { loadFromCache(); return; }
+      setError(gigsError.message);
       setLoading(false);
       return;
     }
@@ -132,70 +247,25 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
     // instead of surfacing anything was wrong.
     const rosterError = lineupError || reqError;
     if (rosterError) {
-      setError(isLikelyOfflineError(rosterError) ? OFFLINE_MESSAGE : rosterError.message);
+      if (isLikelyOfflineError(rosterError)) { loadFromCache(); return; }
+      setError(rosterError.message);
       setLoading(false);
       return;
     }
 
-    // ── Build per-gig role-group arrays + required counts ──────────────────
-    const gigMap = {};
-    for (const g of gigs) {
-      gigMap[g.id] = {
-        ...g,
-        town: cellText(parseTownFromAddress(g.venues?.address)),
-        bandName: cellText(displayBandName(g.bands?.name)),
-        arrival: g.load_in_time || g.start_time,
-        finish: g.end_time,
-        people: { drummer: [], bass: [], guitarKeys: [], singer: [], dj: [], roadie: [] },
-        required: { drummer: 0, bass: 0, guitarKeys: 0, singer: 0, dj: g.needs_dj ? 1 : 0, roadie: g.needs_roadie ? 1 : 0 },
-      };
-    }
-
-    for (const row of lineupRows || []) {
-      const gig = gigMap[row.gig_id];
-      if (!gig) continue;
-      const name = row.profiles?.full_name || row.placeholder_musicians?.name || '';
-      const entry = { initials: initialsFor(name), isCaptain: !!row.is_captain, sortKey: name };
-
-      const instrumentGroup = INSTRUMENT_TO_GROUP[row.instruments?.name];
-      if (instrumentGroup) gig.people[instrumentGroup].push(entry);
-      if (row.is_dj) gig.people.dj.push(entry);
-      if (row.is_roadie) gig.people.roadie.push(entry);
-    }
-
-    for (const row of reqRows || []) {
-      const gig = gigMap[row.gig_id];
-      if (!gig) continue;
-      const group = INSTRUMENT_TO_GROUP[row.instruments?.name];
-      if (group) gig.required[group] += row.quantity || 0;
-    }
-
-    for (const gig of Object.values(gigMap)) {
-      for (const key of Object.keys(gig.people)) {
-        gig.people[key].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-      }
-      gig.people.guitar1 = gig.people.guitarKeys.slice(0, 1);
-      gig.people.guitar2Keys = gig.people.guitarKeys.slice(1);
-      gig.required.guitar1 = Math.min(1, gig.required.guitarKeys);
-      gig.required.guitar2Keys = Math.max(0, gig.required.guitarKeys - 1);
-    }
-
-    // ── Group consecutive rows sharing date + band for the merged date cell ─
-    const grouped = [];
-    for (const g of gigs) {
-      const gig = gigMap[g.id];
-      const last = grouped[grouped.length - 1];
-      if (last && last[0].gig_date === gig.gig_date && last[0].band_id === gig.band_id) {
-        last.push(gig);
-      } else {
-        grouped.push([gig]);
-      }
-    }
-
+    const { grouped, showBandColumn: sbc } = buildRows(gigs, lineupRows, reqRows);
     setRows(grouped);
-    setShowBandColumn(new Set(gigs.map((g) => g.band_id)).size > 1);
+    setShowBandColumn(sbc);
     setLoading(false);
-  }, []);
+  }, [loadFromCache]);
+
+  // Reload the moment connectivity returns -- without this, a grid opened
+  // while offline (serving cached data, if any existed) keeps showing that
+  // snapshot until this component happens to unmount/remount.
+  useEffect(() => {
+    window.addEventListener('online', load);
+    return () => window.removeEventListener('online', load);
+  }, [load]);
 
   useEffect(() => {
     load();
