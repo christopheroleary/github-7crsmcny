@@ -42,10 +42,16 @@ async function fetchGigData(gigId) {
       .eq('id', gigId)
       .single(),
 
+    // `phone` is deliberately NOT selected here. Embedding it pulled every
+    // lineup member's number into state and into the offline localStorage
+    // cache regardless of their share_phone_on_daysheet setting, which made
+    // that toggle cosmetic -- the number was on the device either way. The
+    // get_gig_roster_phones RPC below returns numbers only for members who
+    // opted in, so an opted-out number never reaches the client at all.
     supabase
       .from('gig_lineup')
       .select(
-        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, is_captain, is_dj, is_roadie, fee_pence, confirmed_fee_pence, profiles(full_name, phone, share_phone_on_daysheet, avatar_url), instruments(name), placeholder_musicians(name)'
+        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, is_captain, is_dj, is_roadie, fee_pence, confirmed_fee_pence, profiles(full_name, share_phone_on_daysheet, avatar_url), instruments(name), placeholder_musicians(name)'
       )
       .eq('gig_id', gigId),
 
@@ -64,6 +70,25 @@ async function fetchGigData(gigId) {
 
   if (gigError) throw new Error(gigError.message);
 
+  // Merge in only the numbers whose owner opted into sharing. Failing this
+  // call must not break the gig view -- a day sheet without phone numbers is
+  // still perfectly usable, and this runs on flaky venue connections -- so
+  // an error here degrades to "no numbers shown" rather than throwing.
+  let lineupWithPhones = lineupData || [];
+  try {
+    const { data: phones } = await supabase.rpc('get_gig_roster_phones', { p_gig_id: gigId });
+    if (phones?.length) {
+      const byProfile = new Map(phones.map((r) => [r.profile_id, r.phone]));
+      lineupWithPhones = lineupWithPhones.map((l) =>
+        byProfile.has(l.profile_id)
+          ? { ...l, profiles: { ...l.profiles, phone: byProfile.get(l.profile_id) } }
+          : l
+      );
+    }
+  } catch {
+    // Leave the lineup as-is; no numbers rendered.
+  }
+
   const setlists = (setlistLinks || [])
     .map((l) => l.setlists)
     .filter(Boolean)
@@ -74,7 +99,7 @@ async function fetchGigData(gigId) {
 
   return {
     gig: gigData,
-    lineup: lineupData || [],
+    lineup: lineupWithPhones,
     setlists,
     requirements: requirementsData || [],
   };
@@ -102,18 +127,6 @@ export function useOfflineGigData(gigId) {
   const [error, setError] = useState(null);
   const activeRef = useRef(true);
 
-  // ── Online / offline listeners ──────────────────────────────────────────────
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-
   // ── Refresh from network ────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
     if (!navigator.onLine) return;
@@ -131,6 +144,23 @@ export function useOfflineGigData(gigId) {
       if (activeRef.current) setSyncing(false);
     }
   }, [gigId]);
+
+  // ── Online / offline listeners ──────────────────────────────────────────────
+  // Re-fetches the moment connectivity returns -- without this, a gig opened
+  // while offline (serving cached data) stays on that stale snapshot until
+  // the component happens to unmount/remount, even though the network is
+  // back and fresher data is one query away. Declared after `refresh` so it
+  // can call it directly.
+  useEffect(() => {
+    const up = () => { setIsOffline(false); refresh(); };
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, [refresh]);
 
   // ── Boot ────────────────────────────────────────────────────────────────────
   useEffect(() => {
