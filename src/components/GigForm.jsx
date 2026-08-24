@@ -12,6 +12,39 @@ function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
 }
 
+// Matches the availability day-chips on MyProfile (green + tick for yes,
+// red/rust + cross for no) -- these all directly change the profit/loss
+// projection below, so they need to read as levers on the budget, not as
+// ordinary unrelated checkboxes.
+const CHIP_ON_COLOUR = '#2f7d4f';
+const CHIP_OFF_COLOUR = '#b6452c';
+
+function BudgetToggleChip({ label, checked, onChange }) {
+  const colour = checked ? CHIP_ON_COLOUR : CHIP_OFF_COLOUR;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '7px 12px',
+        borderRadius: 20,
+        border: '1px solid ' + colour + '55',
+        background: colour + '1f',
+        color: colour,
+        fontWeight: 600,
+        fontSize: 13,
+        cursor: 'pointer',
+      }}
+    >
+      <span aria-hidden="true">{checked ? '✓' : '✕'}</span>
+      <span style={{ textDecoration: checked ? 'none' : 'line-through' }}>{label}</span>
+    </button>
+  );
+}
+
 // Presets describe a dress-code style rather than a specific garment (e.g.
 // not "Suit" or "Dress"), so the same list reads correctly regardless of
 // what any given musician is wearing.
@@ -515,32 +548,6 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         />
       </label>
 
-      <div className="field">
-        <span className="field__label">
-          Instruments needed
-          <InfoTooltip text="Shows as vacancies on the roster page. DJ and roadie are set separately below, not counted here." />
-        </span>
-        {requirements.map((r, i) => (
-          <div className="field-row requirement-row" key={r.id ?? 'new-' + i}>
-            <select value={r.instrument_id} onChange={(e) => updateRequirementRow(i, 'instrument_id', e.target.value)}>
-              <option value="">Choose instrument…</option>
-              {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
-            </select>
-            <NumberInput min={1} value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
-            <button
-              type="button"
-              className="link-button link-button--danger requirement-row__remove"
-              onClick={() => removeRequirementRow(i)}
-              aria-label="Remove instrument requirement"
-              title="Remove"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button type="button" className="link-button" onClick={addRequirementRow}>+ Add instrument requirement</button>
-      </div>
-
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>
         Budgeting
         <InfoTooltip text="Projects the profit/loss for this gig before anyone's actually booked, using the band's fee split defaults." />
@@ -560,12 +567,40 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         </label>
       </div>
 
-      <label className="field field--checkbox">
-        <input type="checkbox" checked={plannedHasCaptain} onChange={(e) => setPlannedHasCaptain(e.target.checked)} /> Will have a band captain
-      </label>
-      <label className="field field--checkbox">
-        <input type="checkbox" checked={plannedHasSinger} onChange={(e) => setPlannedHasSinger(e.target.checked)} /> Will have a dedicated lead singer
-      </label>
+      <div className="field">
+        <span className="field__label">
+          Instruments needed
+          <InfoTooltip text="Shows as vacancies on the roster page. DJ and roadie are toggled below, not counted here." />
+        </span>
+        {requirements.map((r, i) => (
+          <div className="field-row requirement-row" key={r.id ?? 'new-' + i}>
+            <select value={r.instrument_id} onChange={(e) => updateRequirementRow(i, 'instrument_id', e.target.value)}>
+              <option value="">Choose instrument…</option>
+              {instruments.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+            </select>
+            <NumberInput min={1} value={r.quantity} onChange={(e) => updateRequirementRow(i, 'quantity', e.target.value)} style={{ maxWidth: 70 }} />
+            <button
+              type="button"
+              className="link-button link-button--danger requirement-row__remove"
+              onClick={() => removeRequirementRow(i)}
+              aria-label="Remove instrument requirement"
+              title="Remove"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button type="button" className="btn btn--primary btn--small" style={{ marginTop: 8 }} onClick={addRequirementRow}>
+          + Add instrument requirement
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '4px 0 12px' }}>
+        <BudgetToggleChip label="Band captain" checked={plannedHasCaptain} onChange={setPlannedHasCaptain} />
+        <BudgetToggleChip label="Lead singer" checked={plannedHasSinger} onChange={setPlannedHasSinger} />
+        <BudgetToggleChip label="DJ" checked={needsDj} onChange={setNeedsDj} />
+        <BudgetToggleChip label="Roadie" checked={needsRoadie} onChange={setNeedsRoadie} />
+      </div>
 
       {!selectedBand && (
         <p className="field__hint">Pick a band above to see a profit/loss projection.</p>
@@ -599,11 +634,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         </p>
       )}
 
-      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>DJ details (optional)</p>
-
-      <label className="field field--checkbox">
-        <input type="checkbox" checked={needsDj} onChange={(e) => setNeedsDj(e.target.checked)} /> This gig needs a DJ
-      </label>
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>
+        DJ details (optional)
+        <InfoTooltip text="Toggle 'DJ' in the Budgeting chips above to include the DJ fee in the projection — these fields just capture the details once you have." />
+      </p>
 
       <label className="field">
         <span className="field__label">Do / don't play songs</span>
@@ -645,11 +679,10 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         </label>
       )}
 
-      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Roadie details (optional)</p>
-
-      <label className="field field--checkbox">
-        <input type="checkbox" checked={needsRoadie} onChange={(e) => setNeedsRoadie(e.target.checked)} /> This gig needs a roadie
-      </label>
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>
+        Roadie details (optional)
+        <InfoTooltip text="Toggle 'Roadie' in the Budgeting chips above to include the roadie fee in the projection — these fields just capture the details once you have." />
+      </p>
 
       <label className="field">
         <span className="field__label">Stage layout</span>
