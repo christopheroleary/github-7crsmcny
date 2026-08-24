@@ -277,8 +277,6 @@ export default function Dashboard({ onNavigate }) {
         />
       )}
 
-      <DailyNewsWidget />
-
       <div className="dashboard-chart">
         <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
         <ResponsiveContainer width="100%" height={240}>
@@ -315,6 +313,8 @@ export default function Dashboard({ onNavigate }) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      <DailyNewsWidget />
     </div>
   );
 }

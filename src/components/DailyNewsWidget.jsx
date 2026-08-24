@@ -6,16 +6,6 @@ import { supabase } from '../supabaseClient';
 // Function (scheduled ~6am UK), never written from the client.
 const LAST_SEEN_KEY = 'news_last_seen_at';
 
-function timeAgo(iso) {
-  if (!iso) return '';
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return mins + 'm ago';
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return hours + 'h ago';
-  return Math.floor(hours / 24) + 'd ago';
-}
-
 export default function DailyNewsWidget() {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +49,8 @@ export default function DailyNewsWidget() {
   if (loading || articles.length === 0) return null;
 
   return (
-    <div className="day-sheet__section" onClick={markSeen}>
-      <h3 className="day-sheet__section-title">
+    <div className="day-sheet__section" onClick={markSeen} style={{ fontSize: 12 }}>
+      <h3 className="day-sheet__section-title" style={{ fontSize: 14 }}>
         🎵 Today's music news
         {unreadCount > 0 && (
           <span className="status-tag status-tag--confirmed" style={{ marginLeft: 8 }}>
@@ -79,11 +69,8 @@ export default function DailyNewsWidget() {
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
               <div>
-                <span className="simple-list__title">{a.title}</span>
-                <span className="simple-list__subtitle">
-                  {a.source || 'Unknown source'} · {timeAgo(a.published_at)}
-                  {a.summary ? ' — ' + a.summary : ''}
-                </span>
+                <span className="simple-list__title" style={{ fontSize: 12 }}>{a.title}</span>
+                {a.summary && <span className="simple-list__subtitle">{a.summary}</span>}
               </div>
             </a>
           </li>
