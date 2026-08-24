@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import InstrumentPicker from './InstrumentPicker.jsx';
@@ -25,6 +25,7 @@ import { resizeImageFile } from '../utils/resizeImage.js';
 import { APP_VERSION, APP_BUILD_TIME } from '../utils/buildInfo.js';
 
 const AVATAR_BUCKET = 'profile-pictures';
+const AUTOSAVE_DELAY = 700;
 
 const UI_THEMES = [
   { id: 'default', label: 'Classic', swatch: '#c8862e' },
@@ -49,10 +50,6 @@ export default function MyProfile() {
   const [homeLon, setHomeLon] = useState(null);
   const [allInstruments, setAllInstruments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [originalIds, setOriginalIds] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [saved, setSaved] = useState(false);
   const [userId, setUserId] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -72,7 +69,7 @@ export default function MyProfile() {
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
 
-      if (profileError) setError(profileError.message);
+      if (profileError) notify("Couldn't load profile: " + profileError.message);
       else {
         setFullName(profile.full_name || '');
         setPhone(profile.phone || '');
@@ -87,13 +84,114 @@ export default function MyProfile() {
         setAvatarUrl(profile.avatar_url || '');
       }
       setAllInstruments(instruments || []);
-      const ids = (links || []).map((l) => l.instrument_id);
-      setSelectedIds(ids);
-      setOriginalIds(ids);
+      setSelectedIds((links || []).map((l) => l.instrument_id));
       setLoading(false);
     }
     load();
   }, []);
+
+  // Every text/checkbox/theme field below saves itself as the user edits it
+  // -- no Save button. `readyRef` stops the very first render (the initial
+  // load populating these fields from the DB) from immediately re-saving
+  // the same values back; it flips true in the effect declared last below,
+  // which -- since effects in one commit run in declaration order -- always
+  // runs after every field-autosave effect on that same load-triggered
+  // commit, so the guard is still false when each of them checks it.
+  const readyRef = useRef(false);
+
+  async function persist(patch, onFail) {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+    if (error) {
+      notify("Couldn't save: " + error.message);
+      onFail?.();
+    }
+  }
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    if (!fullName.trim()) return; // never autosave a blank name mid-edit
+    const t = setTimeout(() => persist({ full_name: fullName }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullName]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    const t = setTimeout(() => persist({ phone: phone || null }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    const t = setTimeout(
+      () => persist({ home_address: homeAddress || null, home_latitude: homeLat, home_longitude: homeLon }),
+      AUTOSAVE_DELAY
+    );
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeAddress, homeLat, homeLon]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    const t = setTimeout(() => persist({ ...equipment, equipment_notes: equipmentNotes || null }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipment, equipmentNotes]);
+
+  useEffect(() => {
+    if (!loading) readyRef.current = true;
+  }, [loading]);
+
+  async function handleSharePhoneToggle(checked) {
+    setSharePhoneOnDaysheet(checked);
+    await persist({ share_phone_on_daysheet: checked }, () => setSharePhoneOnDaysheet(!checked));
+  }
+
+  async function handleDepToggle(checked) {
+    setAvailableForDepWork(checked);
+    await persist({ available_for_dep_work: checked }, () => setAvailableForDepWork(!checked));
+  }
+
+  async function handleThemeChange(themeId) {
+    const previous = uiTheme;
+    setUiTheme(themeId);
+    document.documentElement.setAttribute('data-theme', themeId);
+    await persist({ ui_theme: themeId }, () => {
+      setUiTheme(previous);
+      document.documentElement.setAttribute('data-theme', previous);
+    });
+  }
+
+  async function handleInstrumentsChange(newIds) {
+    const prevIds = selectedIds;
+    setSelectedIds(newIds);
+    const toAdd = newIds.filter((id) => !prevIds.includes(id));
+    const toRemove = prevIds.filter((id) => !newIds.includes(id));
+
+    if (toAdd.length > 0) {
+      const { error } = await supabase
+        .from('profile_instruments')
+        .insert(toAdd.map((instrument_id) => ({ profile_id: userId, instrument_id })));
+      if (error) {
+        setSelectedIds(prevIds);
+        notify("Couldn't save: " + error.message);
+        return;
+      }
+    }
+    if (toRemove.length > 0) {
+      const { error } = await supabase
+        .from('profile_instruments')
+        .delete()
+        .eq('profile_id', userId)
+        .in('instrument_id', toRemove);
+      if (error) {
+        setSelectedIds(prevIds);
+        notify("Couldn't save: " + error.message);
+        return;
+      }
+    }
+  }
 
   async function handleAvatarChange(e) {
     const file = e.target.files?.[0];
@@ -107,15 +205,14 @@ export default function MyProfile() {
     // server-side by the profile-pictures bucket's own file size/mime type
     // limits, set in the add_profile_avatar migration.
     if (!file.type.startsWith('image/')) {
-      setError("That doesn't look like an image file — please choose a photo.");
+      notify("That doesn't look like an image file — please choose a photo.");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      setError('That image is too large (max 20MB) — please choose a smaller file.');
+      notify('That image is too large (max 20MB) — please choose a smaller file.');
       return;
     }
     setUploadingAvatar(true);
-    setError(null);
     try {
       // Small and heavily compressed on purpose — this is shown at avatar/
       // thumbnail size almost everywhere (roster rows, day sheets, the
@@ -145,7 +242,7 @@ export default function MyProfile() {
       // until the next full reload.
       await refreshProfile();
     } catch (err) {
-      setError(err.message);
+      notify("Couldn't upload photo: " + err.message);
     }
     setUploadingAvatar(false);
   }
@@ -163,69 +260,6 @@ export default function MyProfile() {
     setRemovingAvatar(false);
   }
 
-  async function handleSave(e) {
-    e.preventDefault();
-
-    // Guards against silently wiping every instrument on file -- e.g. the
-    // picker not finishing its fetch before a fast Save click. Removing
-    // some while keeping others needs no extra confirmation.
-    if (originalIds.length > 0 && selectedIds.length === 0) {
-      const ok = await confirmAsync('This removes every instrument on your profile (' + originalIds.length + '). Continue?');
-      if (!ok) return;
-    }
-
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-
-    const toAdd = selectedIds.filter((id) => !originalIds.includes(id));
-    const toRemove = originalIds.filter((id) => !selectedIds.includes(id));
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        full_name: fullName,
-        phone: phone || null,
-        home_address: homeAddress || null,
-        home_latitude: homeLat,
-        home_longitude: homeLon,
-        share_phone_on_daysheet: sharePhoneOnDaysheet,
-        available_for_dep_work: availableForDepWork,
-        ui_theme: uiTheme,
-        ...equipment,
-        equipment_notes: equipmentNotes || null,
-      })
-      .eq('id', userId);
-
-    let writeError = profileError;
-
-    if (!writeError && toAdd.length > 0) {
-      const { error } = await supabase
-        .from('profile_instruments')
-        .insert(toAdd.map((instrument_id) => ({ profile_id: userId, instrument_id })));
-      writeError = error;
-    }
-    if (!writeError && toRemove.length > 0) {
-      const { error } = await supabase
-        .from('profile_instruments')
-        .delete()
-        .eq('profile_id', userId)
-        .in('instrument_id', toRemove);
-      writeError = error;
-    }
-
-    setSaving(false);
-    if (writeError) setError(writeError.message);
-    else {
-      setOriginalIds(selectedIds);
-      setSaved(true);
-      // Same reason as the avatar handlers above -- the header icon and any
-      // other consumer of useCurrentProfile() has its own cached copy of
-      // full_name/ui_theme that this write doesn't touch on its own.
-      await refreshProfile();
-    }
-  }
-
   if (loading) return <p className="state-message">Loading profile…</p>;
 
   const buildTimeLabel = APP_BUILD_TIME
@@ -234,7 +268,7 @@ export default function MyProfile() {
 
   return (
     <>
-      <form className="entity-form" onSubmit={handleSave}>
+      <div className="entity-form">
         <h2 className="section-header__title">My profile</h2>
 
         <div className="field">
@@ -254,13 +288,8 @@ export default function MyProfile() {
             </div>
           </div>
           <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
-            Shown on the roster, gig day sheets and here in the app. Resized and compressed automatically — any reasonable photo works.
+            Shown on the roster, gig day sheets and here in the app. Resized and compressed automatically — any reasonable photo works. Saves as soon as it's uploaded.
           </span>
-          {/* The general form error below is easy to miss on a phone -- it
-              renders near the Save button, far below this section. Showing
-              it here too means an upload/remove failure is visible right
-              next to the button that caused it. */}
-          {error && <p className="form-error" style={{ marginTop: 6 }}>{error}</p>}
         </div>
 
         <label className="field">
@@ -273,80 +302,6 @@ export default function MyProfile() {
           <span className="field__label">Name</span>
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
         </label>
-
-        <label className="field">
-          <span className="field__label">Phone</span>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </label>
-
-        <label className="field">
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={sharePhoneOnDaysheet}
-              onChange={(e) => setSharePhoneOnDaysheet(e.target.checked)}
-              style={{ width: 'auto' }}
-            />
-            <span className="field__label" style={{ marginBottom: 0 }}>Share my phone number with bandmates</span>
-            <InfoTooltip text="Shows your number to other confirmed musicians on the gig day sheet. Off by default." />
-          </span>
-        </label>
-
-        <label className="field">
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={availableForDepWork}
-              onChange={(e) => setAvailableForDepWork(e.target.checked)}
-              style={{ width: 'auto' }}
-            />
-            <span className="field__label" style={{ marginBottom: 0 }}>Available for dep work</span>
-            <InfoTooltip text="Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default." />
-          </span>
-        </label>
-
-        <div className="field">
-          <span className="field__label">
-            Equipment you can bring
-            <InfoTooltip text="Deps who can turn up with their own PA, monitors and lights are in high demand — this shows up wherever bands are looking for a dep, so tick anything you own and can bring." />
-          </span>
-          <EquipmentFields
-            values={equipment}
-            onToggle={(key, checked) => setEquipment((prev) => ({ ...prev, [key]: checked }))}
-            notes={equipmentNotes}
-            onNotesChange={setEquipmentNotes}
-          />
-        </div>
-
-        <div className="field">
-          <span className="field__label">
-            App colour theme
-            <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
-          </span>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {UI_THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  setUiTheme(t.id);
-                  document.documentElement.setAttribute('data-theme', t.id);
-                }}
-                title={t.label}
-                aria-label={t.label}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: t.swatch,
-                  border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              />
-            ))}
-          </div>
-        </div>
 
         <label className="field">
           <span className="field__label">
@@ -376,19 +331,100 @@ export default function MyProfile() {
 
         <label className="field">
           <span className="field__label">Instruments</span>
-          <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
+          <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={handleInstrumentsChange} />
         </label>
 
-
-        {error && <p className="form-error">{error}</p>}
-        {saved && <p className="form-success">Saved.</p>}
-
-        <div className="form-actions">
-          <button type="submit" className="btn btn--primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Save profile'}
-          </button>
+        <div className="field">
+          <span className="field__label">Phone</span>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 8,
+              padding: '9px 12px',
+              background: sharePhoneOnDaysheet ? 'rgba(47,125,79,0.1)' : 'var(--paper-raised)',
+              border: '1px solid ' + (sharePhoneOnDaysheet ? 'rgba(47,125,79,0.4)' : 'var(--line)'),
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={sharePhoneOnDaysheet}
+              onChange={(e) => handleSharePhoneToggle(e.target.checked)}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>📱 Share this number with bandmates on the day sheet</span>
+            <InfoTooltip text="Shows the phone number above to other confirmed musicians on the gig day sheet, so they can reach you on the day. Off by default." />
+          </label>
         </div>
-      </form>
+
+        <label className="field">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={availableForDepWork}
+              onChange={(e) => handleDepToggle(e.target.checked)}
+              style={{ width: 'auto' }}
+            />
+            <span className="field__label" style={{ marginBottom: 0 }}>Available for dep work</span>
+            <InfoTooltip text="Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default." />
+          </span>
+        </label>
+
+        {availableForDepWork && (
+          <div style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '2px 14px 14px', margin: '4px 0 18px' }}>
+            <p className="field__hint" style={{ marginTop: 12, marginBottom: 0 }}>
+              Band leaders looking for a dep see these three things together — fill them in so they can tell if you're a good fit.
+            </p>
+
+            <div className="field">
+              <span className="field__label">
+                Equipment you can bring
+                <InfoTooltip text="Deps who can turn up with their own PA, monitors and lights are in high demand — this shows up wherever bands are looking for a dep, so tick anything you own and can bring." />
+              </span>
+              <EquipmentFields
+                values={equipment}
+                onToggle={(key, checked) => setEquipment((prev) => ({ ...prev, [key]: checked }))}
+                notes={equipmentNotes}
+                onNotesChange={setEquipmentNotes}
+              />
+            </div>
+
+            <MyAvailability profileId={userId} />
+            <MyRepertoire profileId={userId} />
+          </div>
+        )}
+
+        <div className="field">
+          <span className="field__label">
+            App colour theme
+            <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {UI_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => handleThemeChange(t.id)}
+                title={t.label}
+                aria-label={t.label}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: t.swatch,
+                  border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="day-sheet__section">
         <h3 className="day-sheet__section-title">App setup</h3>
@@ -398,8 +434,6 @@ export default function MyProfile() {
       <ProSubscription />
       {userId && <ConnectPayoutSetup profileId={userId} />}
       {userId && <ProfilePaymentDetails profileId={userId} />}
-      {userId && <MyAvailability profileId={userId} />}
-      {userId && <MyRepertoire profileId={userId} />}
       {userId && <OutstandingClaims profileId={userId} />}
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
