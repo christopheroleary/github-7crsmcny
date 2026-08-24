@@ -127,10 +127,10 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
   const remaining = MAX_LENGTH - body.length;
 
   return (
-    <div className="day-sheet__section gig-chat">
+    <div className="day-sheet__section gig-chat" id="gig-section-chat">
       <h3 className="day-sheet__section-title">Gig chat</h3>
       <p className="field__hint" style={{ marginTop: -6, marginBottom: 10 }}>
-        No notifications are sent for these — think of them more like notes left for whoever's next to check this gig, not a way to reach someone urgently.
+        Everyone else on this gig's roster gets a notification when you send one of these.
       </p>
 
       <div className="gig-chat__messages" ref={listRef}>
