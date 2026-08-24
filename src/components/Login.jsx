@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 
 const RESET_COOLDOWN_SECONDS = 60;
+const OFFLINE_MESSAGE = "You're offline — connect to the internet and try again.";
 
 export default function Login() {
   const inviteParams = new URLSearchParams(window.location.search);
@@ -37,13 +39,17 @@ export default function Login() {
 
     if (mode === 'signIn') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      // A network failure here reads identically to "wrong password" unless
+      // called out separately -- confirmed live that a failed fetch surfaces
+      // as AuthRetryableFetchError, not a credentials rejection, so this
+      // isn't guesswork about what Supabase might do.
+      if (error) setError(isLikelyOfflineError(error) ? OFFLINE_MESSAGE : error.message);
     } else if (mode === 'forgotPassword') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin,
       });
       if (error) {
-        setError(error.message);
+        setError(isLikelyOfflineError(error) ? OFFLINE_MESSAGE : error.message);
       } else {
         setInfo("If an account exists for that email, we've sent a link to reset your password.");
         setResendCooldown(RESET_COOLDOWN_SECONDS);
@@ -55,7 +61,7 @@ export default function Login() {
         options: { data: { full_name: fullName } },
       });
       if (error) {
-        setError(error.message);
+        setError(isLikelyOfflineError(error) ? OFFLINE_MESSAGE : error.message);
       } else {
         setInfo('Account created. If your project requires email confirmation, check your inbox before signing in.');
         setMode('signIn');

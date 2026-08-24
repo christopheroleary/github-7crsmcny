@@ -3,6 +3,14 @@ import { supabase } from '../supabaseClient';
 import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDate.js';
 import { parseTownFromAddress } from '../utils/parseAddress.js';
 import { displayBandName } from '../utils/bandName.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
+
+// Unlike List/Calendar (useOfflineGigList, backed by a localStorage cache),
+// this view has no offline cache of its own -- it always needs a live round
+// trip for the lineup/requirements data behind each cell. Naming the
+// working alternative is more useful than just "you're offline", since
+// there's somewhere to actually go.
+const OFFLINE_MESSAGE = "You're offline — grid view needs a live connection to load musician assignments. Try List or Calendar view, which work offline.";
 
 // Which role group an instrument's cells belong to. Anything not listed here
 // (Saxophone, Backing Vocals, etc.) is out of scope for this grid.
@@ -96,7 +104,7 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
       .order('band_id', { ascending: true });
 
     if (gigsError) {
-      setError(gigsError.message);
+      setError(isLikelyOfflineError(gigsError) ? OFFLINE_MESSAGE : gigsError.message);
       setLoading(false);
       return;
     }
@@ -108,7 +116,7 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
       return;
     }
 
-    const [{ data: lineupRows }, { data: reqRows }] = await Promise.all([
+    const [{ data: lineupRows, error: lineupError }, { data: reqRows, error: reqError }] = await Promise.all([
       supabase
         .from('gig_lineup')
         .select('gig_id, is_captain, is_dj, is_roadie, profiles(full_name), placeholder_musicians(name), instruments(name)')
@@ -118,6 +126,16 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
         .select('gig_id, quantity, instruments(name)')
         .in('gig_id', gigIds),
     ]);
+
+    // Previously ignored -- a network failure on either of these left the
+    // grid silently rendering with an empty roster/requirements per cell
+    // instead of surfacing anything was wrong.
+    const rosterError = lineupError || reqError;
+    if (rosterError) {
+      setError(isLikelyOfflineError(rosterError) ? OFFLINE_MESSAGE : rosterError.message);
+      setLoading(false);
+      return;
+    }
 
     // ── Build per-gig role-group arrays + required counts ──────────────────
     const gigMap = {};
