@@ -6,6 +6,27 @@ import { notify } from '../utils/toastService.js';
 import DepFinderWizard from './DepFinderWizard.jsx';
 import Avatar from './Avatar.jsx';
 
+const CONFIRM_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // matches unconfirmed-roster-reminder's cutoff
+
+function formatAddedDate(iso) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+// `now` is passed in (rather than read fresh here) so every row's countdown
+// updates together off one shared ticking clock instead of each row reading
+// Date.now() at a slightly different instant.
+function formatCountdown(createdAtIso, now) {
+  const msLeft = new Date(createdAtIso).getTime() + CONFIRM_WINDOW_MS - now;
+  if (msLeft <= 0) return null;
+  const totalMinutes = Math.floor(msLeft / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return days + 'd ' + hours + 'h left to confirm';
+  if (hours > 0) return hours + 'h ' + minutes + 'm left to confirm';
+  return minutes + 'm left to confirm';
+}
+
 const VOCAL_OPTIONS = [
   { value: '', label: 'Vocals — not set' },
   { value: 'none', label: 'No vocals' },
@@ -95,6 +116,13 @@ export default function GigRoster({ gigId }) {
   // same roster row -- kept until load() finishes, not just the write, so a
   // second click can't read stale pre-refetch entry data either.
   const [busyEntryId, setBusyEntryId] = useState(null);
+  // Drives the per-row "Xd Yh left to confirm" countdown -- ticks once a
+  // minute, no need for anything finer-grained than that.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // Dep-finder wizard
   const [wizardInstrumentId, setWizardInstrumentId] = useState(null);
@@ -181,7 +209,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, created_at, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -430,6 +458,16 @@ export default function GigRoster({ gigId }) {
     setBusyEntryId(null);
   }
 
+  async function handleResendInvite(entry) {
+    if (busyEntryId === entry.id) return;
+    setBusyEntryId(entry.id);
+    const { error } = await supabase.rpc('resend_gig_invite', { p_lineup_id: entry.id });
+    if (error) { notify("Couldn't resend: " + error.message); setBusyEntryId(null); return; }
+    notify('Reminder sent to ' + (entry.profiles?.full_name || 'the musician') + '.');
+    await load();
+    setBusyEntryId(null);
+  }
+
   async function handleUpdateVocalRole(entryId, vocal_role) {
     if (busyEntryId === entryId) return;
     setBusyEntryId(entryId);
@@ -658,6 +696,27 @@ export default function GigRoster({ gigId }) {
                   )}
                 </div>
               </div>
+              {isAdmin && !isPlaceholder && !entry.confirmed && entry.created_at && (() => {
+                const countdown = formatCountdown(entry.created_at, now);
+                return (
+                  <div className="field__hint" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span>Added {formatAddedDate(entry.created_at)}</span>
+                    {countdown ? (
+                      <span>· {countdown}</span>
+                    ) : (
+                      <span style={{ color: 'var(--rust)', fontWeight: 600 }}>· Overdue — hasn't confirmed in 2+ days</span>
+                    )}
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => handleResendInvite(entry)}
+                      disabled={busyEntryId === entry.id}
+                    >
+                      Resend invite
+                    </button>
+                  </div>
+                );
+              })()}
             </li>
           );
         })}
