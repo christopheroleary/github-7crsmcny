@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from '../supabaseClient';
 import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDate.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import DailyNewsWidget from './DailyNewsWidget.jsx';
 
 function KPICard({ label, count, value, colour, onClick }) {
   return (
@@ -275,6 +276,8 @@ export default function Dashboard({ onNavigate }) {
           onSelectGig={selectGig}
         />
       )}
+
+      <DailyNewsWidget />
 
       <div className="dashboard-chart">
         <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
