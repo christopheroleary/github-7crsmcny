@@ -88,7 +88,7 @@ export default function BandsList() {
         />
       )}
 
-      {loading ? (
+      {loading && bands.length === 0 ? (
         <p className="state-message">Loading bands…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load bands: {error}</p>

@@ -484,7 +484,10 @@ export default function GigRoster({ gigId }) {
     setBusyEntryId(null);
   }
 
-  if (loading) return <p className="state-message">Loading roster…</p>;
+  // Only blank out on the true initial load -- every mutation here ends
+  // with load(), and re-showing "Loading roster…" on each one unmounted the
+  // whole section and reset scroll position back to the top of the page.
+  if (loading && lineup.length === 0) return <p className="state-message">Loading roster…</p>;
 
   const filledCounts = {};
   lineup.forEach((l) => {

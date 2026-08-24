@@ -7,9 +7,23 @@ for (let h = 0; h < 24; h++) {
   }
 }
 const LIST_COLUMNS = 4;
+const DEFAULT_OPEN_INDEX = TIME_OPTIONS.indexOf('18:00');
 
 function isValidTime(v) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+}
+
+// Auto-inserts the colon as the user types digits, rather than requiring
+// them to type it themselves -- on a phone's numeric keypad (inputMode
+// "numeric" below) there's no colon key at all, so without this a value
+// typed from scratch (e.g. after backspacing the field empty) could never
+// pass isValidTime() and the Set button would stay permanently disabled.
+// Reformats from scratch on every keystroke, so backspacing works exactly
+// like deleting from any plain text field -- there's no separate hour/
+// minute field to manage the boundary between.
+function formatTimeDigits(raw) {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  return digits.length <= 2 ? digits : digits.slice(0, 2) + ':' + digits.slice(2);
 }
 
 // Custom picker, same GUI on every platform instead of the OS-native time
@@ -58,7 +72,10 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
   useEffect(() => {
     if (!open) return;
     const idx = TIME_OPTIONS.indexOf(value);
-    setFocusedIndex(idx >= 0 ? idx : 0);
+    // No value set yet -- open scrolled to a sensible evening default (most
+    // gig times cluster around load-in/on-stage in the evening) rather than
+    // dumping the list at 00:00, which is rarely what anyone's picking.
+    setFocusedIndex(idx >= 0 ? idx : DEFAULT_OPEN_INDEX);
   }, [open, value]);
 
   // Auto-focus the manual-entry field on open so desktop users can just
@@ -149,7 +166,7 @@ export default function TimeInput({ value, onChange, id, required, placeholder =
                 aria-label="Time, 24-hour format, hours colon minutes"
                 aria-invalid={customValue !== '' && !isValidTime(customValue)}
                 value={customValue}
-                onChange={(e) => setCustomValue(e.target.value)}
+                onChange={(e) => setCustomValue(formatTimeDigits(e.target.value))}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomSubmit(); } }}
                 ref={customInputRef}
               />

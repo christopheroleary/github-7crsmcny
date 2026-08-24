@@ -282,7 +282,7 @@ export default function MusiciansList() {
         />
       )}
 
-      {loading ? (
+      {loading && musicians.length === 0 ? (
         <p className="state-message">Loading musicians…</p>
       ) : error ? (
         <p className="state-message state-message--error">Couldn't load musicians: {error}</p>

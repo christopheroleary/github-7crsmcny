@@ -89,7 +89,11 @@ export default function SongsList() {
 
   const { query, setQuery, results: filtered } = useFuzzySearch(songs, ['title', 'artist']);
 
-  if (loading) return <p className="state-message">Loading repertoire…</p>;
+  // Only blank out on the true initial load -- re-fetching after a save
+  // (e.g. editing a song) keeps showing the existing list instead of
+  // unmounting the whole page down to a one-line loading message and back,
+  // which is what was resetting scroll position to the top on every save.
+  if (loading && songs.length === 0) return <p className="state-message">Loading repertoire…</p>;
 
   return (
     <div>

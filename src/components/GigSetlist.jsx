@@ -185,7 +185,10 @@ export default function GigSetlist({ gigId, bandId }) {
     );
   }
 
-  if (loading) return <p className="state-message">Loading setlist…</p>;
+  // Same reasoning as handleReorderSongs above -- only blank out on the true
+  // initial load, not every refetch after a song edit saves, or the whole
+  // section unmounts down to a one-line message and back, resetting scroll.
+  if (loading && bandSetlists.length === 0) return <p className="state-message">Loading setlist…</p>;
 
   const attachedSetlists = bandSetlists.filter((sl) => attachedIds.includes(sl.id));
   const availableToAttach = bandSetlists.filter((sl) => !attachedIds.includes(sl.id));
