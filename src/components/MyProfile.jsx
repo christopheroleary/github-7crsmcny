@@ -163,33 +163,31 @@ export default function MyProfile() {
     });
   }
 
-  async function handleInstrumentsChange(newIds) {
-    const prevIds = selectedIds;
-    setSelectedIds(newIds);
-    const toAdd = newIds.filter((id) => !prevIds.includes(id));
-    const toRemove = prevIds.filter((id) => !newIds.includes(id));
-
-    if (toAdd.length > 0) {
-      const { error } = await supabase
-        .from('profile_instruments')
-        .insert(toAdd.map((instrument_id) => ({ profile_id: userId, instrument_id })));
-      if (error) {
-        setSelectedIds(prevIds);
-        notify("Couldn't save: " + error.message);
-        return;
-      }
+  // Each button click adds/removes exactly one known id -- using React's
+  // functional setState form (rather than computing a full next-array from
+  // a closured `selectedIds` snapshot, as this used to) means two clicks
+  // landing in the same render tick still apply correctly in order instead
+  // of the second clobbering the first. That clobbering was a real, live
+  // bug: both deletes would actually succeed in the database, but the
+  // second click's optimistic state overwrote the first click's, leaving a
+  // just-deleted instrument still showing as selected on screen until the
+  // next reload -- which then looked exactly like removing one instrument
+  // had silently also removed another.
+  async function handleAddInstrument(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    const { error } = await supabase.from('profile_instruments').insert({ profile_id: userId, instrument_id: id });
+    if (error) {
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      notify("Couldn't save: " + error.message);
     }
-    if (toRemove.length > 0) {
-      const { error } = await supabase
-        .from('profile_instruments')
-        .delete()
-        .eq('profile_id', userId)
-        .in('instrument_id', toRemove);
-      if (error) {
-        setSelectedIds(prevIds);
-        notify("Couldn't save: " + error.message);
-        return;
-      }
+  }
+
+  async function handleRemoveInstrument(id) {
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+    const { error } = await supabase.from('profile_instruments').delete().eq('profile_id', userId).eq('instrument_id', id);
+    if (error) {
+      setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      notify("Couldn't save: " + error.message);
     }
   }
 
@@ -331,7 +329,7 @@ export default function MyProfile() {
 
         <label className="field">
           <span className="field__label">Instruments</span>
-          <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={handleInstrumentsChange} />
+          <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onAdd={handleAddInstrument} onRemove={handleRemoveInstrument} />
         </label>
 
         <div className="field">

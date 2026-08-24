@@ -110,7 +110,12 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
 
       <label className="field">
         <span className="field__label">Instruments</span>
-        <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onChange={setSelectedIds} />
+        <InstrumentPicker
+          allInstruments={allInstruments}
+          selectedIds={selectedIds}
+          onAdd={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))}
+          onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
+        />
       </label>
 
       <div className="field">
