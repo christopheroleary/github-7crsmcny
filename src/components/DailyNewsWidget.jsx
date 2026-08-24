@@ -51,7 +51,7 @@ export default function DailyNewsWidget() {
   return (
     <div className="day-sheet__section" onClick={markSeen} style={{ fontSize: 12, marginTop: 24 }}>
       <h3 className="day-sheet__section-title" style={{ fontSize: 14 }}>
-        🎵 Today's music news
+        Today's music news
         {unreadCount > 0 && (
           <span className="status-tag status-tag--confirmed" style={{ marginLeft: 8 }}>
             {unreadCount} new
