@@ -17,7 +17,22 @@ export default function BandsList() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [expandedLeadersId, setExpandedLeadersId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  // One-shot deep link (e.g. from GigFeeSplit's "set the split percentages"
+  // link) -- consumed immediately rather than persisted, so navigating away
+  // and back to Bands later doesn't keep reopening the same edit form.
+  const [editingId, setEditingId] = useState(() => {
+    const id = localStorage.getItem('selected_band_id');
+    if (id) localStorage.removeItem('selected_band_id');
+    return id || null;
+  });
+
+  useEffect(() => {
+    function handleBandSelected(e) {
+      setEditingId(e.detail?.band_id || null);
+    }
+    window.addEventListener('band-selected', handleBandSelected);
+    return () => window.removeEventListener('band-selected', handleBandSelected);
+  }, []);
 
   const { query, setQuery, results: filteredBands } = useFuzzySearch(bands, ['name', 'notes']);
 

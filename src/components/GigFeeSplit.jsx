@@ -89,9 +89,18 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     template.fee_split_roadie_pct,
   ].some((v) => v != null);
 
-  const split = (hasTemplate && totalFeePence > 0 && effectiveRegularCount > 0)
+  // No band settings at all (every fee_split_*_pct null) isn't a blocker —
+  // calculateFeeSplit already treats a null percentage as 0%, so an unset
+  // band naturally computes an equal split of the fee across the roster
+  // (no owner profit, no captain/singer/DJ/roadie bonus) rather than
+  // needing someone to explicitly configure that as a "template" first.
+  const split = (totalFeePence > 0 && effectiveRegularCount > 0)
     ? calculateFeeSplit({ totalFeePence, regularCount: effectiveRegularCount, hasSinger, hasCaptain, djCount, roadieCount, fuelPence, template })
     : null;
+
+  function goToBandSettings() {
+    if (bandId) window.dispatchEvent(new CustomEvent('navigate-to-band', { detail: { band_id: bandId } }));
+  }
 
   async function handleCalculate() {
     if (!split) return;
@@ -140,10 +149,16 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
       <h3 className="roster-section__title">Fee split</h3>
 
       {!hasTemplate && (
-        <p className="field__hint">This band has no fee split defaults set — add them on the band's edit page to auto-calculate.</p>
+        <p className="field__hint">
+          No custom split set for this band — splitting the fee equally instead.{' '}
+          <button type="button" className="link-button" onClick={goToBandSettings}>Set percentages for this band →</button>
+        </p>
       )}
-      {hasTemplate && totalFeePence <= 0 && (
+      {totalFeePence <= 0 && (
         <p className="field__hint">Set a fee on this gig to calculate a split.</p>
+      )}
+      {totalFeePence > 0 && effectiveRegularCount === 0 && (
+        <p className="field__hint">Add at least one musician to the roster to calculate a split.</p>
       )}
       {usingPlannedHeadcount && (
         <p className="field__hint">

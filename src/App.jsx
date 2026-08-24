@@ -207,6 +207,27 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, profileLoading]);
 
+  // Lets a deeply-nested component (e.g. GigFeeSplit's "set the split
+  // percentages" link) jump straight to editing a specific band without
+  // threading a callback down through every intermediate component —
+  // mirrors the gig-selected localStorage+event pattern above, one-shot
+  // rather than persisted since arriving here is always a deliberate click,
+  // not something that should keep reopening on every later Bands visit.
+  useEffect(() => {
+    function handleNavigateToBand(e) {
+      const bandId = e.detail?.band_id;
+      if (!bandId) return;
+      localStorage.setItem('selected_band_id', bandId);
+      updateView('bands');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('band-selected', { detail: { band_id: bandId } }));
+      }, 50);
+    }
+    window.addEventListener('navigate-to-band', handleNavigateToBand);
+    return () => window.removeEventListener('navigate-to-band', handleNavigateToBand);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (sessionLoading || profileLoading) return <div className="page-loading">Loading…</div>;
   if (passwordRecovery) return <ResetPassword onDone={() => setPasswordRecovery(false)} />;
   if (!session) return <Login />;

@@ -318,7 +318,11 @@ export default function GigForm({ gig, onSaved, onCancel }) {
   const previewTotalFeePence = feeAmount === '' ? 0 : Math.round(Number(feeAmount)) * 100;
   const previewHeadcount = plannedHeadcount === '' ? 0 : Math.round(Number(plannedHeadcount));
   const previewFuelPence = estimatedTravelPounds === '' ? 0 : Math.round(Number(estimatedTravelPounds) * 100);
-  const budgetPreview = (hasTemplate && previewTotalFeePence > 0 && previewHeadcount > 0)
+  // A band with no fee-split percentages set isn't a blocker -- unset
+  // percentages are treated as 0% by calculateFeeSplit, so the projection
+  // naturally defaults to an equal split of the fee across the planned
+  // headcount rather than needing someone to configure it first.
+  const budgetPreview = (previewTotalFeePence > 0 && previewHeadcount > 0)
     ? calculateFeeSplit({
         totalFeePence: previewTotalFeePence,
         regularCount: previewHeadcount,
@@ -606,9 +610,9 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         <p className="field__hint">Pick a band above to see a profit/loss projection.</p>
       )}
       {selectedBand && !hasTemplate && (
-        <p className="field__hint">This band has no fee split defaults set — add them on the band's edit page to see a projection here.</p>
+        <p className="field__hint">This band has no custom fee split set — the projection below splits the fee equally. Set percentages on the band's edit page to change that.</p>
       )}
-      {selectedBand && hasTemplate && !budgetPreview && (
+      {selectedBand && !budgetPreview && (
         <p className="field__hint">Enter a fee and planned headcount above to see a projection.</p>
       )}
       {budgetPreview && (
