@@ -49,7 +49,7 @@ export default function DailyNewsWidget() {
   if (loading || articles.length === 0) return null;
 
   return (
-    <div className="day-sheet__section" onClick={markSeen} style={{ fontSize: 12 }}>
+    <div className="day-sheet__section" onClick={markSeen} style={{ fontSize: 12, marginTop: 24 }}>
       <h3 className="day-sheet__section-title" style={{ fontSize: 14 }}>
         🎵 Today's music news
         {unreadCount > 0 && (
