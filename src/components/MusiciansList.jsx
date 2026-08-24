@@ -44,7 +44,7 @@ export default function MusiciansList() {
       { data: insts },
       { data: lineupRows },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone, role, is_active, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('full_name'),
+      supabase.from('profiles').select('id, full_name, phone, role, is_active, subscription_tier, home_address, home_latitude, home_longitude, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('full_name'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(id, name)'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       // Confirmed/completed only -- an inquiry gig isn't a real booking yet,
@@ -143,6 +143,9 @@ export default function MusiciansList() {
           <>
             <div className="musician-card__title">
               <span className="simple-list__title">{m.full_name}</span>
+              {m.role === 'admin' && <span className="status-tag status-tag--cancelled">admin</span>}
+              {m.role === 'band_leader' && <span className="status-tag status-tag--confirmed">band leader</span>}
+              {m.subscription_tier === 'pro' && <span className="status-tag status-tag--inquiry">pro</span>}
               {!m.is_active && <span className="status-tag">inactive</span>}
               {m.id === me?.id && <span className="status-tag">you</span>}
               <span className="musician-card__meta">{gigCount} gig{gigCount === 1 ? '' : 's'}</span>
@@ -221,6 +224,7 @@ export default function MusiciansList() {
               <dl className="detail-list" style={{ marginTop: 10 }}>
                 <dt>Phone</dt><dd>{m.phone || '—'}</dd>
                 <dt>Role</dt><dd>{m.role}</dd>
+                <dt>Home address</dt><dd>{m.home_address || '—'}</dd>
                 <dt>Instruments</dt><dd>{m.instruments.length > 0 ? m.instruments.map((i) => i.name).join(', ') : '—'}</dd>
                 {m.equipment_notes && (<><dt>Equipment notes</dt><dd>{m.equipment_notes}</dd></>)}
               </dl>

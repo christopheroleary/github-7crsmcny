@@ -5,11 +5,15 @@ import InstrumentPicker from './InstrumentPicker.jsx';
 import EquipmentFields from './EquipmentFields.jsx';
 import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
 import { confirmAsync } from '../utils/confirmService.js';
+import AddressAutocomplete from './AddressAutocomplete.jsx';
 
 export default function MusicianEditForm({ profile, onSaved, onCancel }) {
   const { isAdmin } = useCurrentProfile();
   const [fullName, setFullName] = useState(profile.full_name || '');
   const [phone, setPhone] = useState(profile.phone || '');
+  const [homeAddress, setHomeAddress] = useState(profile.home_address || '');
+  const [homeLat, setHomeLat] = useState(profile.home_latitude ?? null);
+  const [homeLon, setHomeLon] = useState(profile.home_longitude ?? null);
   const [role, setRole] = useState(profile.role || 'band_member');
   const [isActive, setIsActive] = useState(profile.is_active);
   const [equipment, setEquipment] = useState(
@@ -59,6 +63,9 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
     const updates = {
       full_name: fullName,
       phone: phone || null,
+      home_address: homeAddress || null,
+      home_latitude: homeLat,
+      home_longitude: homeLon,
       is_active: isActive,
       ...equipment,
       equipment_notes: equipmentNotes || null,
@@ -106,6 +113,29 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
       <label className="field">
         <span className="field__label">Phone</span>
         <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </label>
+
+      <label className="field">
+        <span className="field__label">Home address</span>
+        <AddressAutocomplete
+          value={homeAddress}
+          onChange={(text) => {
+            setHomeAddress(text);
+            setHomeLat(null);
+            setHomeLon(null);
+          }}
+          onCoordinatesChange={(lat, lon) => {
+            setHomeLat(lat);
+            setHomeLon(lon);
+          }}
+          placeholder="Start typing their home address…"
+        />
+        {homeLat != null && <span className="field__hint">Location set ✓</span>}
+        {homeLat == null && homeAddress && (
+          <span className="field__hint" style={{ color: 'var(--rust)' }}>
+            Pick a suggestion from the dropdown to set the map pin — needed for distance calculation.
+          </span>
+        )}
       </label>
 
       <label className="field">
