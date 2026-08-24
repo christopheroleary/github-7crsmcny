@@ -35,6 +35,19 @@ function UserIcon() {
   );
 }
 
+// True when a Supabase auth call failed because the *fetch* to the auth
+// server didn't succeed (offline, timed out, DNS/TLS failure on a captive
+// portal, connection dropped mid-request) rather than because the server
+// rejected the request (expired/revoked refresh token, bad credentials).
+// supabase-js's own retry logic already makes this distinction internally
+// (see @supabase/auth-js's isAuthRetryableFetchError) but doesn't expose
+// the helper from the public package, so we match its tag directly. This
+// is deliberately not navigator.onLine, which reports true on a wifi
+// network with no working internet -- exactly the case we need to catch.
+function isNetworkAuthError(error) {
+  return error?.name === 'AuthRetryableFetchError';
+}
+
 // Public enquiry form — no auth needed
 if (window.location.pathname.startsWith('/enquiry')) {
   const root = document.getElementById('root');
@@ -124,8 +137,35 @@ export default function App() {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (data.session) {
+        setSession(data.session);
+      } else if (error && isNetworkAuthError(error)) {
+        // Token refresh failed for a *network* reason -- not just fully
+        // offline, but also a flaky 4G signal, wifi connected to a router
+        // with no real internet, or the connection dropping mid-request
+        // while swapping between wifi and 4G. supabase-js tags exactly this
+        // case as AuthRetryableFetchError, discarding the still-valid
+        // stale session and resolving session: null instead of throwing --
+        // which would otherwise force a signed-in user straight to the
+        // Login screen over a bad signal, defeating the whole point of the
+        // offline gig cache below. navigator.onLine can't be trusted for
+        // this: it reports true on a wifi network with no working
+        // internet, so we check the SDK's own error instead. Fall back to
+        // the session still sitting in the SDK's storage so the app opens
+        // into cached data; a real refresh happens automatically (via the
+        // auth listener below) the moment the connection is actually good.
+        try {
+          const raw = localStorage.getItem(supabase.auth.storageKey);
+          setSession(raw ? JSON.parse(raw) : null);
+        } catch {
+          setSession(null);
+        }
+      } else {
+        // No session, or a genuine auth rejection (revoked/invalid refresh
+        // token) rather than a network failure -- signing out is correct.
+        setSession(null);
+      }
       setSessionLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
