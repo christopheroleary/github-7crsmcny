@@ -6,7 +6,6 @@ import GigForm from './GigForm.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
-import CalendarFeed from './CalendarFeed.jsx';
 import GigCalendar from './GigCalendar.jsx';
 import BandLeaderGigGrid from './BandLeaderGigGrid.jsx';
 import SearchBox from './SearchBox.jsx';
@@ -331,8 +330,6 @@ export default function GigsList() {
           </div>
         </div>
       )}
-
-      {!isAdmin && me && <CalendarFeed profileId={me.id} />}
 
       {isAdmin && showAddForm && (
         <div ref={addFormRef}>

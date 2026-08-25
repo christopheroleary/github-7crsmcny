@@ -9,6 +9,7 @@ import ProfilePaymentDetails from './ProfilePaymentDetails';
 import ConnectPayoutSetup from './ConnectPayoutSetup.jsx';
 import ProSubscription from './ProSubscription.jsx';
 import PwaSetupGuide from './PwaSetupGuide.jsx';
+import CalendarFeed from './CalendarFeed.jsx';
 import MyExpenses from './MyExpenses.jsx';
 import MyIncome from './MyIncome.jsx';
 import MyMileage from './MyMileage.jsx';
@@ -428,6 +429,8 @@ export default function MyProfile() {
         <h3 className="day-sheet__section-title">App setup</h3>
         <PwaSetupGuide showHeader={false} />
       </div>
+
+      {userId && <CalendarFeed profileId={userId} />}
 
       <ProSubscription />
       {userId && <ConnectPayoutSetup profileId={userId} />}
