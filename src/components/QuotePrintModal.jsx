@@ -1,4 +1,4 @@
-import { printHtmlDocument } from '../utils/printHtml.js';
+import { printHtmlDocument, esc } from '../utils/printHtml.js';
 import { displayUrl } from '../utils/formatUrl.js';
 
 function formatDate(dateStr) {
@@ -28,27 +28,27 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
   const eventBoxHTML = gig ? `
     <div class="event-box">
       <p class="label">Event details</p>
-      <p class="venue-name">${gig.venues?.name || '—'}</p>
-      ${gig.venues?.address ? '<p class="detail">' + gig.venues.address + '</p>' : ''}
+      <p class="venue-name">${esc(gig.venues?.name || '—')}</p>
+      ${gig.venues?.address ? '<p class="detail">' + esc(gig.venues.address) + '</p>' : ''}
       <p class="detail">${formatDate(gig.gig_date)}</p>
-      ${gig.start_time ? '<p class="detail">' + gig.start_time.slice(0, 5) + (gig.end_time ? ' – ' + gig.end_time.slice(0, 5) : '') + '</p>' : ''}
+      ${gig.start_time ? '<p class="detail">' + esc(gig.start_time.slice(0, 5)) + (gig.end_time ? ' – ' + esc(gig.end_time.slice(0, 5)) : '') + '</p>' : ''}
     </div>` : '';
 
   const rowsHTML = items.map((item, i) => `
     <tr class="${i % 2 === 0 ? 'alt' : ''}">
-      <td class="desc">${item.description}</td>
-      <td class="num">${item.quantity}</td>
+      <td class="desc">${esc(item.description)}</td>
+      <td class="num">${esc(item.quantity)}</td>
       <td class="num">£${poundsFromPence(item.unit_amount_pence)}</td>
       <td class="num">£${poundsFromPence(item.unit_amount_pence * item.quantity)}</td>
     </tr>`).join('');
 
   const footerNotesHTML = quote.notes ? `
     <div class="footer-notes">
-      <p>${quote.notes}</p>
+      <p>${esc(quote.notes)}</p>
     </div>` : '';
 
   const socialLinksHTML = (band?.social_links || []).length > 0
-    ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + l.url + '">' + l.label + '</a>').join(' · ') + '</p>'
+    ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + esc(l.url) + '">' + esc(l.label) + '</a>').join(' · ') + '</p>'
     : '';
 
   return `<!DOCTYPE html>
@@ -142,11 +142,11 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
 
   <div class="header">
     <div>
-      ${band?.logo_url ? '<img class="band-logo" src="' + band.logo_url + '" alt="' + (bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + (bandDisplayName || 'Band Name') + '</h1>'}
-      ${band?.address ? '<p class="from-detail">' + band.address.split('\n').join(', ') + '</p>' : ''}
-      ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
-      ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
-      ${band?.website_url ? '<p class="from-detail"><a href="' + band.website_url + '">' + displayUrl(band.website_url) + '</a></p>' : ''}
+      ${band?.logo_url ? '<img class="band-logo" src="' + esc(band.logo_url) + '" alt="' + esc(bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + esc(bandDisplayName || 'Band Name') + '</h1>'}
+      ${band?.address ? '<p class="from-detail">' + esc(band.address.split('\n').join(', ')) + '</p>' : ''}
+      ${band?.contact_email ? '<p class="from-detail">' + esc(band.contact_email) + '</p>' : ''}
+      ${band?.contact_phone ? '<p class="from-detail">' + esc(band.contact_phone) + '</p>' : ''}
+      ${band?.website_url ? '<p class="from-detail"><a href="' + esc(band.website_url) + '">' + esc(displayUrl(band.website_url)) + '</a></p>' : ''}
       ${socialLinksHTML}
     </div>
     <div class="meta">
@@ -170,9 +170,9 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
   <div class="parties">
     <div class="bill-to">
       <p class="label">Prepared for</p>
-      <p class="client-name">${client?.name || '—'}</p>
-      ${client?.email ? '<p class="detail">' + client.email + '</p>' : ''}
-      ${client?.phone ? '<p class="detail">' + client.phone + '</p>' : ''}
+      <p class="client-name">${esc(client?.name || '—')}</p>
+      ${client?.email ? '<p class="detail">' + esc(client.email) + '</p>' : ''}
+      ${client?.phone ? '<p class="detail">' + esc(client.phone) + '</p>' : ''}
     </div>
     ${eventBoxHTML}
   </div>
@@ -199,9 +199,9 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
   ${footerNotesHTML}
 
   <div class="page-footer">
-    <span>${bandDisplayName || ''}</span>
-    <span>${quoNumber}</span>
-    <span>${band?.contact_email || ''}</span>
+    <span>${esc(bandDisplayName || '')}</span>
+    <span>${esc(quoNumber)}</span>
+    <span>${esc(band?.contact_email || '')}</span>
   </div>
 </div>
 </body>

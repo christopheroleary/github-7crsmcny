@@ -1,4 +1,4 @@
-import { printHtmlDocument } from '../utils/printHtml.js';
+import { printHtmlDocument, esc } from '../utils/printHtml.js';
 import { displayUrl } from '../utils/formatUrl.js';
 
 function formatDate(dateStr) {
@@ -19,12 +19,16 @@ function contractNumber(createdAt) {
     '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
 }
 
+// name/image here come from the PUBLIC contract-signing page, so they're
+// attacker-controllable by anyone holding a share token. The image lands in
+// an attribute, where escaping the quote is what stops a break-out into
+// something like: src="x" onerror="...
 function signatureBlock(label, name, date, image) {
   return `
     <div class="sig-box">
-      <p class="label">${label}</p>
-      ${image ? '<img class="sig-image" src="' + image + '" alt="Signature"/>' : ''}
-      <p class="sig-line">${name ? name : '&nbsp;'}</p>
+      <p class="label">${esc(label)}</p>
+      ${image ? '<img class="sig-image" src="' + esc(image) + '" alt="Signature"/>' : ''}
+      <p class="sig-line">${name ? esc(name) : '&nbsp;'}</p>
       <p class="sig-under">Signature / name</p>
       <p class="sig-line">${date ? formatDate(date) : '&nbsp;'}</p>
       <p class="sig-under">Date</p>
@@ -39,14 +43,14 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   const eventBoxHTML = gig ? `
     <div class="event-box">
       <p class="label">Event details</p>
-      <p class="venue-name">${gig.venues?.name || '—'}</p>
-      ${gig.venues?.address ? '<p class="detail">' + gig.venues.address + '</p>' : ''}
+      <p class="venue-name">${esc(gig.venues?.name || '—')}</p>
+      ${gig.venues?.address ? '<p class="detail">' + esc(gig.venues.address) + '</p>' : ''}
       <p class="detail">${formatDate(gig.gig_date)}</p>
-      ${gig.start_time ? '<p class="detail">' + gig.start_time.slice(0, 5) + (gig.end_time ? ' – ' + gig.end_time.slice(0, 5) : '') + '</p>' : ''}
+      ${gig.start_time ? '<p class="detail">' + esc(gig.start_time.slice(0, 5)) + (gig.end_time ? ' – ' + esc(gig.end_time.slice(0, 5)) : '') + '</p>' : ''}
     </div>` : '';
 
   const socialLinksHTML = (band?.social_links || []).length > 0
-    ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + l.url + '">' + l.label + '</a>').join(' · ') + '</p>'
+    ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + esc(l.url) + '">' + esc(l.label) + '</a>').join(' · ') + '</p>'
     : '';
 
   return `<!DOCTYPE html>
@@ -103,11 +107,11 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
 <div class="page">
   <div class="header">
     <div>
-      ${band?.logo_url ? '<img class="band-logo" src="' + band.logo_url + '" alt="' + (bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + (bandDisplayName || 'Band Name') + '</h1>'}
-      ${band?.address ? '<p class="from-detail">' + band.address.split('\n').join(', ') + '</p>' : ''}
-      ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
-      ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
-      ${band?.website_url ? '<p class="from-detail"><a href="' + band.website_url + '">' + displayUrl(band.website_url) + '</a></p>' : ''}
+      ${band?.logo_url ? '<img class="band-logo" src="' + esc(band.logo_url) + '" alt="' + esc(bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + esc(bandDisplayName || 'Band Name') + '</h1>'}
+      ${band?.address ? '<p class="from-detail">' + esc(band.address.split('\n').join(', ')) + '</p>' : ''}
+      ${band?.contact_email ? '<p class="from-detail">' + esc(band.contact_email) + '</p>' : ''}
+      ${band?.contact_phone ? '<p class="from-detail">' + esc(band.contact_phone) + '</p>' : ''}
+      ${band?.website_url ? '<p class="from-detail"><a href="' + esc(band.website_url) + '">' + esc(displayUrl(band.website_url)) + '</a></p>' : ''}
       ${socialLinksHTML}
     </div>
     <div class="meta">
@@ -123,9 +127,9 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   <div class="parties">
     <div class="bill-to">
       <p class="label">Between</p>
-      <p class="client-name">${client?.name || '—'}</p>
-      ${client?.email ? '<p class="detail">' + client.email + '</p>' : ''}
-      ${client?.phone ? '<p class="detail">' + client.phone + '</p>' : ''}
+      <p class="client-name">${esc(client?.name || '—')}</p>
+      ${client?.email ? '<p class="detail">' + esc(client.email) + '</p>' : ''}
+      ${client?.phone ? '<p class="detail">' + esc(client.phone) + '</p>' : ''}
     </div>
     ${eventBoxHTML}
   </div>
@@ -137,8 +141,8 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
     <span class="pl">Balance due</span><span>${formatDate(contract.balance_due_date)}</span>
   </div>
 
-  ${contract.cancellation_policy ? `<div class="section"><p class="label">Cancellation policy</p><p class="body">${contract.cancellation_policy}</p></div>` : ''}
-  ${contract.additional_terms ? `<div class="section"><p class="label">Additional terms</p><p class="body">${contract.additional_terms}</p></div>` : ''}
+  ${contract.cancellation_policy ? `<div class="section"><p class="label">Cancellation policy</p><p class="body">${esc(contract.cancellation_policy)}</p></div>` : ''}
+  ${contract.additional_terms ? `<div class="section"><p class="label">Additional terms</p><p class="body">${esc(contract.additional_terms)}</p></div>` : ''}
 
   <div class="sig-row">
     ${signatureBlock('For ' + (bandDisplayName || 'the band'), contract.band_signee_name, contract.band_signed_date, contract.band_signature_image)}
@@ -146,9 +150,9 @@ function buildPrintHTML({ contract, gig, band, client, gigFeeAmount }) {
   </div>
 
   <div class="page-footer">
-    <span>${bandDisplayName || ''}</span>
+    <span>${esc(bandDisplayName || '')}</span>
     <span>${conNumber}</span>
-    <span>${band?.contact_email || ''}</span>
+    <span>${esc(band?.contact_email || '')}</span>
   </div>
 </div>
 </body>

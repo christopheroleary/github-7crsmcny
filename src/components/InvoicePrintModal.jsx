@@ -1,4 +1,4 @@
-import { printHtmlDocument } from '../utils/printHtml.js';
+import { printHtmlDocument, esc } from '../utils/printHtml.js';
 import { displayUrl } from '../utils/formatUrl.js';
 
 function formatDate(dateStr) {
@@ -38,7 +38,7 @@ function formatDate(dateStr) {
     const secondary = band?.doc_secondary_colour || '#1f3d3a';
 
     const stampHTML = (isPaid || isOverdue)
-      ? '<div class="stamp stamp--' + invoice.status + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
+      ? '<div class="stamp stamp--' + esc(invoice.status) + '">' + (isPaid ? 'PAID' : 'OVERDUE') + '</div>'
       : isPartiallyPaid
       ? '<div class="stamp stamp--partial">PARTIALLY PAID</div>'
       : '';
@@ -47,47 +47,47 @@ function formatDate(dateStr) {
       <div class="payment-box">
         <p class="label">Payments received</p>
         <div class="payment-grid">
-          ${payments.map((p) => `<span class="pl">${formatDate(p.paid_date)}${p.note ? ' — ' + p.note : ''}</span><span>£${poundsFromPence(p.amount_pence)}</span>`).join('')}
+          ${payments.map((p) => `<span class="pl">${formatDate(p.paid_date)}${p.note ? ' — ' + esc(p.note) : ''}</span><span>£${poundsFromPence(p.amount_pence)}</span>`).join('')}
         </div>
       </div>` : '';
-  
+
     const eventBoxHTML = gig ? `
       <div class="event-box">
         <p class="label">Event details</p>
-        <p class="venue-name">${gig.venues?.name || '—'}</p>
-        ${gig.venues?.address ? '<p class="detail">' + gig.venues.address + '</p>' : ''}
+        <p class="venue-name">${esc(gig.venues?.name || '—')}</p>
+        ${gig.venues?.address ? '<p class="detail">' + esc(gig.venues.address) + '</p>' : ''}
         <p class="detail">${formatDate(gig.gig_date)}</p>
-        ${gig.start_time ? '<p class="detail">' + gig.start_time.slice(0, 5) + (gig.end_time ? ' – ' + gig.end_time.slice(0, 5) : '') + '</p>' : ''}
+        ${gig.start_time ? '<p class="detail">' + esc(gig.start_time.slice(0, 5)) + (gig.end_time ? ' – ' + esc(gig.end_time.slice(0, 5)) : '') + '</p>' : ''}
       </div>` : '';
-  
+
     const rowsHTML = items.map((item, i) => `
       <tr class="${i % 2 === 0 ? 'alt' : ''}">
-        <td class="desc">${item.description}</td>
-        <td class="num">${item.quantity}</td>
+        <td class="desc">${esc(item.description)}</td>
+        <td class="num">${esc(item.quantity)}</td>
         <td class="num">£${poundsFromPence(item.unit_amount_pence)}</td>
         <td class="num">£${poundsFromPence(item.unit_amount_pence * item.quantity)}</td>
       </tr>`).join('');
-  
+
     const paymentHTML = (band?.bank_account_name || band?.bank_account_number) ? `
       <div class="payment-box">
         <p class="label">Payment details</p>
         <div class="payment-grid">
-          ${band.bank_name ? '<span class="pl">Bank</span><span>' + band.bank_name + '</span>' : ''}
-          ${band.bank_account_name ? '<span class="pl">Account name</span><span>' + band.bank_account_name + '</span>' : ''}
-          ${band.bank_sort_code ? '<span class="pl">Sort code</span><span>' + band.bank_sort_code + '</span>' : ''}
-          ${band.bank_account_number ? '<span class="pl">Account number</span><span>' + band.bank_account_number + '</span>' : ''}
-          <span class="pl">Reference</span><span>${invNumber}</span>
+          ${band.bank_name ? '<span class="pl">Bank</span><span>' + esc(band.bank_name) + '</span>' : ''}
+          ${band.bank_account_name ? '<span class="pl">Account name</span><span>' + esc(band.bank_account_name) + '</span>' : ''}
+          ${band.bank_sort_code ? '<span class="pl">Sort code</span><span>' + esc(band.bank_sort_code) + '</span>' : ''}
+          ${band.bank_account_number ? '<span class="pl">Account number</span><span>' + esc(band.bank_account_number) + '</span>' : ''}
+          <span class="pl">Reference</span><span>${esc(invNumber)}</span>
         </div>
       </div>` : '';
-  
+
     const socialLinksHTML = (band?.social_links || []).length > 0
-      ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + l.url + '">' + l.label + '</a>').join(' · ') + '</p>'
+      ? '<p class="from-detail">' + band.social_links.map((l) => '<a href="' + esc(l.url) + '">' + esc(l.label) + '</a>').join(' · ') + '</p>'
       : '';
 
     const footerNotesHTML = (invoice.notes || band?.invoice_notes) ? `
       <div class="footer-notes">
-        ${invoice.notes ? '<p>' + invoice.notes + '</p>' : ''}
-        ${band?.invoice_notes ? '<p>' + band.invoice_notes + '</p>' : ''}
+        ${invoice.notes ? '<p>' + esc(invoice.notes) + '</p>' : ''}
+        ${band?.invoice_notes ? '<p>' + esc(band.invoice_notes) + '</p>' : ''}
       </div>` : '';
   
     return `<!DOCTYPE html>
@@ -216,12 +216,12 @@ function formatDate(dateStr) {
   
     <div class="header">
       <div>
-        ${band?.logo_url ? '<img class="band-logo" src="' + band.logo_url + '" alt="' + (bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + (bandDisplayName || 'Band Name') + '</h1>'}
-        ${band?.address ? '<p class="from-detail">' + band.address.split('\n').join(', ') + '</p>' : ''}
-        ${band?.contact_email ? '<p class="from-detail">' + band.contact_email + '</p>' : ''}
-        ${band?.contact_phone ? '<p class="from-detail">' + band.contact_phone + '</p>' : ''}
-        ${band?.vat_number ? '<p class="from-detail">VAT: ' + band.vat_number + '</p>' : ''}
-        ${band?.website_url ? '<p class="from-detail"><a href="' + band.website_url + '">' + displayUrl(band.website_url) + '</a></p>' : ''}
+        ${band?.logo_url ? '<img class="band-logo" src="' + esc(band.logo_url) + '" alt="' + esc(bandDisplayName || 'Band logo') + '"/>' : '<h1 class="band-name">' + esc(bandDisplayName || 'Band Name') + '</h1>'}
+        ${band?.address ? '<p class="from-detail">' + esc(band.address.split('\n').join(', ')) + '</p>' : ''}
+        ${band?.contact_email ? '<p class="from-detail">' + esc(band.contact_email) + '</p>' : ''}
+        ${band?.contact_phone ? '<p class="from-detail">' + esc(band.contact_phone) + '</p>' : ''}
+        ${band?.vat_number ? '<p class="from-detail">VAT: ' + esc(band.vat_number) + '</p>' : ''}
+        ${band?.website_url ? '<p class="from-detail"><a href="' + esc(band.website_url) + '">' + esc(displayUrl(band.website_url)) + '</a></p>' : ''}
         ${socialLinksHTML}
       </div>
       <div class="meta">
@@ -246,9 +246,9 @@ function formatDate(dateStr) {
     <div class="parties">
       <div class="bill-to">
         <p class="label">Bill to</p>
-        <p class="client-name">${client?.name || '—'}</p>
-        ${client?.email ? '<p class="detail">' + client.email + '</p>' : ''}
-        ${client?.phone ? '<p class="detail">' + client.phone + '</p>' : ''}
+        <p class="client-name">${esc(client?.name || '—')}</p>
+        ${client?.email ? '<p class="detail">' + esc(client.email) + '</p>' : ''}
+        ${client?.phone ? '<p class="detail">' + esc(client.phone) + '</p>' : ''}
       </div>
       ${eventBoxHTML}
     </div>
@@ -291,9 +291,9 @@ function formatDate(dateStr) {
     ${footerNotesHTML}
   
     <div class="page-footer">
-      <span>${bandDisplayName || ''}</span>
-      <span>${invNumber}</span>
-      <span>${band?.contact_email || ''}</span>
+      <span>${esc(bandDisplayName || '')}</span>
+      <span>${esc(invNumber)}</span>
+      <span>${esc(band?.contact_email || '')}</span>
     </div>
   </div>
   </body>
