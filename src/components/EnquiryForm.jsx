@@ -4,6 +4,20 @@ import AddressAutocomplete from './AddressAutocomplete.jsx';
 import DateInput from './DateInput.jsx';
 import NumberInput from './NumberInput.jsx';
 
+// Mirrors the CHECK constraints in 20260826120000_validate_enquiries.sql.
+// These exist for the person filling the form in -- a maxLength they bump
+// into beats a rejected submission after they've typed three paragraphs.
+// The database is the actual boundary; this form isn't, since anyone can
+// POST straight at the API.
+const LIMITS = {
+  name: 100,
+  email: 200,
+  phone: 40,
+  venueName: 200,
+  venueAddress: 300,
+  requirements: 2000,
+};
+
 export default function EnquiryForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,24 +35,57 @@ export default function EnquiryForm() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
 
+    // Trim everything before validating: a name of pure spaces passes
+    // `required` in the browser but fails the constraint server-side, and
+    // a trailing newline in the address is just noise on the day sheet.
+    const trimmed = {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      venueName: venueName.trim(),
+      venueAddress: venueAddress.trim(),
+      requirements: requirements.trim(),
+    };
+
+    if (!trimmed.name) { setError('Please tell us your name.'); return; }
+    if (trimmed.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed.email)) {
+      setError('That email address doesn\'t look right — please check it.');
+      return;
+    }
+    const budgetNum = budget ? Math.round(Number(budget)) : null;
+    if (budgetNum != null && (!Number.isFinite(budgetNum) || budgetNum < 0)) {
+      setError('Please enter a budget as a number, or leave it blank.');
+      return;
+    }
+
+    setSubmitting(true);
     const { error } = await supabase.from('enquiries').insert({
-      client_name: name,
-      client_email: email || null,
-      client_phone: phone || null,
+      client_name: trimmed.name,
+      client_email: trimmed.email || null,
+      client_phone: trimmed.phone || null,
       event_date: eventDate || null,
       event_type: eventType || null,
-      venue_name: venueName || null,
-      venue_address: venueAddress || null,
-      estimated_budget: budget ? Math.round(Number(budget)) : null,
+      venue_name: trimmed.venueName || null,
+      venue_address: trimmed.venueAddress || null,
+      estimated_budget: budgetNum,
       band_size: bandSize || null,
-      requirements: requirements || null,
+      requirements: trimmed.requirements || null,
     });
 
     setSubmitting(false);
-    if (error) { setError('Something went wrong — please try again or contact us directly.'); return; }
+    if (error) {
+      // A constraint rejection means something in the form is out of range,
+      // which is worth saying plainly -- the old blanket "something went
+      // wrong" left people retrying an identical submission forever.
+      setError(
+        error.message?.includes('violates check constraint')
+          ? 'Something in the form is too long or not quite right — please check your details and try again.'
+          : 'Something went wrong — please try again or contact us directly.'
+      );
+      return;
+    }
     setSubmitted(true);
   }
 
@@ -67,17 +114,17 @@ export default function EnquiryForm() {
 
           <label className="field">
             <span className="field__label">Your name *</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Smith" />
+            <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={LIMITS.name} placeholder="Jane Smith" />
           </label>
 
           <div className="field-row">
             <label className="field">
               <span className="field__label">Email</span>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={LIMITS.email} placeholder="jane@example.com" />
             </label>
             <label className="field">
               <span className="field__label">Phone</span>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07700 900123" />
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={LIMITS.phone} placeholder="07700 900123" />
             </label>
           </div>
 
@@ -105,14 +152,17 @@ export default function EnquiryForm() {
 
           <label className="field">
             <span className="field__label">Venue name</span>
-            <input value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="The Grand Hotel" />
+            <input value={venueName} onChange={(e) => setVenueName(e.target.value)} maxLength={LIMITS.venueName} placeholder="The Grand Hotel" />
           </label>
 
           <label className="field">
             <span className="field__label">Venue address</span>
             <AddressAutocomplete
               value={venueAddress}
-              onChange={setVenueAddress}
+              // Autocomplete can hand back a long formatted address, and a
+              // free-typed one is unbounded, so clamp here rather than
+              // letting it fail the constraint on submit.
+              onChange={(v) => setVenueAddress((v || '').slice(0, LIMITS.venueAddress))}
               placeholder="Start typing the venue address…"
             />
           </label>
@@ -141,8 +191,16 @@ export default function EnquiryForm() {
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
               rows={4}
+              maxLength={LIMITS.requirements}
               placeholder="First dance song, special requests, access requirements, etc."
             />
+            {/* Only appears once they're near the cap -- a counter on an
+                empty box just makes the form look bureaucratic. */}
+            {requirements.length > LIMITS.requirements * 0.8 && (
+              <span className="field__hint">
+                {LIMITS.requirements - requirements.length} characters left
+              </span>
+            )}
           </label>
 
           {error && <p className="form-error">{error}</p>}
