@@ -711,6 +711,63 @@ input {
   40%, 60% { transform: translateX(6px); }
 }
 
+.arcade-score-pop {
+  animation: arcadeScorePop 220ms ease;
+}
+
+@keyframes arcadeScorePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); color: var(--teal); }
+  100% { transform: scale(1); }
+}
+
+/* Snake (src/components/arcade/SnakeGame.jsx) -- board wrapper blocks
+   scroll/zoom gestures so swipe-to-steer doesn't fight the page, and the
+   D-pad is a plus-shaped 3x3 grid with large rounded touch targets. */
+.snake-board-wrap {
+  touch-action: none;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  line-height: 0;
+}
+
+.snake-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 60px);
+  grid-template-rows: repeat(3, 60px);
+  gap: 6px;
+}
+
+.snake-dpad__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper-raised);
+  color: var(--teal);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 80ms ease, background 80ms ease;
+}
+
+.snake-dpad__btn svg {
+  width: 26px;
+  height: 26px;
+}
+
+.snake-dpad__btn:active {
+  transform: scale(0.88);
+  background: var(--teal);
+  color: var(--paper);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn {
     transition: none;
@@ -720,6 +777,12 @@ input {
   }
   .arcade-shake {
     animation: none;
+  }
+  .arcade-score-pop {
+    animation: none;
+  }
+  .snake-dpad__btn {
+    transition: none;
   }
 }
 
