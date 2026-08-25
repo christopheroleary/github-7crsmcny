@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { notify } from '../utils/toastService.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { EXPENSE_CATEGORIES } from '../utils/expenseCategories.js';
 import { SA103_EXPENSE_BOX } from '../utils/sa103Boxes.js';
 import DateInput from './DateInput.jsx';
 import NumberInput from './NumberInput.jsx';
+import ReceiptCapture from './ReceiptCapture.jsx';
+import { receiptSignedUrl } from '../utils/receipts.js';
 import { todayStr, formatShortDate } from '../utils/formatDate.js';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
@@ -18,6 +21,7 @@ function poundsFromPence(p) {
 // musician view on the Musicians list -- profileId is always explicit
 // rather than assumed to be "me", so the same component works either way.
 export default function MyExpenses({ profileId }) {
+  const { isPro } = useCurrentProfile();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -32,12 +36,35 @@ export default function MyExpenses({ profileId }) {
     setLoading(true);
     const { data } = await supabase
       .from('expenses')
-      .select('*')
+      .select('*, receipts(id, storage_path)')
       .eq('profile_id', profileId)
       .order('date', { ascending: false });
     setExpenses(data || []);
     setLoading(false);
   }, [profileId]);
+
+  // Creates the expense the scanned receipt is evidence for, then marks the
+  // receipt filed so it drops out of the "captured but not yet claimed" pile.
+  const fileReceipt = useCallback(async (values) => {
+    const { error: saveError } = await supabase.from('expenses').insert({
+      profile_id: profileId,
+      date: values.date,
+      category: values.category,
+      description: values.description,
+      amount_pence: values.amount_pence,
+      receipt_id: values.receipt_id,
+    });
+    if (saveError) throw new Error(saveError.message);
+
+    await supabase.from('receipts').update({ status: 'filed' }).eq('id', values.receipt_id);
+    load();
+  }, [profileId, load]);
+
+  async function openReceipt(receipt) {
+    const url = await receiptSignedUrl(receipt.storage_path);
+    if (!url) { notify("Couldn't open that receipt."); return; }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 
   useEffect(() => {
     load();
@@ -115,9 +142,25 @@ export default function MyExpenses({ profileId }) {
       </p>
 
       {!adding && (
-        <button className="btn btn--ghost btn--small" style={{ marginBottom: 12 }} onClick={startAdd}>
-          + Add expense
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <button className="btn btn--ghost btn--small" style={{ marginBottom: 12 }} onClick={startAdd}>
+            + Add expense
+          </button>
+          {/* Photographing the receipt is the fast path -- HMRC wants the
+              evidence kept for ~6 years anyway, so capturing it at the till
+              beats typing the expense in now and losing the paper later.
+              ReceiptCapture owns its own trigger button, and switches this
+              row to a full-width review form once a photo is taken. */}
+          {isPro ? (
+            <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+              <ReceiptCapture profileId={profileId} onFiled={fileReceipt} />
+            </div>
+          ) : (
+            <span className="field__hint" style={{ marginBottom: 12 }}>
+              📷 Scanning receipts is a Pro feature.
+            </span>
+          )}
+        </div>
       )}
 
       {adding && (
@@ -188,6 +231,18 @@ export default function MyExpenses({ profileId }) {
                   </span>
                   <span className="simple-list__subtitle">
                     {exp.category}{SA103_EXPENSE_BOX[exp.category] ? ` (${SA103_EXPENSE_BOX[exp.category]})` : ''} · {formatShortDate(exp.date)}
+                    {exp.receipts && (
+                      <>
+                        {' · '}
+                        <button
+                          className="link-button"
+                          style={{ fontSize: 'inherit', padding: 0, display: 'inline' }}
+                          onClick={() => openReceipt(exp.receipts)}
+                        >
+                          📎 Receipt
+                        </button>
+                      </>
+                    )}
                   </span>
                 </div>
                 <button className="link-button link-button--danger" onClick={() => handleDelete(exp)}>

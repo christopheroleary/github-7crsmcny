@@ -86,6 +86,41 @@ export async function resizeImageFile(file, opts = {}) {
   return canvasToWebpBlob(canvas, opts);
 }
 
+// Receipts are black text on white paper, so throwing away the colour
+// channels costs nothing legibility-wise and roughly halves the encoded
+// size -- which matters when these have to be kept for six years.
+function greyscaleCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = imageData;
+  for (let i = 0; i < data.length; i += 4) {
+    // Rec. 601 luma -- weights the channels the way the eye does, so faint
+    // thermal-print text stays readable instead of washing out the way a
+    // flat (r+g+b)/3 average makes it.
+    const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    data[i] = data[i + 1] = data[i + 2] = y;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// Deliberately not sharing resizeImageFile's defaults: those are tuned for
+// square-ish avatars/logos at 800px, which renders a tall till receipt's
+// small print unreadable. Portrait receipts need the height, and the OCR
+// pass needs enough width to resolve the line-item text.
+export async function prepareReceiptUpload(file, opts = {}) {
+  const canvas = await fileToResizedCanvas(file, {
+    maxWidth: 1200,
+    maxHeight: 1600,
+    ...opts,
+  });
+  greyscaleCanvas(canvas);
+  return canvasToWebpBlob(canvas, {
+    quality: 0.7,
+    maxBytes: 120 * 1024,
+    ...opts,
+  });
+}
+
 // Loads + resizes the file once, then lets the caller decide (after
 // checking `invertible`, e.g. via a confirm dialog) whether to invert
 // before the final compressed blob is produced.
