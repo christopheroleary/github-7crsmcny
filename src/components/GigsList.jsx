@@ -11,8 +11,6 @@ import GigCalendar from './GigCalendar.jsx';
 import BandLeaderGigGrid from './BandLeaderGigGrid.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
-import { confirmAsync } from '../utils/confirmService.js';
-import { notify } from '../utils/toastService.js';
 
 const today = todayStr;
 
@@ -180,18 +178,6 @@ export default function GigsList() {
       addFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [showAddForm, addGigDate]);
-
-  // ── Delete (admin only) ──────────────────────────────────────────────────────
-  async function handleDelete(gig, e) {
-    e.stopPropagation();
-    const ok = await confirmAsync(
-      'Delete this gig? This also permanently deletes its lineup, setlist, and invoice records.'
-    );
-    if (!ok) return;
-    const { error } = await supabase.from('gigs').delete().eq('id', gig.id);
-    if (error) { notify("Couldn't delete: " + error.message); return; }
-    loadGigs();
-  }
 
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selectedGigId) {
@@ -456,6 +442,9 @@ export default function GigsList() {
                   </div>
                   <div className="gig-card__main">
                     <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
+                    {needsConfirmation && (
+                      <span className="status-tag status-tag--needs-action">Needs action</span>
+                    )}
                     {/* Invoice status — admin only. Shown on upcoming gigs too, since
                         unlike musician claims, band invoices can be sent before the gig. */}
                     {isAdmin && (
@@ -488,14 +477,6 @@ export default function GigsList() {
                       <p className="gig-card__fee">
                         £{Math.round(Number(gig.fee_amount)).toLocaleString('en-GB')}
                       </p>
-                    )}
-                    {isAdmin && !isDisabled && (
-                      <button
-                        className="link-button link-button--danger"
-                        onClick={(e) => handleDelete(gig, e)}
-                      >
-                        Delete
-                      </button>
                     )}
                   </div>
                 </li>

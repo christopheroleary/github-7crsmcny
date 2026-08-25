@@ -686,6 +686,15 @@ input {
   color: var(--text-muted);
 }
 
+/* Same "always bright red, not theme-tinted" reasoning as
+   .gig-card--needs-confirmation -- solid fill (not a tint) so it reads as a
+   stamp/label rather than just another status pill. */
+.status-tag--needs-action {
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+}
+
 /* Brief slide-and-fade played when an edge swipe-back gesture fires (see
    useSwipeBack.js) -- there's no page-stack to drag interactively here, just
    a quick nod to the direction of travel before the screen unmounts. */
@@ -783,6 +792,9 @@ input {
   }
   .snake-dpad__btn {
     transition: none;
+  }
+  .gig-card--needs-confirmation {
+    animation: none;
   }
 }
 
@@ -2989,10 +3001,25 @@ input:not([type]) {
 .gig-card--historic:hover {
   opacity: 0.85;
 }
+/* Deliberately NOT theme-tinted (unlike most status colours in this file) --
+   this is a "you haven't accepted this booking yet" alert and needs to read
+   as urgent regardless of which of the 4 UI themes is active. */
 .gig-card--needs-confirmation {
-  background: rgba(200, 134, 46, 0.08);
-  border-color: var(--amber-dark);
-  box-shadow: inset 3px 0 0 var(--amber-dark);
+  background: rgba(220, 38, 38, 0.08);
+  border-color: #dc2626;
+  box-shadow: inset 4px 0 0 #dc2626;
+  animation: gigNeedsConfirmationFlash 1.4s ease-in-out infinite;
+}
+
+@keyframes gigNeedsConfirmationFlash {
+  0%, 100% {
+    border-color: #dc2626;
+    box-shadow: inset 4px 0 0 #dc2626;
+  }
+  50% {
+    border-color: #7f1d1d;
+    box-shadow: inset 4px 0 0 #7f1d1d;
+  }
 }
 .notif-bell__btn--active {
   background: rgba(200, 134, 46, 0.15);

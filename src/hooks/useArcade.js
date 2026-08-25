@@ -14,7 +14,7 @@ function londonDateKey(d = new Date()) {
 // both leaderboards (this gig's roster, and all-time personal bests) live
 // here so switching games doesn't refetch from scratch, and so the picker
 // screen can show "2 lives left" without a specific game being open yet.
-export function useArcade(gigId, profileId) {
+export function useArcade(gigId, profileId, isAdmin) {
   const [todayCount, setTodayCount] = useState(0);
   const [gigScores, setGigScores] = useState([]);
   const [personalBests, setPersonalBests] = useState({});
@@ -55,7 +55,10 @@ export function useArcade(gigId, profileId) {
 
   useEffect(() => { load(); }, [load]);
 
-  const livesLeft = Math.max(0, DAILY_LIVES - todayCount);
+  // Admins test/demo these games far more than they play them for fun --
+  // the daily cap is there for musicians at a gig, not for admin QA, and it
+  // was previously having to be reset by hand mid-session.
+  const livesLeft = isAdmin ? Infinity : Math.max(0, DAILY_LIVES - todayCount);
 
   async function submitScore(gameKey, score) {
     const { data, error } = await supabase.rpc('record_arcade_play', {

@@ -24,6 +24,9 @@ const COMING_SOON = [
 ];
 
 function LiveDots({ livesLeft }) {
+  if (livesLeft === Infinity) {
+    return <span title="Admins have unlimited goes">♾️</span>;
+  }
   return (
     <span style={{ display: 'inline-flex', gap: 3 }} aria-label={livesLeft + ' of ' + DAILY_LIVES + ' lives left today'}>
       {Array.from({ length: DAILY_LIVES }).map((_, i) => (
@@ -34,8 +37,8 @@ function LiveDots({ livesLeft }) {
 }
 
 export default function ArcadeSection({ gigId }) {
-  const { profile } = useCurrentProfile();
-  const { loading, livesLeft, personalBests, submitScore, gigLeaderboardFor } = useArcade(gigId, profile?.id);
+  const { profile, isAdmin } = useCurrentProfile();
+  const { loading, livesLeft, personalBests, submitScore, gigLeaderboardFor } = useArcade(gigId, profile?.id, isAdmin);
   const [openGame, setOpenGame] = useState(null);
   const [lastScore, setLastScore] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -150,7 +153,7 @@ export default function ArcadeSection({ gigId }) {
           </Suspense>
           {lastScore != null && !submitting && (
             <p className="field__hint" style={{ marginTop: 10 }}>
-              Score saved: {lastScore}. {livesLeft > 0 ? livesLeft + ' more go' + (livesLeft === 1 ? '' : 'es') + ' today.' : "That's your lot for today — see you tomorrow."}
+              Score saved: {lastScore}. {livesLeft === Infinity ? 'Unlimited goes as admin.' : livesLeft > 0 ? livesLeft + ' more go' + (livesLeft === 1 ? '' : 'es') + ' today.' : "That's your lot for today — see you tomorrow."}
             </p>
           )}
         </div>
