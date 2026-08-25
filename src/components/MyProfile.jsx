@@ -449,6 +449,20 @@ export default function MyProfile() {
           last active. This is used only by the admin, to monitor app usage and troubleshoot problems
           — never shared outside the app, and not visible to band leaders or other musicians.
         </p>
+        {/* Receipt scanning is the one place data leaves this app, so it's
+            called out separately rather than folded into the paragraph
+            above -- a receipt photo can carry your name and the last digits
+            of a card, and people should be able to see that plainly before
+            they use it. */}
+        <p className="field__hint" style={{ margin: '10px 0 0' }}>
+          <strong>Scanned receipts.</strong> When you scan a receipt, the photo is sent to Anthropic's
+          Claude API to read the shop, date and amounts off it, and is not used to train their models.
+          The photo itself is stored privately here — only you and the admin can open it, through a
+          link that expires after a few minutes. Receipts are kept for about six years because HMRC
+          requires it, and nothing is deleted automatically. Bear in mind a receipt can show your name
+          or the last digits of a card, so scan only what you're happy to store; you can always type an
+          expense in by hand instead.
+        </p>
       </div>
 
       <div className="field" style={{ textAlign: 'center', margin: '16px 0 0' }}>
