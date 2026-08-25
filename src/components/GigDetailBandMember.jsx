@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigMessages from './GigMessages.jsx';
+import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyPlaces from './NearbyPlaces.jsx';
@@ -482,6 +483,14 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       {!isOffline && (
         <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
       )}
+
+      {/* Break-time games -- deliberately NOT gated on isOffline like chat
+          above. The games themselves are pure client-side canvas/DOM logic
+          with no network calls during play, which is the whole point of a
+          gig-break time-killer at a venue with bad signal; only submitting
+          the finished score needs a connection, and ArcadeSection already
+          handles that failing gracefully. */}
+      <ArcadeSection gigId={gigId} />
 
       {/* Suppliers (photographer, DJ, etc.) — only when online. Always
           read-only here, same as venue/client info elsewhere on this page:

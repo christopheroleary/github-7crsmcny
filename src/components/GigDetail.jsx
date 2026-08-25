@@ -5,6 +5,7 @@ import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigMessages from './GigMessages.jsx';
+import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigWhatsAppGroup from './GigWhatsAppGroup.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import GigSetlist from './GigSetlist.jsx';
@@ -338,6 +339,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       </div>
 
       <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
+
+      <ArcadeSection gigId={gigId} />
 
       <GigSuppliers gigId={gigId} gig={gig} />
 

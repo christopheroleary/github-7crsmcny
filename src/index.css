@@ -698,11 +698,27 @@ input {
   to { transform: translateX(40px); opacity: 0; }
 }
 
+/* Break-time games (src/components/arcade) -- invalid-guess feedback on
+   Music Wordle's current row. */
+.arcade-shake {
+  animation: arcadeShake 400ms ease;
+}
+
+@keyframes arcadeShake {
+  10%, 90% { transform: translateX(-4px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn {
     transition: none;
   }
   .swipe-back-exiting {
+    animation: none;
+  }
+  .arcade-shake {
     animation: none;
   }
 }
