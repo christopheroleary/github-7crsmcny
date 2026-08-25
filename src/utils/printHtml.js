@@ -24,6 +24,23 @@
 // avoids both: there's no `load` event in the loop to double-fire, and
 // it's still within the click handler's call stack as far as Safari's
 // user-activation check is concerned.
+// Escapes text before it's interpolated into one of the print templates.
+//
+// These templates build a raw HTML string that goes through document.write,
+// so any unescaped value in them is a script-injection sink. That was
+// tolerable when every value was typed by the person doing the printing
+// (self-XSS, little to gain), but receipt scanning changed the threat
+// model: a merchant name now originates from a photographed receipt, i.e.
+// from whoever handed the musician that piece of paper.
+export function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function printHtmlDocument(html) {
   const iframe = document.createElement('iframe');
   Object.assign(iframe.style, {

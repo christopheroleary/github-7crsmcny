@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { ReceiptLineAttach } from './ReceiptCapture.jsx';
-import { printHtmlDocument } from '../utils/printHtml.js';
+import { printHtmlDocument, esc } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import NumberInput from './NumberInput.jsx';
 
@@ -167,27 +167,27 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   const eventBoxHTML = gig ? `
     <div class="event-box">
       <p class="label">Event details</p>
-      <p class="venue-name">${gig.venues?.name || '—'}</p>
-      ${gig.venues?.address ? '<p class="detail">' + gig.venues.address + '</p>' : ''}
+      <p class="venue-name">${esc(gig.venues?.name || '—')}</p>
+      ${gig.venues?.address ? '<p class="detail">' + esc(gig.venues.address) + '</p>' : ''}
       <p class="detail">${formatDate(gig.gig_date)}</p>
-      ${gig.start_time ? `<p class="detail">${gig.start_time.slice(0, 5)}${gig.end_time ? ' – ' + gig.end_time.slice(0, 5) : ''}</p>` : ''}
+      ${gig.start_time ? `<p class="detail">${esc(gig.start_time.slice(0, 5))}${gig.end_time ? ' – ' + esc(gig.end_time.slice(0, 5)) : ''}</p>` : ''}
     </div>` : '';
 
   const paymentHTML = (profile?.bank_account_name || profile?.bank_account_number) ? `
     <div class="payment-box">
       <p class="label">Payment details</p>
       <div class="payment-grid">
-        ${profile.bank_name           ? `<span class="pl">Bank</span><span>${profile.bank_name}</span>` : ''}
-        ${profile.bank_account_name   ? `<span class="pl">Account name</span><span>${profile.bank_account_name}</span>` : ''}
-        ${profile.bank_sort_code      ? `<span class="pl">Sort code</span><span>${profile.bank_sort_code}</span>` : ''}
-        ${profile.bank_account_number ? `<span class="pl">Account number</span><span>${profile.bank_account_number}</span>` : ''}
-        <span class="pl">Reference</span><span>${invNumber}</span>
+        ${profile.bank_name           ? `<span class="pl">Bank</span><span>${esc(profile.bank_name)}</span>` : ''}
+        ${profile.bank_account_name   ? `<span class="pl">Account name</span><span>${esc(profile.bank_account_name)}</span>` : ''}
+        ${profile.bank_sort_code      ? `<span class="pl">Sort code</span><span>${esc(profile.bank_sort_code)}</span>` : ''}
+        ${profile.bank_account_number ? `<span class="pl">Account number</span><span>${esc(profile.bank_account_number)}</span>` : ''}
+        <span class="pl">Reference</span><span>${esc(invNumber)}</span>
       </div>
     </div>` : '';
 
   const notesHTML = claim.notes ? `
     <div class="footer-notes">
-      <p>${claim.notes}</p>
+      <p>${esc(claim.notes)}</p>
     </div>` : '';
 
   return `<!DOCTYPE html>
@@ -316,10 +316,10 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
   <div class="parties">
     <div class="bill-to">
       <p class="label">Invoice To</p>
-      <p class="client-name">${band?.invoice_name || band?.name || '—'}</p>
-      ${band?.address ? `<p class="detail">${band.address}</p>` : ''}
-      ${band?.contact_email ? `<p class="detail">${band.contact_email}</p>` : ''}
-      ${band?.contact_phone ? `<p class="detail">${band.contact_phone}</p>` : ''}
+      <p class="client-name">${esc(band?.invoice_name || band?.name || '—')}</p>
+      ${band?.address ? `<p class="detail">${esc(band.address)}</p>` : ''}
+      ${band?.contact_email ? `<p class="detail">${esc(band.contact_email)}</p>` : ''}
+      ${band?.contact_phone ? `<p class="detail">${esc(band.contact_phone)}</p>` : ''}
     </div>
     ${eventBoxHTML}
   </div>
@@ -336,7 +336,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
     <tbody>
       ${items.map((item, i) => `
       <tr class="${i % 2 === 1 ? 'alt' : ''}">
-        <td class="desc">${item.description}<br/><span style="color:#999;font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;">${item.category}</span></td>
+        <td class="desc">${esc(item.description)}<br/><span style="color:#999;font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;">${esc(item.category)}</span></td>
         <td class="num">1</td>
         <td class="num">£${poundsFromPence(item.amount_pence)}</td>
         <td class="num">£${poundsFromPence(item.amount_pence)}</td>
