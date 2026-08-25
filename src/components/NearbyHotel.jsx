@@ -31,12 +31,13 @@ function BrandRow({ brand, result }) {
   );
 }
 
-export default function NearbyHotel({ lat, lon, isOffline, bare, warmDelayMs }) {
+export default function NearbyHotel({ lat, lon, venueId, isOffline, bare, warmDelayMs }) {
   return (
     <NearbySection
       title="Hotels"
       lat={lat}
       lon={lon}
+      venueId={venueId}
       isOffline={isOffline}
       fetchFn={fetchNearbyHotel}
       bare={bare}

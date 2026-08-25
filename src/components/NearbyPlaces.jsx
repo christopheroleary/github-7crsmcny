@@ -24,7 +24,7 @@ import NearbyCarPark from './NearbyCarPark.jsx';
 // rather than just avoiding literal concurrency.
 const WARM_DELAYS_MS = [4000, 9000, 14000, 19000, 24000];
 
-export default function NearbyPlaces({ lat, lon, isOffline, venueName }) {
+export default function NearbyPlaces({ lat, lon, venueId, isOffline, venueName }) {
   if (lat == null || lon == null) return null;
 
   return (
@@ -43,11 +43,11 @@ export default function NearbyPlaces({ lat, lon, isOffline, venueName }) {
             gap: 14,
           }}
         >
-          <NearbyFood lat={lat} lon={lon} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[0]} />
-          <NearbyFuel lat={lat} lon={lon} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[1]} />
-          <NearbyHotel lat={lat} lon={lon} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[2]} />
-          <NearbyMusicShop lat={lat} lon={lon} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[3]} />
-          <NearbyCarPark lat={lat} lon={lon} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[4]} />
+          <NearbyFood lat={lat} lon={lon} venueId={venueId} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[0]} />
+          <NearbyFuel lat={lat} lon={lon} venueId={venueId} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[1]} />
+          <NearbyHotel lat={lat} lon={lon} venueId={venueId} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[2]} />
+          <NearbyMusicShop lat={lat} lon={lon} venueId={venueId} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[3]} />
+          <NearbyCarPark lat={lat} lon={lon} venueId={venueId} isOffline={isOffline} bare warmDelayMs={WARM_DELAYS_MS[4]} />
         </div>
       </details>
     </div>

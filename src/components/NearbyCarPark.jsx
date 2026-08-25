@@ -48,12 +48,13 @@ function CarParkRow({ carPark }) {
   );
 }
 
-export default function NearbyCarPark({ lat, lon, isOffline, bare, warmDelayMs }) {
+export default function NearbyCarPark({ lat, lon, venueId, isOffline, bare, warmDelayMs }) {
   return (
     <NearbySection
       title="Car parks"
       lat={lat}
       lon={lon}
+      venueId={venueId}
       isOffline={isOffline}
       fetchFn={fetchNearbyCarPark}
       bare={bare}

@@ -43,12 +43,13 @@ function BrandRow({ brand, result }) {
   );
 }
 
-export default function NearbyFood({ lat, lon, isOffline, bare, warmDelayMs }) {
+export default function NearbyFood({ lat, lon, venueId, isOffline, bare, warmDelayMs }) {
   return (
     <NearbySection
       title="Food"
       lat={lat}
       lon={lon}
+      venueId={venueId}
       isOffline={isOffline}
       fetchFn={fetchNearbyFood}
       bare={bare}

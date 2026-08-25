@@ -43,12 +43,13 @@ function FuelRow({ station }) {
   );
 }
 
-export default function NearbyFuel({ lat, lon, isOffline, bare, warmDelayMs }) {
+export default function NearbyFuel({ lat, lon, venueId, isOffline, bare, warmDelayMs }) {
   return (
     <NearbySection
       title="Fuel"
       lat={lat}
       lon={lon}
+      venueId={venueId}
       isOffline={isOffline}
       fetchFn={fetchNearbyFuel}
       bare={bare}

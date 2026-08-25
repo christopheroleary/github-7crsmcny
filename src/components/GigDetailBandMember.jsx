@@ -529,7 +529,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       )}
 
       {hasPin && (
-        <NearbyPlaces lat={venue.latitude} lon={venue.longitude} isOffline={isOffline} venueName={venue.name} />
+        <NearbyPlaces lat={venue.latitude} lon={venue.longitude} venueId={venue.id} isOffline={isOffline} venueName={venue.name} />
       )}
     </div>
   );

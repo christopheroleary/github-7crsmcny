@@ -36,12 +36,13 @@ function ShopRow({ shop }) {
   );
 }
 
-export default function NearbyMusicShop({ lat, lon, isOffline, bare, warmDelayMs }) {
+export default function NearbyMusicShop({ lat, lon, venueId, isOffline, bare, warmDelayMs }) {
   return (
     <NearbySection
       title="Music shops"
       lat={lat}
       lon={lon}
+      venueId={venueId}
       isOffline={isOffline}
       fetchFn={fetchNearbyMusicShop}
       bare={bare}

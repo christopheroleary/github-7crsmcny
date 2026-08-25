@@ -37,15 +37,26 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
       load_in_notes: loadInNotes || null,
     };
 
-    const { error } = isEdit
-      ? await supabase.from('venues').update(payload).eq('id', venue.id)
-      : await supabase.from('venues').insert({ ...payload, created_by: me?.id });
+    const { data: savedVenue, error } = isEdit
+      ? await supabase.from('venues').update(payload).eq('id', venue.id).select('id').single()
+      : await supabase.from('venues').insert({ ...payload, created_by: me?.id }).select('id').single();
 
     setSubmitting(false);
     if (error) {
       setError(error.message);
       return;
     }
+
+    // Fire-and-forget -- warms the shared nearby-places cache (food, fuel,
+    // hotels, etc.) for this venue's new/changed coordinates right away,
+    // rather than waiting for the next cron sweep, so the first musician
+    // ever on a gig here doesn't hit an empty cache. Doesn't block the save;
+    // errors here (e.g. Overpass having a bad moment) don't need to
+    // interrupt the admin -- the sweep will pick it up if this fails.
+    if (latitude != null && longitude != null) {
+      supabase.functions.invoke('refresh-venue-nearby-places', { body: { venue_id: savedVenue.id } }).catch(() => {});
+    }
+
     onSaved?.();
   }
 
