@@ -77,6 +77,16 @@ const RECEIPT_SCHEMA = {
       type: 'boolean',
       description: 'False if the image is not a receipt/invoice at all',
     },
+    field_confidence: {
+      type: 'object',
+      description: 'How clearly each value could actually be read off the image.',
+      properties: {
+        merchant_name: { type: 'string', enum: ['high', 'medium', 'low'] },
+        transaction_date: { type: 'string', enum: ['high', 'medium', 'low'] },
+        total: { type: 'string', enum: ['high', 'medium', 'low'] },
+        vat: { type: 'string', enum: ['high', 'medium', 'low'] },
+      },
+    },
   },
   required: ['currency', 'line_items', 'is_receipt'],
 };
@@ -90,7 +100,48 @@ Critical rules:
 - All money values are in pounds as decimal numbers (12.99, not 1299 and not "£12.99").
 - transaction_date must be YYYY-MM-DD. UK receipts are usually DD/MM/YYYY - do not misread 03/04/2026 as 4 March.
 - If the total and the line items disagree, trust the printed total.
-- Set is_receipt to false if this is not a receipt or invoice (a blurred photo of something else, a blank page, a person).`;
+- Set is_receipt to false if this is not a receipt or invoice (a blurred photo of something else, a blank page, a person).
+- Fill in field_confidence honestly. Use "low" for anything you had to squint at, infer from context, or reconstruct from a partially obscured figure. This drives which fields the user is asked to double-check, so over-stating confidence is actively harmful.`;
+
+// Sanity checks the arithmetic rather than trusting the read. OCR errors on
+// receipts are overwhelmingly single-digit misreads, and those almost always
+// break the net + VAT = total identity -- so this catches a lot for nothing.
+// Reported as warnings, never as a correction: the printed receipt is the
+// source of truth and a human decides what to do about a mismatch.
+function buildQualityWarnings(subtotal: number | null, vat: number | null, total: number | null, lineItems: unknown) {
+  const warnings: { code: string; message: string }[] = [];
+  const TOLERANCE_PENCE = 2; // rounding on the receipt itself
+
+  if (subtotal != null && vat != null && total != null) {
+    const diff = Math.abs(subtotal + vat - total);
+    if (diff > TOLERANCE_PENCE) {
+      warnings.push({
+        code: 'vat_mismatch',
+        message: `Net + VAT doesn't add up to the total (out by £${(diff / 100).toFixed(2)}) — worth checking the figures.`,
+      });
+    }
+  }
+
+  if (Array.isArray(lineItems) && lineItems.length > 0 && total != null) {
+    let sum = 0;
+    let usable = true;
+    for (const li of lineItems as { total?: unknown }[]) {
+      if (typeof li?.total !== 'number') { usable = false; break; }
+      sum += Math.round(li.total * 100);
+    }
+    // Only flag when the items OVER-shoot the total: a receipt legitimately
+    // listing a subset (or carrying a discount line) undershoots all the
+    // time, and warning about that would be noise.
+    if (usable && sum - total > TOLERANCE_PENCE) {
+      warnings.push({
+        code: 'line_items_exceed_total',
+        message: `The items read add up to more than the total — one of them may have been misread.`,
+      });
+    }
+  }
+
+  return warnings;
+}
 
 // Chunked rather than String.fromCharCode(...bytes) in one go -- spreading a
 // 100KB+ array into an argument list overflows the call stack.
@@ -179,6 +230,30 @@ Deno.serve(async (req) => {
       return json({ error: `Daily scan limit reached (${DAILY_EXTRACTION_LIMIT}). Try again tomorrow, or enter this one by hand.` }, 429);
     }
 
+    // App-wide monthly ceiling, checked across every user. The provider-side
+    // spend cap is the real financial backstop, but on its own it fails
+    // badly: whoever burns the budget silently takes the feature down for
+    // everyone until the billing month rolls over. This trips first, says so
+    // plainly, and an admin can raise it in app_settings with no redeploy.
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const { data: limitSetting } = await admin
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'receipt_monthly_scan_limit')
+      .maybeSingle();
+    const monthlyLimit = Number(limitSetting?.value ?? 3000);
+    const { count: monthCount } = await admin
+      .from('receipts')
+      .select('id', { count: 'exact', head: true })
+      .gte('extracted_at', monthStart.toISOString());
+    if ((monthCount ?? 0) >= monthlyLimit) {
+      return json({
+        error: 'Receipt scanning has hit its monthly limit for this app. The photo is still saved — type the details in by hand, or ask an admin to raise the limit.',
+      }, 429);
+    }
+
     const { data: file, error: downloadError } = await admin
       .storage.from('receipts').download(receipt.storage_path);
     if (downloadError || !file) throw new Error('Could not read the uploaded image');
@@ -236,6 +311,11 @@ Deno.serve(async (req) => {
 
     const category = EXPENSE_CATEGORIES.includes(x.suggested_category) ? x.suggested_category : null;
 
+    const totalPence = poundsToPence(x.total);
+    const subtotalPence = poundsToPence(x.subtotal);
+    const vatPence = poundsToPence(x.vat);
+    const warnings = buildQualityWarnings(subtotalPence, vatPence, totalPence, x.line_items);
+
     const { data: updated, error: updateError } = await admin
       .from('receipts')
       .update({
@@ -243,9 +323,11 @@ Deno.serve(async (req) => {
         merchant_name: x.merchant_name ?? null,
         transaction_date: x.transaction_date ?? null,
         transaction_time: x.transaction_time ?? null,
-        total_pence: poundsToPence(x.total),
-        subtotal_pence: poundsToPence(x.subtotal),
-        vat_pence: poundsToPence(x.vat),
+        total_pence: totalPence,
+        subtotal_pence: subtotalPence,
+        vat_pence: vatPence,
+        field_confidence: x.field_confidence ?? null,
+        quality_warnings: warnings.length ? warnings : null,
         vat_number: x.vat_number ?? null,
         currency: x.currency || 'GBP',
         payment_method: x.payment_method ?? null,

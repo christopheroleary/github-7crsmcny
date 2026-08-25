@@ -1,3 +1,5 @@
+import { analyseQuality, autoCropAndDeskew } from './documentScan.js';
+
 // Resizes/compresses an image client-side before upload, entirely in the
 // browser -- no server-side processing needed. WebP (not JPEG) so a logo
 // with a transparent background stays transparent instead of getting a
@@ -103,22 +105,46 @@ function greyscaleCanvas(canvas) {
   ctx.putImageData(imageData, 0, 0);
 }
 
+function scaleCanvas(canvas, maxWidth, maxHeight) {
+  const scale = Math.min(1, maxWidth / canvas.width, maxHeight / canvas.height);
+  if (scale === 1) return canvas;
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(canvas.width * scale));
+  out.height = Math.max(1, Math.round(canvas.height * scale));
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+  return out;
+}
+
 // Deliberately not sharing resizeImageFile's defaults: those are tuned for
 // square-ish avatars/logos at 800px, which renders a tall till receipt's
 // small print unreadable. Portrait receipts need the height, and the OCR
 // pass needs enough width to resolve the line-item text.
+//
+// The full pipeline is: load large enough to preserve detail for the warp ->
+// score the photo -> find and flatten the paper -> scale to the OCR target ->
+// greyscale -> encode. Quality is measured on the ORIGINAL frame, before
+// cropping, so the verdict describes the photo the user actually took.
 export async function prepareReceiptUpload(file, opts = {}) {
-  const canvas = await fileToResizedCanvas(file, {
-    maxWidth: 1200,
-    maxHeight: 1600,
-    ...opts,
-  });
-  greyscaleCanvas(canvas);
-  return canvasToWebpBlob(canvas, {
+  // Detection and perspective correction both want more pixels than the
+  // final upload keeps, so the source is loaded at a larger size first and
+  // only scaled down to the OCR target afterwards.
+  const source = await fileToResizedCanvas(file, { maxWidth: 2000, maxHeight: 2600 });
+
+  const quality = analyseQuality(source);
+  const { canvas: flattened, cropped } = autoCropAndDeskew(source);
+
+  const sized = scaleCanvas(flattened, opts.maxWidth || 1200, opts.maxHeight || 1600);
+  greyscaleCanvas(sized);
+
+  const blob = await canvasToWebpBlob(sized, {
     quality: 0.7,
     maxBytes: 120 * 1024,
     ...opts,
   });
+
+  return { blob, quality, cropped };
 }
 
 // Loads + resizes the file once, then lets the caller decide (after

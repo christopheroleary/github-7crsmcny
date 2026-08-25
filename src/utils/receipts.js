@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { prepareReceiptUpload } from './resizeImage.js';
+import { hashBlob } from './documentScan.js';
 
 export const RECEIPT_BUCKET = 'receipts';
 
@@ -9,12 +10,45 @@ export const RECEIPT_BUCKET = 'receipts';
 // server-side where a browser can't skip it.
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
 
+// An exact byte match means the same FILE was submitted twice -- a retry, a
+// double tap, re-picking from the gallery. Two separate photos of one
+// receipt never collide here, so those are caught after extraction instead.
+async function findExactDuplicate(profileId, hash) {
+  const { data } = await supabase
+    .from('receipts')
+    .select('id, merchant_name, transaction_date, total_pence, status')
+    .eq('profile_id', profileId)
+    .eq('content_hash', hash)
+    .limit(1);
+  return data?.[0] || null;
+}
+
+// The case the hash can't see: the same purchase photographed twice. Same
+// shop, same day, same amount is a strong enough signal to ask about --
+// double-claiming one expense is a real problem on a tax return, and it's an
+// easy mistake to make weeks later when filing.
+async function findSimilarReceipt(profileId, receipt) {
+  if (!receipt.transaction_date || receipt.total_pence == null) return null;
+  const { data } = await supabase
+    .from('receipts')
+    .select('id, merchant_name, transaction_date, total_pence, status')
+    .eq('profile_id', profileId)
+    .eq('transaction_date', receipt.transaction_date)
+    .eq('total_pence', receipt.total_pence)
+    .neq('id', receipt.id)
+    .limit(1);
+  return data?.[0] || null;
+}
+
 /**
- * Photograph -> compressed upload -> row -> OCR, in one call.
+ * Photograph -> quality check -> compress/flatten -> upload -> row -> OCR.
  *
- * The image is uploaded BEFORE the row is inserted: an orphaned blob is
- * harmless and cheap to sweep up later, whereas a row pointing at a file
- * that doesn't exist breaks every view that tries to render it.
+ * Returns early with `blocked` set when the photo isn't worth spending an
+ * extraction on (too blurred/dark) or looks like something already
+ * captured. Both are recoverable: the caller re-invokes with the matching
+ * override once the user has seen the warning and chosen to continue. The
+ * point is that the check happens BEFORE the upload and the API call, not
+ * after money has been spent.
  *
  * Extraction failing is deliberately NOT treated as the whole thing
  * failing. The photo is a complete, legally-valid record on its own -- if
@@ -22,7 +56,9 @@ const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
  * this always resolves with the receipt row and reports extraction trouble
  * separately in `extractionError`.
  */
-export async function captureReceipt(file, profileId) {
+export async function captureReceipt(file, profileId, options = {}) {
+  const { allowLowQuality = false, allowDuplicate = false } = options;
+
   if (!file.type?.startsWith('image/')) {
     throw new Error('That file isn\'t an image — take a photo or pick a picture of the receipt.');
   }
@@ -30,7 +66,17 @@ export async function captureReceipt(file, profileId) {
     throw new Error('That image is too large — try taking the photo again.');
   }
 
-  const blob = await prepareReceiptUpload(file);
+  const { blob, quality, cropped } = await prepareReceiptUpload(file);
+
+  if (!allowLowQuality && quality.warnings.length > 0) {
+    return { blocked: 'quality', quality, cropped, receipt: null };
+  }
+
+  const contentHash = await hashBlob(blob);
+  if (!allowDuplicate) {
+    const exact = await findExactDuplicate(profileId, contentHash);
+    if (exact) return { blocked: 'duplicate', duplicate: exact, quality, cropped, receipt: null };
+  }
 
   // Generated client-side so the storage path can embed it before the row
   // exists -- the path has to start with the owning profile id for the
@@ -50,7 +96,13 @@ export async function captureReceipt(file, profileId) {
 
   const { data: receipt, error: insertError } = await supabase
     .from('receipts')
-    .insert({ id, profile_id: profileId, storage_path: storagePath, byte_size: blob.size })
+    .insert({
+      id,
+      profile_id: profileId,
+      storage_path: storagePath,
+      byte_size: blob.size,
+      content_hash: contentHash,
+    })
     .select()
     .single();
   if (insertError) {
@@ -66,12 +118,16 @@ export async function captureReceipt(file, profileId) {
     const { data: latest } = await supabase.from('receipts').select('*').eq('id', id).single();
     return {
       receipt: latest || receipt,
+      quality,
+      cropped,
+      similarTo: null,
       extractionError:
         result?.error || fnError?.message || 'Couldn\'t read that receipt automatically.',
     };
   }
 
-  return { receipt: result.receipt, extractionError: null };
+  const similarTo = allowDuplicate ? null : await findSimilarReceipt(profileId, result.receipt);
+  return { receipt: result.receipt, quality, cropped, similarTo, extractionError: null };
 }
 
 // The bucket is private (unlike profile-pictures/band-logos), so there is no
