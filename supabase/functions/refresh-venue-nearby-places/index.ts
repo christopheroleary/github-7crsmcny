@@ -296,6 +296,14 @@ async function refreshVenue(venueId: string, lat: number, lon: number): Promise<
 }
 
 const TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+async function isVenueStale(venueId: string): Promise<boolean> {
+  const cutoff = new Date(Date.now() - TTL_MS).toISOString();
+  const { data: rows } = await supabase.from('venue_nearby_places').select('category, fetched_at').eq('venue_id', venueId);
+  const byCategory = new Set((rows || []).map((r) => r.category));
+  return byCategory.size < 5 || (rows || []).some((r) => r.fetched_at < cutoff);
+}
+
 // One venue per invocation -- discovered live that 3 venues x 5 categories
 // with generous per-attempt timeouts genuinely exceeded the Edge Function
 // platform's own wall-clock limit and aborted every in-flight request, not
@@ -310,10 +318,18 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { /* sweep mode: no body */ }
 
-    // Single-venue mode -- called by VenueForm right after saving a venue
-    // with fresh coordinates, so a brand-new venue doesn't have to wait for
-    // the next sweep before it's cached for whoever's first on a gig there.
+    // Single-venue mode -- called both by VenueForm right after saving a
+    // venue with fresh coordinates, and by GigForm right after a gig is
+    // added/edited with a venue attached, so neither has to wait for the
+    // next sweep before it's cached for whoever's first on a gig there.
+    // Safe to call on every gig save (not just brand-new ones) because of
+    // the freshness check below -- editing an unrelated field on a gig at
+    // an already-cached venue is then a cheap no-op, not another ~90s
+    // round trip to Overpass for data nobody needs refreshed yet.
     if (body.venue_id) {
+      if (!body.force && !(await isVenueStale(body.venue_id))) {
+        return new Response(JSON.stringify({ ok: true, skipped: 'already fresh' }), { headers: { 'Content-Type': 'application/json' } });
+      }
       const { data: venue, error } = await supabase
         .from('venues')
         .select('id, latitude, longitude')
@@ -349,16 +365,9 @@ Deno.serve(async (req) => {
       if (v?.latitude != null && v?.longitude != null) venueMap.set(v.id, { lat: v.latitude, lon: v.longitude });
     }
 
-    const cutoff = new Date(Date.now() - TTL_MS).toISOString();
     const staleVenueIds: string[] = [];
     for (const venueId of venueMap.keys()) {
-      const { data: rows } = await supabase
-        .from('venue_nearby_places')
-        .select('category, fetched_at')
-        .eq('venue_id', venueId);
-      const byCategory = new Set((rows || []).map((r) => r.category));
-      const isStale = byCategory.size < 5 || (rows || []).some((r) => r.fetched_at < cutoff);
-      if (isStale) staleVenueIds.push(venueId);
+      if (await isVenueStale(venueId)) staleVenueIds.push(venueId);
       if (staleVenueIds.length >= SWEEP_BATCH_SIZE) break;
     }
 

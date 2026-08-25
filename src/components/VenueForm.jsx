@@ -53,8 +53,11 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
     // ever on a gig here doesn't hit an empty cache. Doesn't block the save;
     // errors here (e.g. Overpass having a bad moment) don't need to
     // interrupt the admin -- the sweep will pick it up if this fails.
+    // force:true skips the "already fresh" check -- a venue edit can change
+    // the coordinates themselves, at which point the old cached rows are
+    // recently-fetched but for the WRONG address, not just aging.
     if (latitude != null && longitude != null) {
-      supabase.functions.invoke('refresh-venue-nearby-places', { body: { venue_id: savedVenue.id } }).catch(() => {});
+      supabase.functions.invoke('refresh-venue-nearby-places', { body: { venue_id: savedVenue.id, force: true } }).catch(() => {});
     }
 
     onSaved?.();

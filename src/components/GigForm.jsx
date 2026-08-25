@@ -303,6 +303,17 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       if (re) { setError(re.message); setSubmitting(false); return; }
     }
 
+    // Fire-and-forget -- makes sure this gig's venue is warm in the shared
+    // nearby-places cache without waiting for the next cron sweep (up to
+    // 10 minutes away), so a musician checking this brand-new gig doesn't
+    // hit an empty cache before the sweep would otherwise have reached it.
+    // The Edge Function skips the actual Overpass work if this venue's
+    // cache is already fresh, so this is cheap to call on every save, not
+    // just when a gig is first created.
+    if (finalVenueId) {
+      supabase.functions.invoke('refresh-venue-nearby-places', { body: { venue_id: finalVenueId } }).catch(() => {});
+    }
+
     setSubmitting(false);
     onSaved?.(gigId);
   }
