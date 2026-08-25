@@ -65,7 +65,7 @@ export default function TaxRecords({ profileId }) {
     const [{ data: claims }, { data: expenses }, { data: otherIncome }, { data: gigLineup }, { data: otherMileage }] = await Promise.all([
       supabase
         .from('musician_claims')
-        .select('id, status, gigs(gig_date, venues(name)), musician_claim_items(category, description, amount_pence)')
+        .select('id, status, gigs(gig_date, venues(name)), musician_claim_items(category, description, amount_pence, receipt_id)')
         .eq('profile_id', profileId)
         .in('status', ['paid', 'approved']),
       supabase
@@ -158,16 +158,19 @@ export default function TaxRecords({ profileId }) {
   function handleExport() {
     const lines = [
       '# These figures reflect what has been marked paid in Gig Manager. If you were paid a different amount, or paid outside the app, your real records may differ -- always check against your bank statement before filing.',
-      ['Date', 'Type', 'Category', 'Description', 'Amount (GBP)'].join(','),
+      // "Receipt" tells an accountant at a glance which lines have a stored
+      // image behind them and which are unevidenced.
+      ['Date', 'Type', 'Category', 'Description', 'Amount (GBP)', 'Receipt'].join(','),
     ];
+    const yesNo = (v) => (v ? 'Yes' : 'No');
     income.forEach((i) =>
-      lines.push([i.date, 'Gig income', i.category, csvEscape(i.description + ' — ' + i.venue), poundsFromPence(i.amount_pence)].join(','))
+      lines.push([i.date, 'Gig income', i.category, csvEscape(i.description + ' — ' + i.venue), poundsFromPence(i.amount_pence), yesNo(i.receipt_id)].join(','))
     );
     otherIncomeRows.forEach((r) =>
-      lines.push([r.date, 'Other income', r.category, csvEscape(r.description), poundsFromPence(r.amount_pence)].join(','))
+      lines.push([r.date, 'Other income', r.category, csvEscape(r.description), poundsFromPence(r.amount_pence), 'No'].join(','))
     );
     expenseRows.forEach((e) =>
-      lines.push([e.date, 'Other expense', e.category, csvEscape(e.description), poundsFromPence(e.amount_pence)].join(','))
+      lines.push([e.date, 'Other expense', e.category, csvEscape(e.description), poundsFromPence(e.amount_pence), yesNo(e.receipt_id)].join(','))
     );
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -264,6 +267,16 @@ export default function TaxRecords({ profileId }) {
           <div className="tax-ledger__total">
             <span>Total expenses</span><span className="tax-ledger__amount">£{poundsFromPence(expenseTotal)}</span>
           </div>
+
+          {/* HMRC can ask for the evidence behind any of these, so surface
+              how much of it is actually stored rather than leaving the
+              musician to find out at the worst possible moment. */}
+          {expenseRows.length > 0 && (
+            <p className="field__hint" style={{ marginTop: 8 }}>
+              📎 {expenseRows.filter((e) => e.receipt_id).length} of {expenseRows.length} have a receipt stored.
+              {expenseRows.some((e) => !e.receipt_id) && ' Scan the rest in Other expenses.'}
+            </p>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { ReceiptLineAttach } from './ReceiptCapture.jsx';
 import { printHtmlDocument } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import NumberInput from './NumberInput.jsx';
@@ -468,6 +469,10 @@ export default function MusicianClaim({ gigId, myProfileId }) {
         category: i.category,
         description: i.description,
         amountPounds: (i.amount_pence / 100).toFixed(2),
+        // Carried through the round trip on purpose: update_musician_claim
+        // deletes and re-inserts every item, so dropping this here would
+        // silently detach the receipt on any edit.
+        receipt_id: i.receipt_id || null,
       }))
     );
     setNotes(claim.notes || '');
@@ -516,7 +521,12 @@ export default function MusicianClaim({ gigId, myProfileId }) {
         setSaving(false);
         return;
       }
-      parsedItems.push({ category: it.category, description: it.description.trim(), amount_pence: amountPence });
+      parsedItems.push({
+        category: it.category,
+        description: it.description.trim(),
+        amount_pence: amountPence,
+        receipt_id: it.receipt_id || null,
+      });
     }
 
     // A single RPC call (one transaction) rather than a header insert/update
@@ -660,6 +670,20 @@ export default function MusicianClaim({ gigId, myProfileId }) {
                   required
                 />
               </label>
+              {isPro && (
+                <ReceiptLineAttach
+                  profileId={myProfileId}
+                  attached={Boolean(item.receipt_id)}
+                  onExtracted={(patch) => updateItem(i, {
+                    receipt_id: patch.receipt_id,
+                    // Only fill blanks -- never overwrite something the
+                    // musician has already typed on this line.
+                    description: item.description || patch.description,
+                    amountPounds: item.amountPounds || patch.amountPounds,
+                  })}
+                  onError={setError}
+                />
+              )}
               <button
                 type="button"
                 className="link-button link-button--danger"

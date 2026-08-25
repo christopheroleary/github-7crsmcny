@@ -6,6 +6,60 @@ import DateInput from './DateInput.jsx';
 import NumberInput from './NumberInput.jsx';
 import { todayStr } from '../utils/formatDate.js';
 
+// Compact variant for a claim's line-item editor, where the surrounding row
+// already has category/description/amount fields -- so rather than showing
+// its own review form, this just fills those fields in and hands back the
+// receipt id for the line to carry. The musician still sees and can correct
+// every value before the claim is submitted, so the "model pre-fills, human
+// commits" rule holds here too.
+export function ReceiptLineAttach({ profileId, attached, onExtracted, onError }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { receipt, extractionError } = await captureReceipt(file, profileId);
+      onExtracted({
+        receipt_id: receipt.id,
+        description: receipt.raw_extraction?.suggested_description || receipt.merchant_name || '',
+        amountPounds: receipt.total_pence != null ? poundsFromPence(receipt.total_pence) : '',
+      });
+      if (extractionError) {
+        onError?.(
+          extractionError.startsWith('PRO_REQUIRED:')
+            ? extractionError.replace('PRO_REQUIRED: ', '')
+            : extractionError + ' The photo is attached — check the amount.'
+        );
+      }
+    } catch (err) {
+      onError?.(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <label
+      className="link-button"
+      style={{ cursor: 'pointer', marginBottom: 10, whiteSpace: 'nowrap' }}
+      title={attached ? 'Receipt attached — take another to replace it' : 'Attach a photo of the receipt'}
+    >
+      {busy ? '…' : attached ? '📎 Receipt' : '📷 Receipt'}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFile}
+        disabled={busy}
+        style={{ display: 'none' }}
+      />
+    </label>
+  );
+}
+
 // Photograph a receipt, have the fields read off it, then confirm.
 //
 // The confirmation step is deliberate and not skippable: this feeds a tax
