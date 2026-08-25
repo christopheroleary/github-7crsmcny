@@ -444,24 +444,20 @@ export default function MyProfile() {
       <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, margin: '24px 0 0' }}>
         <span className="field__label">Your data</span>
         <p className="field__hint" style={{ margin: 0 }}>
-          When you use this app, we log basic technical info — device type, browser, screen size, whether
-          you've installed it as a PWA, your notification permission, your IP address, and when you were
-          last active. This is used only by the admin, to monitor app usage and troubleshoot problems
-          — never shared outside the app, and not visible to band leaders or other musicians.
+          So the admin can sort things out when something breaks, we note a few basics: your device,
+          browser, screen size, IP address and when you last used the app. That's all — no adverts,
+          no tracking, and nothing handed to analytics companies.
         </p>
         {/* Receipt scanning is the one place data leaves this app, so it's
             called out separately rather than folded into the paragraph
-            above -- a receipt photo can carry your name and the last digits
-            of a card, and people should be able to see that plainly before
-            they use it. */}
+            above -- a receipt photo can carry your name and part of a card
+            number, and people should see that plainly before they use it. */}
         <p className="field__hint" style={{ margin: '10px 0 0' }}>
-          <strong>Scanned receipts.</strong> When you scan a receipt, the photo is sent to Anthropic's
-          Claude API to read the shop, date and amounts off it, and is not used to train their models.
-          The photo itself is stored privately here — only you and the admin can open it, through a
-          link that expires after a few minutes. Receipts are kept for about six years because HMRC
-          requires it, and nothing is deleted automatically. Bear in mind a receipt can show your name
-          or the last digits of a card, so scan only what you're happy to store; you can always type an
-          expense in by hand instead.
+          <strong>Scanned receipts.</strong> Your receipt photo is sent to Anthropic's Claude to read
+          the shop, date and amounts off it. It isn't used to train their AI. The photo stays private
+          here — only you and the admin can open it — and we keep it for about six years, because
+          that's what HMRC asks for. A receipt can show your name or part of a card number, so scan
+          what you're happy to keep; typing an expense in by hand always works too.
         </p>
       </div>
 
