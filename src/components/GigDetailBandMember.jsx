@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigMessages from './GigMessages.jsx';
@@ -66,6 +67,13 @@ function formatSyncTime(iso) {
 
 export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled, backLabel = '← Back to my gigs' }) {
   const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
+  const { isBandLeader, ledBandIds } = useCurrentProfile();
+  // True whenever a band leader lands here for a gig outside band(s) they
+  // actually lead -- either GigsList routed them here directly, or
+  // GigDetail.jsx's self-guard demoted them from the management view.
+  // Without this they'd just see an unexplained downgrade from their usual
+  // page with no clue why, which reads as broken even though it's correct.
+  const viewingOutsideLedBand = isBandLeader && gig?.band_id && !ledBandIds.includes(gig.band_id);
   const [confirming, setConfirming] = useState(false);
   // Plays a quick slide-out (see .swipe-back-exiting) before actually
   // navigating away, so an edge swipe doesn't just instantly snap to the
@@ -223,6 +231,12 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
             })}
           </strong>
           . Maps and media players won't work without a connection.
+        </div>
+      )}
+
+      {viewingOutsideLedBand && (
+        <div className="offline-banner">
+          You lead another band, but this gig belongs to <strong>{gig.bands?.name || 'a different band'}</strong> — you're viewing it as a performer, not a manager.
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import GigForm from './GigForm.jsx';
@@ -23,6 +24,7 @@ import { notify } from '../utils/toastService.js';
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
   const { gig, lineup, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
+  const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
   const [editing, setEditing] = useState(false);
   // Bumped when a quote converts to an invoice, forcing GigInvoice to
@@ -81,6 +83,26 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
           Couldn't load gig: {error}
         </p>
       </div>
+    );
+  }
+
+  // ── Self-guard: not actually authorised to manage this specific gig ────────
+  // GigsList.jsx is supposed to route here only for gigs the viewer manages,
+  // but it can't always know that up front (e.g. a historic gig not yet in
+  // its loaded list -- see canManageGig's fallback there). This is the
+  // authoritative check, since `gig` here always comes from this component's
+  // own fetch. A band leader with no authority over THIS gig's band gets the
+  // same day-sheet any other performer sees, instead of a management page
+  // whose buttons would just fail against RLS.
+  if (!isAdminRole && !(gig.band_id && ledBandIds.includes(gig.band_id))) {
+    return (
+      <GigDetailBandMember
+        gigId={gigId}
+        myProfileId={me?.id}
+        onBack={onBack}
+        scrollToSection={scrollToSection}
+        onScrolled={onScrolled}
+      />
     );
   }
 

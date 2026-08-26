@@ -42,10 +42,26 @@ const INVOICE_CARD_COLORS = {
 };
 
 export default function GigsList() {
-  const { profile: me, isAdmin: isAdminRole, isBandLeader } = useCurrentProfile();
+  const { profile: me, isAdmin: isAdminRole, isBandLeader, ledBandIds } = useCurrentProfile();
   // Band leaders get the same full-management gig UI as admin, scoped to their
-  // own bands by RLS — see the plan's "full management" decision.
+  // own bands by RLS — see the plan's "full management" decision. This drives
+  // list-level identity choices (which filters/columns, "Gigs" vs "My gigs",
+  // what gets fetched) -- genuinely org-wide questions, not gig-specific ones.
   const isAdmin = isAdminRole || isBandLeader;
+  // But which SPECIFIC gigs a leader can actually manage is per-band, not
+  // blanket -- a leader of Band A merely performing at a Band B gig has zero
+  // write access there (see gigs_update_admin/etc RLS), so anything that
+  // decides "can THIS gig be managed" needs this instead of the blanket flag
+  // above. Used for the detail-view choice and the confirm-prompt below.
+  function canManageGig(gig) {
+    // No gig row yet (e.g. a historic gig not pulled into rawGigs while
+    // showHistoric is off) -- fall back to the identity-level flag rather
+    // than wrongly assuming "no". GigDetail.jsx does its own authoritative
+    // fetch and self-guards regardless, so a wrong "yes" here self-corrects;
+    // this only avoids a wrong "no" while data is still loading.
+    if (!gig) return isAdmin;
+    return isAdminRole || !!(gig.band_id && ledBandIds.includes(gig.band_id));
+  }
 
   // localStorage so this survives a full PWA restart, not just a re-render —
   // see the matching note in App.jsx.
@@ -180,7 +196,11 @@ export default function GigsList() {
 
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selectedGigId) {
-    if (isAdmin) {
+    // Looked up from the unfiltered rawGigs, not the client-filtered `gigs`
+    // (showNeedsInvoicing/showUnclaimedGigs/etc. could otherwise hide the
+    // very row being viewed, leaving nothing here to check band_id against).
+    const selectedGig = rawGigs.find((g) => g.id === selectedGigId);
+    if (canManageGig(selectedGig)) {
       return (
         <GigDetail
           gigId={selectedGigId}
@@ -403,7 +423,10 @@ export default function GigsList() {
               const isDisabled = isOffline && !isAvailableOffline;
               const stub = formatTicketStub(gig.gig_date);
               // Musician hasn't confirmed their availability for this booking yet.
-              const needsConfirmation = !isAdmin && !isPast && gig.status !== 'cancelled' && !gig.my_confirmed;
+              // Gig-scoped, not the blanket isAdmin -- a leader booked to
+              // perform for a band they don't lead still needs to see this,
+              // same as any other performer would.
+              const needsConfirmation = !canManageGig(gig) && !isPast && gig.status !== 'cancelled' && !gig.my_confirmed;
 
               return (
                 <li
