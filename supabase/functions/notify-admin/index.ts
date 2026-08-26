@@ -1,6 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
+// Despite the name, this doesn't only notify admins -- pushToAdmins() below
+// sends to every admin PLUS the leader(s) of the specific band an event is
+// scoped to (see getRecipientIds). Renaming the function/file was judged
+// not worth the risk (the edge function slug is a live URL baked into a
+// hardcoded string inside notify_admin_webhook(), called by four DB
+// triggers), so this comment is the fix instead.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 // New-style secret key, not the legacy service_role JWT -- the trigger
 // that calls this function used to authenticate with a literal copy of
