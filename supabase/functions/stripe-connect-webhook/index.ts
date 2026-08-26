@@ -2,7 +2,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@20?target=deno';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// New-style secret key, not the legacy service_role JWT -- see
+// notify-admin/index.ts for why every function was migrated off it.
+const SUPABASE_SERVICE_KEY = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')!)['secret'];
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 // Separate secret from STRIPE_WEBHOOK_SECRET (the invoice-payments webhook)
 // -- this is a different registered endpoint in Stripe with its own signing

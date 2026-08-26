@@ -2,7 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// New-style secret key, not the legacy service_role JWT -- the trigger
+// that calls this function used to authenticate with a literal copy of
+// the service_role key hardcoded in a migration (a real leak, since fixed
+// by moving it into Vault -- see 20260826160000_notify_admin_vault_secret.sql).
+// Every Edge Function was migrated off the legacy key at the same time.
+// SUPABASE_SECRET_KEYS is auto-injected by Supabase, a JSON dict keyed by
+// name; "secret" is the key created for this project.
+const SUPABASE_SERVICE_KEY = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')!)['secret'];
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
 const VAPID_EMAIL = (Deno.env.get('VAPID_EMAIL') || 'admin@gigmanager.app').replace(/^mailto:/i, '');

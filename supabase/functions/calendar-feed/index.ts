@@ -1,8 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// New-style secret key, not the legacy service_role JWT -- see
+// notify-admin/index.ts for why every function was migrated off it.
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')!)['secret']
 );
 
 function icsDateAllDay(dateStr: string): string {
