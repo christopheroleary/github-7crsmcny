@@ -78,7 +78,10 @@ const today = todayStr;
  * - showHistoric: when true, removes the date floor (matches GigsList behaviour)
  */
 async function fetchGigList({ isAdmin, profileId, showHistoric }) {
-  const adminFields = 'id, gig_date, start_time, status, fee_amount, notes, needs_dj, needs_roadie, venues(name), clients(name), bands(name)';
+  // band_id (not just the joined bands(name)) is needed client-side to work
+  // out whether the current viewer actually manages THIS gig's band, vs the
+  // blanket admin/leader flag -- see GigsList.jsx's canManageGig().
+  const adminFields = 'id, gig_date, start_time, status, fee_amount, notes, needs_dj, needs_roadie, band_id, venues(name), clients(name), bands(name)';
   const memberFields = 'id, gig_date, start_time, status, notes, venues(name), bands(name)';
 
   if (isAdmin) {
