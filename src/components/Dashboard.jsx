@@ -359,13 +359,13 @@ export default function Dashboard({ onNavigate }) {
       )}
 
       {isAdmin && dashboardMode === 'earnings' && (
-        <MyEarnings profileId={profile?.id} ledBandIds={ledBandIds} />
+        <MyEarnings ledBandIds={ledBandIds} />
       )}
 
       {!isAdmin && (
         <div className="day-sheet__section">
           <h3 className="day-sheet__section-title">My earnings</h3>
-          <MyEarnings profileId={profile?.id} ledBandIds={ledBandIds} />
+          <MyEarnings ledBandIds={ledBandIds} />
         </div>
       )}
 

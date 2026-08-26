@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { taxYearOptions } from '../utils/taxYear.js';
 import InfoTooltip from './InfoTooltip.jsx';
 
@@ -13,7 +14,20 @@ function poundsFromPence(p) {
 // one with TaxRecords: this needs band_id/bands(name) through the gigs join,
 // which TaxRecords has no reason to select, and keeping them independent
 // means neither risks the other's accuracy.
-export default function MyEarnings({ profileId, ledBandIds = [] }) {
+//
+// No profileId prop, deliberately -- always the current viewer's own id,
+// read internally rather than trusted from a caller. Unlike TaxRecords
+// (self OR admin-viewing-any-musician's records via MusiciansList),
+// musician_claims/musician_claim_items RLS also lets a band leader read
+// *another* musician's claims for gigs in bands the leader manages (needed
+// for MusicianClaimsAdmin to approve them) -- so a "MyEarnings" reused with
+// someone else's id wouldn't be blocked by RLS the way its name implies,
+// it would silently render a partial, band-filtered slice of that other
+// person's income as if it were the viewer's own. Removing the prop removes
+// the possibility of that misuse entirely, now or in any future call site.
+export default function MyEarnings({ ledBandIds = [] }) {
+  const { profile } = useCurrentProfile();
+  const profileId = profile?.id;
   const options = taxYearOptions();
   const [startYear, setStartYear] = useState(options[0].startYear);
   const [loading, setLoading] = useState(true);
@@ -21,10 +35,19 @@ export default function MyEarnings({ profileId, ledBandIds = [] }) {
   const [playedGroups, setPlayedGroups] = useState([]);
   const [otherIncomePence, setOtherIncomePence] = useState(0);
   const [outstandingPence, setOutstandingPence] = useState(0);
+  // Bumped on every load() call; a response only gets applied if it's still
+  // the most recent request by the time it lands. Without this, rapidly
+  // switching tax years can let an older, slower response overwrite a
+  // newer one -- showing figures for the wrong year with no visible sign
+  // anything's wrong, which is exactly the kind of silent inaccuracy this
+  // feature can't afford.
+  const requestIdRef = useRef(0);
 
   const period = options.find((o) => o.startYear === startYear) || options[0];
 
   const load = useCallback(async () => {
+    if (!profileId) return;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
 
     const [{ data: claims }, { data: otherIncome }] = await Promise.all([
@@ -40,6 +63,8 @@ export default function MyEarnings({ profileId, ledBandIds = [] }) {
         .gte('date', period.start)
         .lte('date', period.end),
     ]);
+
+    if (requestId !== requestIdRef.current) return; // a newer request has since started -- discard this stale response
 
     // band_id -> { name, pence } -- 'none' buckets gigs with no band assigned
     // ("Other gigs") rather than dropping them.
