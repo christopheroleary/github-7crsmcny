@@ -56,7 +56,9 @@ async function pushTo(recipientIds: string[], payload: { title: string; body: st
           JSON.stringify(payload)
         );
       } catch (err: any) {
-        if (err.statusCode === 410) stale.push(sub.endpoint);
+        // See notify-musician/index.ts -- a 403 here means a VAPID key
+        // mismatch, which is just as permanently dead as a 410.
+        if (err.statusCode === 410 || err.statusCode === 403) stale.push(sub.endpoint);
       }
     })
   );

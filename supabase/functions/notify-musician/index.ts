@@ -74,7 +74,12 @@ async function notifyMusician(profileId: string, payload: {
         );
         return { endpoint: sub.endpoint, ok: true };
       } catch (err: any) {
-        if (err.statusCode === 410) stale.push(sub.endpoint);
+        // 403 here means the push service rejected the VAPID JWT as not
+        // matching this subscription's key -- permanently unrecoverable
+        // for this subscription (it was created under a different
+        // VAPID_PUBLIC_KEY than the one currently configured), so it's
+        // pruned exactly like a 410 Gone rather than retried forever.
+        if (err.statusCode === 410 || err.statusCode === 403) stale.push(sub.endpoint);
         console.error(
           'push send failed',
           JSON.stringify({
