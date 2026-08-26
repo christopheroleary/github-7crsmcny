@@ -13,13 +13,15 @@ export default function CalendarFeed({ profileId }) {
   const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
+    // calendar_token isn't directly selectable (see
+    // 20260826130000_restrict_sensitive_profile_columns.sql) -- it's the
+    // secret behind an unauthenticated feed URL, so it's self-only, not
+    // even readable by an admin. This component only ever renders for the
+    // viewer's own profile (see MyProfile.jsx), so that's never an issue.
     supabase
-      .from('profiles')
-      .select('calendar_token')
-      .eq('id', profileId)
-      .single()
+      .rpc('get_my_calendar_token')
       .then(({ data }) => {
-        setToken(data ? data.calendar_token : null);
+        setToken(data || null);
         setLoading(false);
       });
   }, [profileId]);

@@ -28,10 +28,13 @@ export default function ProfilePaymentDetails({ profileId }) {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      // Bank columns aren't directly selectable (see
+      // 20260826130000_restrict_sensitive_profile_columns.sql) -- this RPC
+      // checks the caller itself (self, or admin) rather than relying on
+      // RLS row access, since "can see this row" no longer means "can see
+      // every column".
       const { data } = await supabase
-        .from('profiles')
-        .select('bank_name, bank_account_name, bank_sort_code, bank_account_number')
-        .eq('id', profileId)
+        .rpc('get_payment_details', { p_profile_id: profileId })
         .maybeSingle();
 
       if (data) {
