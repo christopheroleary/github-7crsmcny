@@ -101,6 +101,20 @@ async function notifyMusician(profileId: string, payload: {
   return results.map((r) => (r.status === 'fulfilled' ? r.value : { ok: false, error: String(r.reason) }));
 }
 
+// Surfaces the outcome on the roster row itself (GigRoster.jsx reads this)
+// instead of it being discarded once this fire-and-forget webhook returns.
+// Distinguishes "never opted in" from "actually broken" since the fix an
+// admin/leader needs differs -- one just needs nudging another way, the
+// other might be worth flagging as a real bug.
+async function recordInvitePushStatus(lineupId: string, pushResults: any[]) {
+  const status = pushResults.length === 0
+    ? 'not_subscribed'
+    : pushResults.some((r: any) => r.ok)
+      ? 'delivered'
+      : 'failed';
+  await supabase.from('gig_lineup').update({ invite_push_status: status }).eq('id', lineupId);
+}
+
 Deno.serve(async (req) => {
   let body: any;
   try {
@@ -159,6 +173,7 @@ Deno.serve(async (req) => {
         gig_id: record.gig_id,
         section: 'roster',
       });
+      await recordInvitePushStatus(record.id, pushResults);
     }
 
     // ── Gig invite manually resent ──────────────────────────────────────────
@@ -190,6 +205,7 @@ Deno.serve(async (req) => {
         gig_id: record.gig_id,
         section: 'roster',
       });
+      await recordInvitePushStatus(record.id, pushResults);
     }
 
     // ── New gig chat message ────────────────────────────────────────────────

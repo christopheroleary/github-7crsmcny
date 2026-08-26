@@ -209,7 +209,7 @@ export default function GigRoster({ gigId }) {
       { data: phInsts },
     ] = await Promise.all([
       supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, created_at, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, created_at, invite_push_status, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
       supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
@@ -705,6 +705,16 @@ export default function GigRoster({ gigId }) {
                       <span>· {countdown}</span>
                     ) : (
                       <span style={{ color: 'var(--rust)', fontWeight: 600 }}>· Overdue — hasn't confirmed in 2+ days</span>
+                    )}
+                    {entry.invite_push_status === 'failed' && (
+                      <span style={{ color: 'var(--rust)', fontWeight: 600 }} title="They have push notifications turned on, but the last attempt to reach their device failed — the app-open bell notification is the only thing they've actually seen.">
+                        · ⚠️ Push notification failed to send
+                      </span>
+                    )}
+                    {entry.invite_push_status === 'not_subscribed' && (
+                      <span title="They haven't turned on push notifications, so they'll only see this if they open the app.">
+                        · 🔕 Not subscribed to push
+                      </span>
                     )}
                     <button
                       type="button"

@@ -1,0 +1,12 @@
+-- service_role (used by edge functions via SUPABASE_SECRET_KEYS) had no
+-- UPDATE grant on this table -- same silent-failure pattern already fixed
+-- once for push_subscriptions (see 20260725160000_grant_service_role_push_subscriptions.sql):
+-- supabase-js swallows the permission-denied error, so both of these have
+-- been failing quietly with no visible error anywhere:
+--   - unconfirmed-roster-reminder's admin_notified_at write, meaning the
+--     "only flag this once per invite" dedupe has never actually worked --
+--     confirmed live, zero of 33 unconfirmed roster rows have
+--     admin_notified_at set despite the cron job having run for weeks.
+--   - notify-musician's new invite_push_status write (this session's
+--     roster-badge feature), which would have silently never shown anything.
+grant update on public.gig_lineup to service_role;
