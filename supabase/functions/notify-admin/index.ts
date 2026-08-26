@@ -88,9 +88,13 @@ async function getSubscriptionsFor(profileIds: string[]) {
 
 async function pushToAdmins(
   payload: { title: string; body: string; tag: string; url?: string; gig_id?: string; section?: string },
-  bandId?: string | null
+  bandId?: string | null,
+  // The person whose own action triggered this (they confirmed, submitted a
+  // claim, etc.) -- a band leader is also a recipient of their own band's
+  // notifications, so without this they'd get pinged about their own action.
+  excludeProfileId?: string | null
 ) {
-  const recipientIds = await getRecipientIds(bandId);
+  const recipientIds = (await getRecipientIds(bandId)).filter((id) => id !== excludeProfileId);
   if (!recipientIds.length) return;
 
   // Save an in-app notification for every recipient
@@ -172,7 +176,7 @@ Deno.serve(async (req) => {
           url: '/gigs',
           gig_id: record.gig_id,
           section: 'roster',
-        }, gig?.band_id);
+        }, gig?.band_id, record.profile_id);
       }
     }
 
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
           url: '/gigs',
           gig_id: record.gig_id,
           section: 'claims',
-        }, gig?.band_id);
+        }, gig?.band_id, record.profile_id);
       }
 
       // A rejected claim was amended and resubmitted — put it back on the admin's radar.
@@ -229,7 +233,7 @@ Deno.serve(async (req) => {
           url: '/gigs',
           gig_id: record.gig_id,
           section: 'claims',
-        }, gig?.band_id);
+        }, gig?.band_id, record.profile_id);
       }
     }
 

@@ -105,7 +105,11 @@ Deno.serve(async (_req) => {
       const gig = row.gigs;
       const venueName = gig?.venues?.name || 'a gig';
       const musicianName = row.profiles?.full_name || 'A musician';
-      const recipientIds = await getRecipientIds(gig?.band_id ?? null);
+      // Exclude the unconfirmed musician themselves -- if they're also a
+      // leader of this band, they'd otherwise get pinged that "[their own
+      // name] hasn't confirmed... resend the invite", addressed at them
+      // about themselves.
+      const recipientIds = (await getRecipientIds(gig?.band_id ?? null)).filter((id) => id !== row.profile_id);
 
       await pushTo(recipientIds, {
         title: 'Still unconfirmed: ' + musicianName,

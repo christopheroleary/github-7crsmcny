@@ -423,10 +423,13 @@ export default function GigsList() {
               const isDisabled = isOffline && !isAvailableOffline;
               const stub = formatTicketStub(gig.gig_date);
               // Musician hasn't confirmed their availability for this booking yet.
-              // Gig-scoped, not the blanket isAdmin -- a leader booked to
-              // perform for a band they don't lead still needs to see this,
-              // same as any other performer would.
-              const needsConfirmation = !canManageGig(gig) && !isPast && gig.status !== 'cancelled' && !gig.my_confirmed;
+              // Driven by the viewer's own roster row, not by whether they
+              // manage the gig -- a leader who's personally booked on their
+              // own band's gig still needs to confirm like anyone else.
+              // Strict === false (not just falsy): undefined means "not on
+              // this gig at all" (a pure admin, or a leader not performing
+              // on it), which must never read as "needs to confirm".
+              const needsConfirmation = gig.my_confirmed === false && !isPast && gig.status !== 'cancelled';
 
               return (
                 <li
