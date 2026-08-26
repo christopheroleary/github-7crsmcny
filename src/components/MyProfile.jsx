@@ -36,7 +36,7 @@ const UI_THEMES = [
 ];
 
 export default function MyProfile() {
-  const { refreshProfile } = useCurrentProfile();
+  const { refreshProfile, isAdmin } = useCurrentProfile();
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -55,6 +55,7 @@ export default function MyProfile() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [removingAvatar, setRemovingAvatar] = useState(false);
+  const [usageLoggingOptOut, setUsageLoggingOptOut] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -65,7 +66,7 @@ export default function MyProfile() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url, usage_logging_opt_out').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
       ]);
@@ -83,6 +84,7 @@ export default function MyProfile() {
         setEquipment(Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(profile[item.key])])));
         setEquipmentNotes(profile.equipment_notes || '');
         setAvatarUrl(profile.avatar_url || '');
+        setUsageLoggingOptOut(Boolean(profile.usage_logging_opt_out));
       }
       setAllInstruments(instruments || []);
       setSelectedIds((links || []).map((l) => l.instrument_id));
@@ -152,6 +154,15 @@ export default function MyProfile() {
   async function handleDepToggle(checked) {
     setAvailableForDepWork(checked);
     await persist({ available_for_dep_work: checked }, () => setAvailableForDepWork(!checked));
+  }
+
+  // Takes effect from the NEXT sign-in / app open onward -- maybeLogSession
+  // only runs once per load in ProfileContext.jsx, so a session already in
+  // progress when this is flipped doesn't retroactively un-log anything,
+  // there's simply nothing further to opt out of until the next one fires.
+  async function handleUsageLoggingOptOutToggle(checked) {
+    setUsageLoggingOptOut(checked);
+    await persist({ usage_logging_opt_out: checked }, () => setUsageLoggingOptOut(!checked));
   }
 
   async function handleThemeChange(themeId) {
@@ -459,6 +470,20 @@ export default function MyProfile() {
           that's what HMRC asks for. A receipt can show your name or part of a card number, so scan
           what you're happy to keep; typing an expense in by hand always works too.
         </p>
+        {/* Admins never have this logging happen at all (see
+            ProfileContext.jsx), so showing them a toggle for it would just
+            be confusing -- it'd already look "off" with nothing to opt out of. */}
+        {!isAdmin && (
+          <label className="field" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, margin: '10px 0 0' }}>
+            <input
+              type="checkbox"
+              checked={usageLoggingOptOut}
+              onChange={(e) => handleUsageLoggingOptOutToggle(e.target.checked)}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Don't log my device and usage info</span>
+          </label>
+        )}
       </div>
 
       <div className="field" style={{ textAlign: 'center', margin: '16px 0 0' }}>

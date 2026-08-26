@@ -94,15 +94,18 @@ export function ProfileProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, ui_theme, avatar_url, subscription_tier')
+        .select('id, full_name, role, ui_theme, avatar_url, subscription_tier, usage_logging_opt_out')
         .eq('id', uid)
         .single();
       if (error) throw error;
 
       setProfile(data || null);
       applyUiTheme(data?.ui_theme);
-      // Admin's own usage is deliberately never collected here.
-      if (data && data.role !== 'admin') maybeLogSession();
+      // Admin's own usage is deliberately never collected here. Everyone
+      // else can opt out in My Profile -- see "Your data" -- which is what
+      // makes this first-party, troubleshooting-only logging exempt from
+      // needing a cookie-consent banner under PECR Schedule A1.
+      if (data && data.role !== 'admin' && !data.usage_logging_opt_out) maybeLogSession();
 
       let leaderIds = [];
       if (data?.role === 'band_leader') {
