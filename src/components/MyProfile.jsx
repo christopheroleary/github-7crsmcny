@@ -65,16 +65,20 @@ export default function MyProfile() {
       setUserId(uid);
       setEmail(userData.user.email || '');
 
-      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url, usage_logging_opt_out').eq('id', uid).single(),
+      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }] = await Promise.all([
+        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url, usage_logging_opt_out').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
+        // phone isn't in the blanket column grant (see
+        // 20260826150000_restrict_profile_phone.sql) -- self-read still
+        // goes through the same RPC everyone else does.
+        supabase.rpc('get_profile_phones', { p_profile_ids: [uid] }),
       ]);
 
       if (profileError) notify("Couldn't load profile: " + profileError.message);
       else {
         setFullName(profile.full_name || '');
-        setPhone(profile.phone || '');
+        setPhone(phoneRows?.[0]?.phone || '');
         setHomeAddress(profile.home_address || '');
         setHomeLat(profile.home_latitude ?? null);
         setHomeLon(profile.home_longitude ?? null);

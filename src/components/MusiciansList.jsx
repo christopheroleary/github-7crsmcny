@@ -44,7 +44,7 @@ export default function MusiciansList() {
       { data: insts },
       { data: lineupRows },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone, role, is_active, subscription_tier, home_address, home_latitude, home_longitude, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('full_name'),
+      supabase.from('profiles').select('id, full_name, role, is_active, subscription_tier, home_address, home_latitude, home_longitude, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes').order('full_name'),
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(id, name)'),
       supabase.from('instruments').select('id, name').order('sort_order'),
       // Confirmed/completed only -- an inquiry gig isn't a real booking yet,
@@ -61,8 +61,18 @@ export default function MusiciansList() {
       return;
     }
 
+    // phone isn't in the blanket column grant (see
+    // 20260826150000_restrict_profile_phone.sql) -- admin/band-leader
+    // access to this whole list already satisfies the RPC's own check, so
+    // this always returns every row it just asked the main query for.
+    const { data: phoneRows } = await supabase.rpc('get_profile_phones', {
+      p_profile_ids: (profiles || []).map((p) => p.id),
+    });
+    const phoneById = Object.fromEntries((phoneRows || []).map((r) => [r.id, r.phone]));
+
     const withInstruments = (profiles || []).map((p) => ({
       ...p,
+      phone: phoneById[p.id] || null,
       instruments: (links || [])
         .filter((l) => l.profile_id === p.id)
         .map((l) => ({ id: l.instrument_id, name: l.instruments?.name }))

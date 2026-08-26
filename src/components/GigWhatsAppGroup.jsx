@@ -56,17 +56,31 @@ export default function GigWhatsAppGroup({ gig }) {
     const [{ data: lineup }, { data: leaders }, { data: invites }] = await Promise.all([
       supabase
         .from('gig_lineup')
-        .select('profile_id, placeholder_id, profiles(full_name, phone), placeholder_musicians(name, phone)')
+        .select('profile_id, placeholder_id, profiles(full_name), placeholder_musicians(name, phone)')
         .eq('gig_id', gig.id),
       supabase
         .from('band_leaders')
-        .select('profile_id, profiles!band_leaders_profile_id_fkey(full_name, phone)')
+        .select('profile_id, profiles!band_leaders_profile_id_fkey(full_name)')
         .eq('band_id', gig.band_id),
       supabase
         .from('gig_whatsapp_invites')
         .select('profile_id, placeholder_id, sent_at')
         .eq('gig_id', gig.id),
     ]);
+
+    // phone isn't in the blanket column grant (see
+    // 20260826150000_restrict_profile_phone.sql) -- this component only
+    // ever renders on the admin/band-leader gig page (see GigDetail.jsx),
+    // which already satisfies the RPC's own check.
+    const profileIds = [
+      ...(lineup || []).map((l) => l.profile_id),
+      ...(leaders || []).map((l) => l.profile_id),
+    ].filter(Boolean);
+    let phoneById = {};
+    if (profileIds.length > 0) {
+      const { data: phoneRows } = await supabase.rpc('get_profile_phones', { p_profile_ids: profileIds });
+      phoneById = Object.fromEntries((phoneRows || []).map((r) => [r.id, r.phone]));
+    }
 
     const sentMap = new Map();
     for (const inv of invites || []) {
@@ -79,14 +93,14 @@ export default function GigWhatsAppGroup({ gig }) {
         profileId: l.profile_id,
         placeholderId: l.placeholder_id,
         name: l.profiles?.full_name || l.placeholder_musicians?.name,
-        phone: l.profiles?.phone || l.placeholder_musicians?.phone,
+        phone: (l.profile_id && phoneById[l.profile_id]) || l.placeholder_musicians?.phone,
       })),
       ...(leaders || []).map((l) => ({
         key: l.profile_id,
         profileId: l.profile_id,
         placeholderId: null,
         name: l.profiles?.full_name,
-        phone: l.profiles?.phone,
+        phone: phoneById[l.profile_id],
       })),
     ].filter((p) => p.name && p.key);
 

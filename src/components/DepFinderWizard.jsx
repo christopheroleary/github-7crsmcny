@@ -58,7 +58,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       supabase.from('gig_lineup').select('profile_id, placeholder_id').eq('gig_id', gigId),
       supabase
         .from('profile_instruments')
-        .select('profile_id, profiles(id, full_name, phone, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, avatar_url)')
+        .select('profile_id, profiles(id, full_name, is_active, home_latitude, home_longitude, home_address, avail_sun, avail_mon, avail_tue, avail_wed, avail_thu, avail_fri, avail_sat, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, avatar_url)')
         .eq('instrument_id', instrumentId),
       supabase
         .from('placeholder_musician_instruments')
@@ -72,6 +72,18 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
     const profileCandidates = (profileLinks || [])
       .map((l) => l.profiles)
       .filter((p) => p && p.is_active && !bookedProfileIds.has(p.id));
+
+    // phone isn't in the blanket column grant (see
+    // 20260826150000_restrict_profile_phone.sql) -- dep-finding is a
+    // band-leader action, which already satisfies the RPC's own check.
+    if (profileCandidates.length > 0) {
+      const { data: phoneRows } = await supabase.rpc('get_profile_phones', {
+        p_profile_ids: profileCandidates.map((p) => p.id),
+      });
+      const phoneById = Object.fromEntries((phoneRows || []).map((r) => [r.id, r.phone]));
+      profileCandidates.forEach((p) => { p.phone = phoneById[p.id] || null; });
+    }
+
     const placeholderCandidates = (placeholderLinks || [])
       .map((l) => l.placeholder_musicians)
       .filter((p) => p && !p.merged_into && !bookedPlaceholderIds.has(p.id));
