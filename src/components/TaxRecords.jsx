@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { taxYearOptions } from '../utils/taxYear.js';
@@ -56,10 +56,18 @@ export default function TaxRecords({ profileId }) {
   const [otherIncomeRows, setOtherIncomeRows] = useState([]);
   const [gigMiles, setGigMiles] = useState(0);
   const [otherMiles, setOtherMiles] = useState(0);
+  // Bumped on every load() call; a response only gets applied if it's still
+  // the most recent request by the time it lands. Without this, rapidly
+  // switching tax years can let an older, slower response overwrite a
+  // newer one -- showing figures for the wrong year with no visible sign
+  // anything's wrong (same fix as MyEarnings.jsx, which shares this exact
+  // pattern).
+  const requestIdRef = useRef(0);
 
   const period = options.find((o) => o.startYear === startYear) || options[0];
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
 
     const [{ data: claims }, { data: expenses }, { data: otherIncome }, { data: gigLineup }, { data: otherMileage }] = await Promise.all([
@@ -101,6 +109,8 @@ export default function TaxRecords({ profileId }) {
         .gte('date', period.start)
         .lte('date', period.end),
     ]);
+
+    if (requestId !== requestIdRef.current) return; // a newer request has since started -- discard this stale response
 
     const paidItems = [];
     let outstanding = 0;
