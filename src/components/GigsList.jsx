@@ -493,12 +493,24 @@ export default function GigsList() {
                     {gig.bands?.name && (
                       <p className="gig-card__client">{gig.bands.name}</p>
                     )}
-                    {isAdmin && gig.clients?.name && (
+                    {/* Client name and the full gig fee are business-facing --
+                        only for gigs this viewer actually manages. A leader
+                        merely performing elsewhere sees their own agreed fee
+                        instead (same wording as GigDetailBandMember), or
+                        nothing if it isn't set yet -- never the client-facing
+                        total. */}
+                    {canManageGig(gig) && gig.clients?.name && (
                       <p className="gig-card__client">{gig.clients.name}</p>
                     )}
-                    {isAdmin && gig.fee_amount != null && (
+                    {canManageGig(gig) && gig.fee_amount != null && (
                       <p className="gig-card__fee">
                         £{Math.round(Number(gig.fee_amount)).toLocaleString('en-GB')}
+                      </p>
+                    )}
+                    {!canManageGig(gig) && gig.my_fee_pence != null && (
+                      <p className="gig-card__fee">
+                        Your fee: £{(gig.my_fee_pence / 100).toFixed(2)}
+                        {gig.my_travel_cost_pence != null && ' + £' + (gig.my_travel_cost_pence / 100).toFixed(2) + ' travel'}
                       </p>
                     )}
                   </div>

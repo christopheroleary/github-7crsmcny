@@ -115,12 +115,13 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
       supabase.from('invoices').select('gig_id, status').in('gig_id', fetchedGigIds),
       supabase.from('musician_claims').select('gig_id, status').in('gig_id', fetchedGigIds).eq('status', 'pending'),
       supabase.from('gig_requirements').select('gig_id, instrument_id, quantity').in('gig_id', fetchedGigIds),
-      // profile_id/confirmed added so a band leader (who always takes this
-      // admin branch, even for gigs they're merely performing on) gets their
-      // own confirmation status back too -- previously only the plain-
-      // musician branch below computed this, so needsConfirmation in
-      // GigsList.jsx had nothing real to read for an admin/leader.
-      supabase.from('gig_lineup').select('gig_id, profile_id, confirmed, instrument_id, is_dj, is_roadie').in('gig_id', fetchedGigIds),
+      // profile_id/confirmed/fee_pence/travel_cost_pence added so a band
+      // leader (who always takes this admin branch, even for gigs they're
+      // merely performing on) gets their own confirmation status and fee
+      // back too -- previously only the plain-musician branch below
+      // computed these, so a leader saw the full client-facing gig fee for
+      // every gig regardless of whether they actually managed it.
+      supabase.from('gig_lineup').select('gig_id, profile_id, confirmed, fee_pence, travel_cost_pence, instrument_id, is_dj, is_roadie').in('gig_id', fetchedGigIds),
     ]);
 
     // ── Merge invoice status onto each gig ──────────────────────────────────
@@ -152,13 +153,22 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
     // `=== false` specifically so "not on this gig" never reads as "needs
     // to confirm", only an explicit unconfirmed row does.
     const myConfirmedByGig = {};
+    // Same "undefined means not on this gig" convention as myConfirmedByGig
+    // -- these are the viewer's own agreed fee/travel, never the client-
+    // facing gig total, for a gig they're merely performing on.
+    const myFeeByGig = {};
+    const myTravelByGig = {};
     for (const l of (lineup || [])) {
       lineupCountByGig[l.gig_id] = (lineupCountByGig[l.gig_id] || 0) + 1;
       const key = l.gig_id + '|' + l.instrument_id;
       filledByGigInstrument[key] = (filledByGigInstrument[key] || 0) + 1;
       if (l.is_dj) djFilledByGig[l.gig_id] = true;
       if (l.is_roadie) roadieFilledByGig[l.gig_id] = true;
-      if (l.profile_id === profileId) myConfirmedByGig[l.gig_id] = l.confirmed;
+      if (l.profile_id === profileId) {
+        myConfirmedByGig[l.gig_id] = l.confirmed;
+        myFeeByGig[l.gig_id] = l.fee_pence;
+        myTravelByGig[l.gig_id] = l.travel_cost_pence;
+      }
     }
     const requirementsByGig = {};
     for (const r of (requirements || [])) {
@@ -188,6 +198,8 @@ async function fetchGigList({ isAdmin, profileId, showHistoric }) {
       has_pending_claim: pendingClaimGigIds.has(g.id),
       roster_incomplete: incompleteRosterGigIds.has(g.id),
       my_confirmed: myConfirmedByGig[g.id],
+      my_fee_pence: myFeeByGig[g.id],
+      my_travel_cost_pence: myTravelByGig[g.id],
     }));
   }
 
