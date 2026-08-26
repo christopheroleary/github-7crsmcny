@@ -41,6 +41,48 @@ export function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
+// @font-face rules for the standalone documents each print template builds.
+// These documents are written via document.write into an iframe that never
+// navigated anywhere (see printHtmlDocument above), so they don't inherit
+// the app's own stylesheet and need their own copy -- same self-hosted
+// files as src/index.css (see the comment there for why), referenced by
+// absolute URL since a relative path in a document injected this way isn't
+// guaranteed to resolve against the app's own origin the way the app's
+// real pages do.
+export function fontFaceCss() {
+  const base = window.location.origin;
+  return `
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 400 600;
+      font-display: swap;
+      src: url('${base}/fonts/inter-variable.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Space Grotesk';
+      font-style: normal;
+      font-weight: 500 700;
+      font-display: swap;
+      src: url('${base}/fonts/space-grotesk-variable.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Mono';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('${base}/fonts/ibm-plex-mono-400.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Mono';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('${base}/fonts/ibm-plex-mono-500.woff2') format('woff2');
+    }
+  `;
+}
+
 export function printHtmlDocument(html) {
   const iframe = document.createElement('iframe');
   Object.assign(iframe.style, {

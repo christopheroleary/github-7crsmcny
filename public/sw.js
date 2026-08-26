@@ -24,9 +24,11 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('youtube.com') ||
     url.hostname.includes('spotify.com') ||
     url.hostname.includes('openstreetmap.org') ||
-    url.hostname.includes('photon.komoot.io') ||
-    url.hostname.includes('fonts.googleapis.com') ||
-    url.hostname.includes('fonts.gstatic.com')
+    url.hostname.includes('photon.komoot.io')
+    // Fonts are self-hosted under /fonts/ now (same-origin), not loaded
+    // from fonts.googleapis.com/fonts.gstatic.com -- so they fall through
+    // to the normal cache-first handling below like any other static
+    // asset, instead of needing a bypass entry here.
   ) return;
 
   if (event.request.mode === 'navigate') {

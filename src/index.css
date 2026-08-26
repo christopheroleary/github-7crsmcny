@@ -1,3 +1,43 @@
+/* Self-hosted rather than loaded from fonts.googleapis.com/fonts.gstatic.com
+   -- those sent every visitor's IP to Google on every page load for no
+   reason (rendering text isn't a Google service), which is both an
+   unnecessary third-party data transfer and, for at least one EU regulator,
+   found unlawful outright. Files are the plain "latin" subset only (no
+   Cyrillic/Greek/Vietnamese) -- the app is English-only, and Inter/Space
+   Grotesk each cover 400-600 or 500-700 from a single variable-font file,
+   which is why there are only 4 files for 3 families. See public/fonts/.
+   The identical set (as absolute /fonts/... URLs) is also embedded in the
+   print templates -- see FONT_FACE_CSS in src/utils/printHtml.js -- since
+   those build a standalone document that doesn't inherit this stylesheet. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
+}
+
 :root {
   --ink: #1e1b16;
   --paper: #faf6ef;

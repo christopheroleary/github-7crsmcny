@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { ReceiptLineAttach } from './ReceiptCapture.jsx';
-import { printHtmlDocument, esc } from '../utils/printHtml.js';
+import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import NumberInput from './NumberInput.jsx';
 
@@ -195,10 +195,8 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 <head>
 <meta charset="UTF-8"/>
 <title>${invNumber}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-
 <style>
+  ${fontFaceCss()}
   *, *::before, *::after { box-sizing: border-box; }
   
   html, body { 

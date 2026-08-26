@@ -1,4 +1,4 @@
-import { printHtmlDocument, esc } from '../utils/printHtml.js';
+import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
 import { displayUrl } from '../utils/formatUrl.js';
 
 function formatDate(dateStr) {
@@ -56,9 +56,8 @@ function buildPrintHTML({ quote, items, gig, band, client }) {
 <head>
 <meta charset="UTF-8"/>
 <title>${quoNumber}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
+  ${fontFaceCss()}
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: white; font-family: 'Inter', sans-serif; color: #1a1a1a; font-size: 10pt; }
 
