@@ -10,7 +10,13 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
 export default function BandsList() {
-  const { isAdmin, isBandLeader } = useCurrentProfile();
+  const { isAdmin, ledBandIds } = useCurrentProfile();
+  // Same fix as the gig-detail cluster: a leader's write access to a band
+  // (edit its details, add/remove members -- see band_members_insert_admin/
+  // bands_update_admin RLS) is per-band, not blanket. isBandLeader alone
+  // would show Edit/manage controls for every band in the list, including
+  // ones this viewer doesn't lead, that would just fail on submit.
+  const canManageBand = (bandId) => isAdmin || ledBandIds.includes(bandId);
   const [bands, setBands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,7 +124,7 @@ export default function BandsList() {
                           {expandedLeadersId === b.id ? 'Hide leaders' : 'Leaders'}
                         </button>
                       )}
-                      {(isAdmin || isBandLeader) && (
+                      {canManageBand(b.id) && (
                         <button className="link-button" onClick={() => setEditingId(b.id)}>Edit</button>
                       )}
                       {isAdmin && (
@@ -126,7 +132,7 @@ export default function BandsList() {
                       )}
                     </div>
                   </div>
-                  {expandedId === b.id && <BandMembers bandId={b.id} isAdmin={isAdmin || isBandLeader} />}
+                  {expandedId === b.id && <BandMembers bandId={b.id} isAdmin={canManageBand(b.id)} />}
                   {isAdmin && expandedLeadersId === b.id && <BandLeaders bandId={b.id} />}
                 </>
               )}

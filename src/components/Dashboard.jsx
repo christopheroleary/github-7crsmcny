@@ -65,10 +65,17 @@ function DrilldownModal({ title, gigs, isAdmin, onClose, onSelectGig }) {
 }
 
 export default function Dashboard({ onNavigate }) {
-  const { isAdmin: isAdminRole, isBandLeader, profile } = useCurrentProfile();
-  // Band leaders get the same full company-wide-shaped dashboard query as
-  // admin — RLS scopes the results down to just their own bands' gigs.
+  const { isAdmin: isAdminRole, isBandLeader, ledBandIds, profile } = useCurrentProfile();
+  // Band leaders get the same full business-shaped dashboard query as admin
+  // -- but unlike admin, RLS alone doesn't scope it to "their" business: a
+  // leader can SELECT any gig they're merely performing on too (is_on_gig),
+  // so an unfiltered query here would sum another band's fees into this
+  // leader's revenue/outstanding totals and list them in the drilldown
+  // table's Client/Fee/Invoice columns. bandFilterIds below closes that --
+  // null for a real admin (genuinely company-wide), an array of only their
+  // own led bands for a leader.
   const isAdmin = isAdminRole || isBandLeader;
+  const bandFilterIds = !isAdminRole && isBandLeader ? ledBandIds : null;
 
   const [loading, setLoading] = useState(true);
   const [outstanding, setOutstanding] = useState({ count: 0, value: 0, gigs: [] });
@@ -143,9 +150,15 @@ export default function Dashboard({ onNavigate }) {
       }
 
       if (isAdmin) {
-        // ── ADMIN VIEW — full company-wide detail, as admin can already see
-        // everything via the Gigs tab. ──
+        // ── ADMIN VIEW — full business detail. For a real admin this is
+        // genuinely company-wide; for a leader-only viewer, bandFilterIds
+        // narrows every query below to just the bands they lead, so a gig
+        // they're merely performing on for someone else's band never
+        // contributes its fee or shows up in the drilldown table. ──
         const gigCols = 'id, fee_amount, gig_date, status, venues(name), bands(name), clients(name), invoices(status)';
+        // Applied identically to every query below rather than repeating the
+        // conditional six times.
+        const scoped = (q) => (bandFilterIds ? q.in('band_id', bandFilterIds) : q);
         const [
           { data: completedGigs },
           { data: upcomingGigs },
@@ -154,12 +167,12 @@ export default function Dashboard({ onNavigate }) {
           { data: pastGigs },
           { data: inquiryGigs }
         ] = await Promise.all([
-          supabase.from('gigs').select(gigCols).eq('status', 'completed'),
-          supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select('gig_date, fee_amount, status').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select(gigCols),
-          supabase.from('gigs').select(gigCols).lt('gig_date', today).not('status', 'in', '("cancelled")'),
-          supabase.from('gigs').select(gigCols).eq('status', 'inquiry')
+          scoped(supabase.from('gigs').select(gigCols).eq('status', 'completed')),
+          scoped(supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")')),
+          scoped(supabase.from('gigs').select('gig_date, fee_amount, status').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")')),
+          scoped(supabase.from('gigs').select(gigCols)),
+          scoped(supabase.from('gigs').select(gigCols).lt('gig_date', today).not('status', 'in', '("cancelled")')),
+          scoped(supabase.from('gigs').select(gigCols).eq('status', 'inquiry'))
         ]);
 
         setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
@@ -229,7 +242,7 @@ export default function Dashboard({ onNavigate }) {
     }
 
     load();
-  }, [isAdmin, profile]);
+  }, [isAdmin, bandFilterIds, profile]);
 
   if (loading) return <p className="state-message">Loading dashboard…</p>;
 
