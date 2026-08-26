@@ -203,6 +203,16 @@ export default function EnquiryForm() {
             )}
           </label>
 
+          <div className="field" style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, margin: '16px 0 0' }}>
+            <span className="field__label">Your privacy</span>
+            <p className="field__hint" style={{ margin: 0 }}>
+              We'll use this to check availability and quote for your event — nothing else. Only the
+              band and its admin see it; the venue address box also briefly checks OpenStreetMap as
+              you type. We keep it while we're in touch, then delete it — just ask if you'd like to
+              see, change or delete what we've got.
+            </p>
+          </div>
+
           {error && <p className="form-error">{error}</p>}
 
           <button type="submit" className="btn btn--primary" style={{ width: '100%', marginTop: 8 }} disabled={submitting}>
