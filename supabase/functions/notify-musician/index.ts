@@ -156,6 +156,74 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Gig invite manually resent ──────────────────────────────────────────
+    // Not a real Postgres trigger op -- resend_gig_invite() fires this
+    // itself (via net.http_post) after resetting the roster row's
+    // created_at, so it gets the same bell+push treatment as a first-time
+    // add rather than sitting bell-only like the direct-insert version did.
+    if (table === 'gig_lineup' && type === 'RESEND') {
+      if (!record.profile_id) {
+        return new Response(JSON.stringify({ ok: true, skipped: 'placeholder' }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: gig } = await supabase
+        .from('gigs')
+        .select('gig_date, venues(name)')
+        .eq('id', record.gig_id)
+        .single();
+
+      const venue = (gig as any)?.venues?.name || 'a gig';
+      const date = (gig as any)?.gig_date || '';
+
+      pushResults = await notifyMusician(record.profile_id, {
+        title: 'Reminder: please confirm your gig',
+        body: venue + (date ? ' on ' + date : '') + ' — tap to confirm you can make it.',
+        tag: 'lineup-resend-' + record.id,
+        url: '/gigs',
+        gig_id: record.gig_id,
+        section: 'roster',
+      });
+    }
+
+    // ── New gig chat message ────────────────────────────────────────────────
+    // Notifies everyone else on the gig's real-account roster (not the
+    // sender, not placeholders/deps who have no login). Each recipient gets
+    // their own bell row + push via notifyMusician, same as every other
+    // event here -- previously this was a bell-only insert done straight in
+    // the trigger, with no push at all.
+    if (table === 'gig_messages' && type === 'INSERT') {
+      const [{ data: gig }, { data: sender }, { data: lineup }] = await Promise.all([
+        supabase.from('gigs').select('venues(name)').eq('id', record.gig_id).single(),
+        record.sender_id
+          ? supabase.from('profiles').select('full_name').eq('id', record.sender_id).single()
+          : Promise.resolve({ data: null }),
+        supabase.from('gig_lineup').select('profile_id').eq('gig_id', record.gig_id).not('profile_id', 'is', null),
+      ]);
+
+      const venue = (gig as any)?.venues?.name || 'the gig';
+      const senderName = (sender as any)?.full_name || 'Someone';
+      const recipientIds = Array.from(
+        new Set((lineup || []).map((l: any) => l.profile_id))
+      ).filter((id) => id !== record.sender_id) as string[];
+
+      pushResults = (
+        await Promise.all(
+          recipientIds.map((profileId) =>
+            notifyMusician(profileId, {
+              title: senderName + ' messaged about ' + venue,
+              body: record.body,
+              tag: 'gig-message-' + record.id,
+              url: '/gigs',
+              gig_id: record.gig_id,
+              section: 'chat',
+            })
+          )
+        )
+      ).flat();
+    }
+
     // ── Invoice claim status changed ─────────────────────────────────────────
     if (table === 'musician_claims' && type === 'UPDATE') {
       const oldStatus = old_record?.status;
