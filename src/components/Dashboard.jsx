@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDate.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import DailyNewsWidget from './DailyNewsWidget.jsx';
+import MyEarnings from './MyEarnings.jsx';
 
 function KPICard({ label, count, value, colour, onClick }) {
   return (
@@ -76,6 +77,11 @@ export default function Dashboard({ onNavigate }) {
   // own led bands for a leader.
   const isAdmin = isAdminRole || isBandLeader;
   const bandFilterIds = !isAdminRole && isBandLeader ? ledBandIds : null;
+  // Only admin/leader get a toggle -- they're the only ones with a
+  // "business" hat to switch away from. A plain musician has just the one
+  // view, so My Earnings is appended below their existing cards instead
+  // (see the bottom of the render) rather than gated behind a switch.
+  const [dashboardMode, setDashboardMode] = useState('business');
 
   const [loading, setLoading] = useState(true);
   const [outstanding, setOutstanding] = useState({ count: 0, value: 0, gigs: [] });
@@ -264,68 +270,104 @@ export default function Dashboard({ onNavigate }) {
     <div className="dashboard">
       <div className="section-header" style={{ marginBottom: 16 }}>
         <h2 className="section-header__title">Dashboard</h2>
-      </div>
-
-      <div className="kpi-row">
-        <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
-        <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
-
+        {/* Only admin/leader have a "business" hat to switch away from -- a
+            plain musician gets My Earnings appended below instead, always
+            visible, no toggle needed (see the bottom of this component). */}
         {isAdmin && (
-          <>
-            <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" onClick={() => setActiveDrilldown('unInvoiced')} />
-            <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" onClick={() => setActiveDrilldown('outstanding')} />
-          </>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className={`btn btn--small ${dashboardMode === 'business' ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => setDashboardMode('business')}
+            >
+              Business
+            </button>
+            <button
+              type="button"
+              className={`btn btn--small ${dashboardMode === 'earnings' ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => setDashboardMode('earnings')}
+            >
+              My earnings
+            </button>
+          </div>
         )}
-        <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" onClick={() => setActiveDrilldown('upcoming')} />
-        <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" onClick={() => setActiveDrilldown('thisMonth')} />
       </div>
 
-      {activeDrilldown && (
-        <DrilldownModal
-          title={drilldowns[activeDrilldown].title}
-          gigs={drilldowns[activeDrilldown].data.gigs}
-          isAdmin={isAdmin}
-          onClose={() => setActiveDrilldown(null)}
-          onSelectGig={selectGig}
-        />
+      {(!isAdmin || dashboardMode === 'business') && (
+        <>
+          <div className="kpi-row">
+            <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
+            <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
+
+            {isAdmin && (
+              <>
+                <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" onClick={() => setActiveDrilldown('unInvoiced')} />
+                <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" onClick={() => setActiveDrilldown('outstanding')} />
+              </>
+            )}
+            <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" onClick={() => setActiveDrilldown('upcoming')} />
+            <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" onClick={() => setActiveDrilldown('thisMonth')} />
+          </div>
+
+          {activeDrilldown && (
+            <DrilldownModal
+              title={drilldowns[activeDrilldown].title}
+              gigs={drilldowns[activeDrilldown].data.gigs}
+              isAdmin={isAdmin}
+              onClose={() => setActiveDrilldown(null)}
+              onSelectGig={selectGig}
+            />
+          )}
+
+          <div className="dashboard-chart">
+            <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={trends} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#c8862e" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#c8862e" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gigGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1f3d3a" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#1f3d3a" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c7" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
+
+                {isAdmin && (
+                  <YAxis yAxisId="rev" orientation="right" tick={{ fontSize: 11 }}
+                    tickFormatter={v => '£' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v)} />
+                )}
+
+                <YAxis yAxisId="gig" orientation="left" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip
+                  formatter={(value, name) => name === 'revenue' ? ['£' + value.toLocaleString('en-GB'), 'Revenue'] : [value, 'Gigs']}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--line)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+
+                {isAdmin && (
+                  <Area yAxisId="rev" type="monotone" dataKey="revenue" stroke="#c8862e" fill="url(#revGrad)" strokeWidth={2} name="revenue" />
+                )}
+                <Area yAxisId="gig" type="monotone" dataKey="gigs" stroke="#1f3d3a" fill="url(#gigGrad)" strokeWidth={2} name="gigs" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </>
       )}
 
-      <div className="dashboard-chart">
-        <p className="dashboard-chart__title">Trend (Historical & Upcoming)</p>
-        <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={trends} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#c8862e" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#c8862e" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gigGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#1f3d3a" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#1f3d3a" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c7" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
+      {isAdmin && dashboardMode === 'earnings' && (
+        <MyEarnings profileId={profile?.id} ledBandIds={ledBandIds} />
+      )}
 
-            {isAdmin && (
-              <YAxis yAxisId="rev" orientation="right" tick={{ fontSize: 11 }}
-                tickFormatter={v => '£' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v)} />
-            )}
-
-            <YAxis yAxisId="gig" orientation="left" tick={{ fontSize: 11 }} allowDecimals={false} />
-            <Tooltip
-              formatter={(value, name) => name === 'revenue' ? ['£' + value.toLocaleString('en-GB'), 'Revenue'] : [value, 'Gigs']}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--line)' }}
-            />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-
-            {isAdmin && (
-              <Area yAxisId="rev" type="monotone" dataKey="revenue" stroke="#c8862e" fill="url(#revGrad)" strokeWidth={2} name="revenue" />
-            )}
-            <Area yAxisId="gig" type="monotone" dataKey="gigs" stroke="#1f3d3a" fill="url(#gigGrad)" strokeWidth={2} name="gigs" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {!isAdmin && (
+        <div className="day-sheet__section">
+          <h3 className="day-sheet__section-title">My earnings</h3>
+          <MyEarnings profileId={profile?.id} ledBandIds={ledBandIds} />
+        </div>
+      )}
 
       <DailyNewsWidget />
     </div>
