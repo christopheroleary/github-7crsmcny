@@ -1,19 +1,36 @@
-create trigger "notify-admin-enquiry"
-after insert on public.enquiries
-for each row execute function supabase_functions.http_request(
-  'https://uzblypxepztdramotjcc.supabase.co/functions/v1/notify-admin',
-  'POST',
-  '{"Content-type":"application/json","Authorization: Bearer":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Ymx5cHhlcHp0ZHJhbW90amNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjUwMjI1NCwiZXhwIjoyMDk4MDc4MjU0fQ.ZhWSYfikjmyXTV3VAxo5VYhaq-rXUVPeQGjTZ-tzINU"}',
-  '{}',
-  '5000'
-);
-
-create trigger "notify-admin-signup"
-after insert on public.profiles
-for each row execute function supabase_functions.http_request(
-  'https://uzblypxepztdramotjcc.supabase.co/functions/v1/notify-admin',
-  'POST',
-  '{"Content-type":"application/json","Authorization: Bearer":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Ymx5cHhlcHp0ZHJhbW90amNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjUwMjI1NCwiZXhwIjoyMDk4MDc4MjU0fQ.ZhWSYfikjmyXTV3VAxo5VYhaq-rXUVPeQGjTZ-tzINU"}',
-  '{}',
-  '5000'
-);
+-- SUPERSEDED -- the two triggers this originally created hardcoded a
+-- literal service_role key as their auth header, which is a real
+-- credential leak (this file was committed to a public repo). Rotate any
+-- key that was ever hardcoded like this immediately if you haven't
+-- already; it must be treated as compromised regardless of whether it's
+-- still technically valid.
+--
+-- Fixed in 20260826160000_notify_admin_vault_secret.sql, which drops and
+-- recreates both triggers to call a proper function that reads the
+-- webhook's auth key from Supabase Vault at call time instead of a
+-- literal string baked into the migration. The redaction here doesn't
+-- remove the leaked value from git history -- only a history rewrite
+-- (git filter-repo / BFG) does that, and even then treat the key as
+-- burned rather than relying on scrubbing history to undo the exposure.
+--
+-- Original trigger definitions (verbatim, key redacted):
+--
+-- create trigger "notify-admin-enquiry"
+-- after insert on public.enquiries
+-- for each row execute function supabase_functions.http_request(
+--   'https://uzblypxepztdramotjcc.supabase.co/functions/v1/notify-admin',
+--   'POST',
+--   '{"Content-type":"application/json","Authorization: Bearer":"<REDACTED-service_role-key>"}',
+--   '{}',
+--   '5000'
+-- );
+--
+-- create trigger "notify-admin-signup"
+-- after insert on public.profiles
+-- for each row execute function supabase_functions.http_request(
+--   'https://uzblypxepztdramotjcc.supabase.co/functions/v1/notify-admin',
+--   'POST',
+--   '{"Content-type":"application/json","Authorization: Bearer":"<REDACTED-service_role-key>"}',
+--   '{}',
+--   '5000'
+-- );
