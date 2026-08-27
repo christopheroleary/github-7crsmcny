@@ -95,10 +95,20 @@ Deno.serve(async (req) => {
     const bandId = (invoice.gigs as { band_id: string } | null)?.band_id;
     let connectAccountId: string | null = null;
     if (bandId) {
-      const { data: leaders } = await admin
+      // Errors checked explicitly here (unlike the plain-platform-flow code
+      // this replaced) -- a swallowed error would leave `leaders` null,
+      // which without this check would fall through the whole block below
+      // and silently use the *default* (no-Connect, direct-to-platform)
+      // flow. Before this Connect work that was harmless -- the default
+      // was always where the money went anyway -- but now it would mean a
+      // genuinely independent, Connect-active band's payment silently
+      // lands in the platform's balance instead of its own on a transient
+      // DB error. Throwing here fails the request instead of misrouting it.
+      const { data: leaders, error: leadersError } = await admin
         .from('band_leaders')
         .select('profiles(role, subscription_tier)')
         .eq('band_id', bandId);
+      if (leadersError) throw leadersError;
       const hasAdminLeader = (leaders || []).some((l) => {
         const p = l.profiles as unknown as { role: string; subscription_tier: string } | null;
         return p?.role === 'admin';
