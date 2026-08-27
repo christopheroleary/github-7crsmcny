@@ -177,7 +177,9 @@ Deno.serve(async (_req) => {
     });
   } catch (err) {
     console.error('gig-day-reminder error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    // Cron-invoked -- nobody reads this response body, so keep the real
+    // error (which can include raw Postgres details) in the logs only.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -121,7 +121,11 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('stripe-webhook error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    // Stripe just needs a non-2xx to retry the delivery -- it doesn't
+    // read the body, and this endpoint is public, so the real error
+    // (which can include raw Postgres details from the updates above)
+    // stays in the function logs rather than the response.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

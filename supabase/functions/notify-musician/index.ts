@@ -297,7 +297,10 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('notify-musician error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    // A DB webhook invocation -- nobody reads this response body, so keep
+    // the real error (which can include raw Postgres details) in the
+    // logs only.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

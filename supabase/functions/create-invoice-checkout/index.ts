@@ -162,10 +162,13 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('create-invoice-checkout error:', err);
-    // err.message (e.g. Stripe's "amount_too_small" rejection text) reads
-    // as a real explanation; String(err) prefixes the error class name,
-    // which is engineer-speak nobody paying an invoice needs to see.
-    const message = err instanceof Error ? err.message : String(err);
+    // Stripe's own error messages (e.g. "amount_too_small") are written
+    // for end users and safe to show as-is. Anything else reaching this
+    // catch -- a Postgres error from an `if (error) throw error`, or a
+    // genuine runtime bug -- was never meant for client eyes and can
+    // include internal details (column/constraint names, etc.), so only
+    // a real Stripe error's message passes through.
+    const message = err instanceof Stripe.errors.StripeError ? err.message : 'Something went wrong. Please try again.';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

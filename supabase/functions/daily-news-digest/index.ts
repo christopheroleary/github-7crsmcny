@@ -91,19 +91,39 @@ function extractTag(block: string, tag: string): string {
   return val.trim();
 }
 
-// &amp; must decode first (a literal "&" in the source was itself escaped
-// to "&amp;amp;" when Google wrapped the description in HTML, so this is
-// often two rounds of encoding for a single character) -- &nbsp; only
-// exists as an entity because &amp; already ran.
+// Google's feed wraps the raw <a>/<font> markup (and its &nbsp;
+// separators) in an outer XML-escape layer, so those characters often
+// arrive escaped twice -- e.g. a literal "&nbsp;" that was part of the
+// embedded HTML comes through as "&amp;nbsp;".
+//
+// Decoding sequentially, entity-by-entity (the previous approach here),
+// is a double-unescaping bug: running the &amp; replace first, then a
+// separate &lt; replace over its *output*, means a plain, single-escaped
+// "&amp;lt;" -- text that should decode to the literal, visible string
+// "&lt;" -- gets decoded a second time into an actual "<". Decoding
+// every entity type together in one simultaneous pass fixes that (each
+// match is translated independently, so one entity's decoded output can
+// never be picked up by another entity's rule in the same pass); running
+// that single combined pass twice is what actually resolves Google's
+// genuine double-encoding, without the different-entity cross-over that
+// caused the bug.
+const ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&#39;': "'",
+  '&apos;': "'",
+  '&quot;': '"',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&nbsp;': ' ',
+};
+const ENTITY_RE = /&amp;|&#39;|&apos;|&quot;|&lt;|&gt;|&nbsp;/g;
+
+function decodeEntitiesOnce(s: string): string {
+  return s.replace(ENTITY_RE, (m) => ENTITIES[m]);
+}
+
 function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ');
+  return decodeEntitiesOnce(decodeEntitiesOnce(s));
 }
 
 // Google News' <description> is the raw markup <a href="...">Title</a>
@@ -309,8 +329,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('daily-news-digest error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
+    // Cron-invoked -- nobody reads this response body, so keep the real
+    // error in the logs only.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

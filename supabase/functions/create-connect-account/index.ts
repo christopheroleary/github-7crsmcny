@@ -133,7 +133,11 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error('create-connect-account error:', err);
-    const message = err instanceof Error ? err.message : String(err);
+    // Only a genuine Stripe error's message (written for end users) is
+    // safe to show -- this catch also sees a raw Postgres error from the
+    // `if (updateError) throw updateError` above, which can leak column/
+    // constraint names and was never meant for client eyes.
+    const message = err instanceof Stripe.errors.StripeError ? err.message : 'Something went wrong. Please try again.';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

@@ -16,15 +16,24 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// hostname.includes('supabase.co') also matches a hostname like
+// "supabase.co.evil.com" or "evilsupabase.co" -- includes() checks for
+// the substring anywhere, not "this domain or a real subdomain of it".
+// This only decides which requests bypass the service worker (still
+// worth closing properly, since a hostname a page can point at isn't
+// guaranteed to be one this app's own code chose), so exact-match the
+// domain or require it appear as a genuine, dot-bounded subdomain.
+function isOrSubdomainOf(hostname, domain) {
+  return hostname === domain || hostname.endsWith('.' + domain);
+}
+
+const BYPASS_DOMAINS = ['supabase.co', 'youtube.com', 'spotify.com', 'openstreetmap.org', 'photon.komoot.io'];
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (
-    url.hostname.includes('supabase.co') ||
-    url.hostname.includes('youtube.com') ||
-    url.hostname.includes('spotify.com') ||
-    url.hostname.includes('openstreetmap.org') ||
-    url.hostname.includes('photon.komoot.io')
+    BYPASS_DOMAINS.some((domain) => isOrSubdomainOf(url.hostname, domain))
     // Fonts are self-hosted under /fonts/ now (same-origin), not loaded
     // from fonts.googleapis.com/fonts.gstatic.com -- so they fall through
     // to the normal cache-first handling below like any other static

@@ -358,6 +358,10 @@ Deno.serve(async (req) => {
         extracted_at: new Date().toISOString(),
       }).eq('id', receiptId);
     }
-    return json({ error: message }, 500);
+    // `message` (the real error) is still stored on the row above, where
+    // RLS limits it to the receipt's owner and admins -- the caller gets
+    // a generic response instead, since the underlying error could be a
+    // raw Postgres or AI-provider detail never meant for a client to see.
+    return json({ error: 'Something went wrong reading that receipt.' }, 500);
   }
 });

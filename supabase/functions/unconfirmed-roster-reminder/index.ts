@@ -126,6 +126,8 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ ok: true, reminded }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('unconfirmed-roster-reminder error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    // Cron-invoked -- nobody reads this response body, so keep the real
+    // error (which can include raw Postgres details) in the logs only.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });

@@ -385,6 +385,9 @@ Deno.serve(async (req) => {
     });
   } catch (err: any) {
     console.error('refresh-venue-nearby-places error:', err);
-    return new Response(JSON.stringify({ error: err?.message || String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    // Cron-invoked (or called with no client waiting on a specific
+    // message) -- keep the real error, which can include raw Postgres
+    // or Overpass-API details, in the logs only.
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
