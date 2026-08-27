@@ -3815,6 +3815,91 @@ input:not([type]) {
 .enquiry-success h1 { font-family: var(--font-display); font-size: 28px; margin: 0 0 10px; }
 .enquiry-success p { color: var(--text-muted); font-size: 16px; }
 
+/* ---- Public band page ---- */
+/* .enquiry-card itself carries no padding (see .enquiry-card__header/form
+   above -- each caller's own content decides how it's padded), so the
+   band page's two custom sections need their own. */
+.band-page-hero {
+  padding: 36px 28px 32px;
+  text-align: center;
+  border-bottom: 3px solid var(--doc-accent, var(--amber));
+}
+
+.band-page-logo {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 12px;
+  margin: 0 auto 18px;
+  display: block;
+}
+
+.band-page-fallback-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.band-page-genres {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.band-page-bio {
+  margin: 18px 0 0;
+  text-align: left;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.band-page-links {
+  margin: 18px 0 0;
+  font-size: 14px;
+}
+
+.band-page-availability {
+  padding: 28px;
+}
+
+.band-page-availability__title {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+
+.band-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.band-page-date {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--paper-raised);
+}
+
+.band-page-date--booked {
+  background: rgba(182,69,44,0.08);
+  border-color: rgba(182,69,44,0.25);
+}
+
+.band-page-date__day {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.band-page-date__status {
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.band-page-date__status--free { color: var(--teal); }
+.band-page-date__status--booked { color: var(--rust); }
+
 /* ---- Enquiry admin view ---- */
 .enquiry-share-hint {
   display: flex;

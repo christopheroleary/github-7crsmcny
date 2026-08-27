@@ -110,64 +110,54 @@ export default function PublicBandPage({ slug }) {
 
         <div
           className="enquiry-card"
-          style={{ textAlign: 'center', '--doc-accent': page.doc_accent_colour || '#c8862e' }}
+          style={{ '--doc-accent': page.doc_accent_colour || '#c8862e' }}
         >
-          {page.logo_url ? (
-            <img
-              src={page.logo_url}
-              alt={page.name}
-              style={{ maxWidth: 160, maxHeight: 160, borderRadius: 12, margin: '0 auto 16px', display: 'block' }}
-            />
-          ) : (
-            <div style={{ fontSize: 40, marginBottom: 8 }}>🎸</div>
-          )}
-          <h1 className="enquiry-card__title">{page.name}</h1>
-          {page.genres?.length > 0 && (
-            <p className="field__hint" style={{ marginTop: 4 }}>{page.genres.join(' · ')}</p>
-          )}
-          {page.bio && (
-            <p style={{ marginTop: 16, textAlign: 'left', whiteSpace: 'pre-wrap' }}>{page.bio}</p>
-          )}
-          {(page.website_url || page.social_links?.length > 0) && (
-            <p style={{ marginTop: 16 }}>
-              {page.website_url && (
-                <a href={page.website_url} target="_blank" rel="noopener noreferrer">{displayUrl(page.website_url)}</a>
-              )}
-              {page.social_links?.map((link, i) => (
-                <span key={i}>
-                  {(i > 0 || page.website_url) && ' · '}
-                  <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
-                </span>
-              ))}
-            </p>
-          )}
+          <div className="band-page-hero">
+            {page.logo_url ? (
+              <img src={page.logo_url} alt={page.name} className="band-page-logo" />
+            ) : (
+              <div className="band-page-fallback-icon">🎸</div>
+            )}
+            <h1 className="enquiry-card__title">{page.name}</h1>
+            {page.genres?.length > 0 && (
+              <p className="band-page-genres">{page.genres.join(' · ')}</p>
+            )}
+            {page.bio && <p className="band-page-bio">{page.bio}</p>}
+            {(page.website_url || page.social_links?.length > 0) && (
+              <p className="band-page-links">
+                {page.website_url && (
+                  <a href={page.website_url} target="_blank" rel="noopener noreferrer">{displayUrl(page.website_url)}</a>
+                )}
+                {page.social_links?.map((link, i) => (
+                  <span key={i}>
+                    {(i > 0 || page.website_url) && ' · '}
+                    <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="enquiry-card">
-          <p className="enquiry-section-label" style={{ marginTop: 0 }}>Upcoming Saturdays</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8 }}>
-            {saturdays.map((d) => {
-              const iso = toISODate(d);
-              const free = !busyDates.has(iso);
-              return (
-                <div
-                  key={iso}
-                  style={{
-                    border: '1px solid var(--line)',
-                    borderRadius: 8,
-                    padding: '8px 10px',
-                    background: free ? 'var(--paper-raised)' : 'rgba(177,74,52,0.08)',
-                  }}
-                >
-                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>
-                    {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+          <div className="band-page-availability">
+            <p className="band-page-availability__title">Upcoming Saturdays</p>
+            <div className="band-page-grid">
+              {saturdays.map((d) => {
+                const iso = toISODate(d);
+                const free = !busyDates.has(iso);
+                return (
+                  <div key={iso} className={'band-page-date' + (free ? '' : ' band-page-date--booked')}>
+                    <div className="band-page-date__day">
+                      {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className={'band-page-date__status band-page-date__status--' + (free ? 'free' : 'booked')}>
+                      {free ? 'Free' : 'Booked'}
+                    </div>
                   </div>
-                  <div className="field__hint" style={{ color: free ? 'var(--teal)' : 'var(--rust)', marginTop: 2 }}>
-                    {free ? 'Free' : 'Booked'}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
