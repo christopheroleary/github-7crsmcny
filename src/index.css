@@ -2846,6 +2846,41 @@ input:not([type]) {
   background: rgba(255,255,255,0.1);
 }
 
+/* Deliberately NOT styled like the plain bell/profile icon buttons either
+   side of it -- while the app's in alpha/beta, feedback is the one header
+   action worth someone actually noticing and tapping unprompted, so it
+   gets its own coloured pill rather than blending into the icon row. */
+.feedback-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 55%, transparent);
+  color: var(--amber-dark);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.feedback-btn:hover {
+  background: color-mix(in srgb, var(--amber) 24%, transparent);
+}
+.feedback-btn__label {
+  display: none;
+}
+/* The label only fits once the header has room to spare -- checked live at
+   375px (title wraps to two lines, but the icon/button row itself is still
+   tight) and at the app's own 720px content max-width, where there's
+   plenty of space either side of the icon cluster. */
+@media (min-width: 560px) {
+  .feedback-btn__label {
+    display: inline;
+  }
+}
+
 /* Profile picture -- circular everywhere it appears (My Profile preview,
    header icon, and later the roster/day-sheet/dep-wizard rows this same
    class is meant to be reused for). */

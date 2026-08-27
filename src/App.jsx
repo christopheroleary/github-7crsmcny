@@ -280,12 +280,12 @@ export default function App() {
         <div className="app-header__right">
         <NotificationBell onNavigate={handleNavigate} />
           <button
-            className="notif-bell__btn"
+            className="feedback-btn"
             onClick={() => setShowFeedback(true)}
-            title="Send feedback"
+            title="Send feedback — bugs, ideas, anything not working as expected"
             aria-label="Send feedback"
           >
-            💬
+            💬<span className="feedback-btn__label">Feedback</span>
           </button>
           <button
             className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
