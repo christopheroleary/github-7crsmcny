@@ -83,23 +83,51 @@ Deno.serve(async (req) => {
     // a "Pay now" button, but this endpoint is reachable directly, so it
     // needs its own copy of the same rule rather than trusting the client
     // didn't just skip the UI check.
+    //
+    // A band with an admin leader (or no leaders at all -- a legacy/
+    // directly admin-run band) keeps using the direct platform-account
+    // flow below unchanged, exactly as before this Connect work: that
+    // money is legitimately the platform owner's own revenue. Only a band
+    // whose leaders are all genuinely independent (non-admin) needs its
+    // own Connect account active before a session can be created, and its
+    // payment gets routed there via `payment_intent_data.transfer_data`
+    // instead of landing in the platform's own balance.
     const bandId = (invoice.gigs as { band_id: string } | null)?.band_id;
+    let connectAccountId: string | null = null;
     if (bandId) {
       const { data: leaders } = await admin
         .from('band_leaders')
         .select('profiles(role, subscription_tier)')
         .eq('band_id', bandId);
-      if (leaders && leaders.length > 0) {
-        const enabled = leaders.some((l) => {
+      const hasAdminLeader = (leaders || []).some((l) => {
+        const p = l.profiles as unknown as { role: string; subscription_tier: string } | null;
+        return p?.role === 'admin';
+      });
+
+      if (leaders && leaders.length > 0 && !hasAdminLeader) {
+        const hasProLeader = leaders.some((l) => {
           const p = l.profiles as unknown as { role: string; subscription_tier: string } | null;
-          return p?.role === 'admin' || p?.subscription_tier === 'pro';
+          return p?.subscription_tier === 'pro';
         });
-        if (!enabled) {
+        if (!hasProLeader) {
           return new Response(JSON.stringify({ error: 'Card payments are not set up for this band yet.' }), {
             status: 403,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           });
         }
+
+        const { data: band } = await admin
+          .from('bands')
+          .select('stripe_connect_account_id, stripe_connect_status')
+          .eq('id', bandId)
+          .single();
+        if (!band?.stripe_connect_account_id || band.stripe_connect_status !== 'active') {
+          return new Response(JSON.stringify({ error: "This band hasn't finished setting up payouts yet." }), {
+            status: 403,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          });
+        }
+        connectAccountId = band.stripe_connect_account_id;
       }
     }
 
@@ -155,6 +183,15 @@ Deno.serve(async (req) => {
       metadata: { invoice_id: invoice.id },
       success_url: `${APP_URL}/invoice/${share_token}?paid=1`,
       cancel_url: `${APP_URL}/invoice/${share_token}`,
+      // A destination charge: the platform is still the merchant of record
+      // (so this page's flow and the webhook above don't change), but the
+      // payment transfers automatically to the independently-led band's
+      // own Connect account and payout schedule instead of sitting in the
+      // platform's balance. Omitted entirely for an admin-led/leaderless
+      // band, which keeps today's direct-platform-account behaviour.
+      ...(connectAccountId && {
+        payment_intent_data: { transfer_data: { destination: connectAccountId } },
+      }),
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

@@ -109,6 +109,10 @@ export default function App() {
     // router, so a query param is the only way it can tell the SPA where to
     // land.
     if (window.location.search.includes('stripe_connect=1')) return 'profile';
+    // Band-level Connect setup (BandConnectPayoutSetup) returns here the
+    // same way, but lands on Bands instead of Profile -- a distinct flag
+    // from stripe_connect=1 so the two return trips don't collide.
+    if (window.location.search.includes('stripe_connect_band=1')) return 'bands';
     if (window.location.search.includes('pro=1') || window.location.search.includes('pro=0')) return 'profile';
     return localStorage.getItem('gig_view') || 'dashboard';
   });
@@ -119,6 +123,9 @@ export default function App() {
   // on every future reload, not just this one return trip.
   useEffect(() => {
     if (window.location.search.includes('stripe_connect=1')) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (window.location.search.includes('stripe_connect_band=1')) {
       window.history.replaceState({}, '', window.location.pathname);
     }
     if (window.location.search.includes('pro=1')) {

@@ -5,6 +5,7 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { slugify } from '../utils/slugify.js';
 import NumberInput from './NumberInput.jsx';
+import BandConnectPayoutSetup from './BandConnectPayoutSetup.jsx';
 
 const LOGO_BUCKET = 'band-logos';
 
@@ -388,6 +389,11 @@ export default function BandForm({ band, onSaved, onCancel }) {
           placeholder="e.g. Payment is due within 14 days of the invoice date. Thank you for your booking."
         />
       </label>
+
+      {/* Only meaningful once the band exists (Connect setup needs a real
+          band id) -- a brand-new band being created here hasn't been saved
+          yet, so this only appears once editing an already-saved band. */}
+      {isEdit && <BandConnectPayoutSetup band={band} />}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Logo</p>
       {isEdit ? (

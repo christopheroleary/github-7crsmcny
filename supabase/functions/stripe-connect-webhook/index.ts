@@ -64,11 +64,17 @@ Deno.serve(async (req) => {
       // recognise, so this doesn't need to enumerate every possible value.
       const newStatus = transferStatus || 'pending';
 
-      const { error: updateError } = await admin
-        .from('profiles')
-        .update({ stripe_connect_status: newStatus })
-        .eq('stripe_connect_account_id', accountId);
-      if (updateError) throw updateError;
+      // An account id only ever matches one of these two tables -- a given
+      // Connect account is created either as a musician's payout account
+      // (create-connect-account) or a band's (create-band-connect-account),
+      // never both -- so trying both updates unconditionally is unambiguous
+      // and avoids needing to know here which kind of account this is.
+      const [{ error: profileUpdateError }, { error: bandUpdateError }] = await Promise.all([
+        admin.from('profiles').update({ stripe_connect_status: newStatus }).eq('stripe_connect_account_id', accountId),
+        admin.from('bands').update({ stripe_connect_status: newStatus }).eq('stripe_connect_account_id', accountId),
+      ]);
+      if (profileUpdateError) throw profileUpdateError;
+      if (bandUpdateError) throw bandUpdateError;
     }
     } catch (processingErr) {
       await admin.from('stripe_webhook_events').delete().eq('id', event.id);
