@@ -189,7 +189,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
     // Quick-create band
     let finalBandId = bandId || null;
     if (showNewBand && newBandName.trim()) {
-      const { data: nb, error: be } = await supabase.from('bands').insert({ name: newBandName }).select().single();
+      const { data: nb, error: be } = await supabase.from('bands').insert({ name: newBandName }).select('id').single();
       if (be) { setError(be.message); setSubmitting(false); return; }
       finalBandId = nb.id;
     }

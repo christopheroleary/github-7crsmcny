@@ -45,16 +45,46 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   useEffect(() => {
     if (!canManageThisGig) return;
     let cancelled = false;
-    supabase
-      .from('gigs')
-      .select('clients(*), bands(*)')
-      .eq('id', gigId)
-      .single()
-      .then(({ data }) => {
+    (async () => {
+      // bands(*) -- not clients(*), that table's grant is untouched -- would
+      // fail outright rather than silently drop columns: bank_*/
+      // stripe_connect_account_id are no longer part of the broad grant
+      // (restrict_sensitive_band_columns), and Postgres checks column-level
+      // SELECT privileges before expanding a wildcard, not per-column after.
+      // Fetched separately below via get_band_payment_details instead.
+      const { data } = await supabase
+        .from('gigs')
+        .select(
+          'clients(*), bands(' +
+            'id, name, notes, created_at, contact_email, contact_phone, address, ' +
+            'vat_number, invoice_notes, invoice_name, ' +
+            'fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct, ' +
+            'fee_split_owner_profit_pct, fee_split_captain_bonus_pct, ' +
+            'created_by, doc_accent_colour, doc_secondary_colour, vat_rate, ' +
+            'logo_url, website_url, social_links, ' +
+            'public_slug, public_bio, public_genres, public_enabled, ' +
+            'stripe_connect_status' +
+          ')'
+        )
+        .eq('id', gigId)
+        .single();
+      if (cancelled) return;
+      setDocClient(data?.clients || null);
+      const band = data?.bands || null;
+      setDocBand(band);
+      // bank_*/stripe_connect_account_id are no longer part of the plain
+      // bands(*) select (restrict_sensitive_band_columns) -- fetched
+      // separately here and merged in. get_band_payment_details re-checks
+      // admin/is_band_leader_of itself, so this is safe even though
+      // canManageThisGig's own ledBandIds check is what actually gates
+      // this effect running at all.
+      if (band?.id) {
+        const { data: paymentDetails } = await supabase.rpc('get_band_payment_details', { p_band_id: band.id });
         if (cancelled) return;
-        setDocClient(data?.clients || null);
-        setDocBand(data?.bands || null);
-      });
+        const details = paymentDetails?.[0];
+        if (details) setDocBand((prev) => (prev ? { ...prev, ...details } : prev));
+      }
+    })();
     return () => { cancelled = true; };
   }, [gigId, canManageThisGig]);
 

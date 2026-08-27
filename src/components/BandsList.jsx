@@ -44,7 +44,25 @@ export default function BandsList() {
 
   const loadBands = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('bands').select('*').order('name');
+    // Explicit column list, not '*' -- bank_*/stripe_connect_account_id
+    // are no longer part of the broad grant (restrict_sensitive_band_columns),
+    // and a bare '*' fails outright rather than silently dropping them
+    // (Postgres checks column-level SELECT privileges before expanding the
+    // wildcard, not per-column afterwards). BandForm fetches those five
+    // separately via get_band_payment_details once it knows who's asking.
+    const { data, error } = await supabase
+      .from('bands')
+      .select(
+        'id, name, notes, created_at, contact_email, contact_phone, address, ' +
+        'vat_number, invoice_notes, invoice_name, ' +
+        'fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct, ' +
+        'fee_split_owner_profit_pct, fee_split_captain_bonus_pct, ' +
+        'created_by, doc_accent_colour, doc_secondary_colour, vat_rate, ' +
+        'logo_url, website_url, social_links, ' +
+        'public_slug, public_bio, public_genres, public_enabled, ' +
+        'stripe_connect_status'
+      )
+      .order('name');
     if (error) setError(error.message);
     else setBands(data);
     setLoading(false);

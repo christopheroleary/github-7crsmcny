@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { prepareLogoUpload } from '../utils/resizeImage.js';
 import { confirmAsync } from '../utils/confirmService.js';
@@ -41,6 +41,30 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  // bank_*/stripe_connect_account_id aren't part of the plain band row
+  // BandsList fetches any more (restrict_sensitive_band_columns) -- only
+  // reachable via this RPC, which re-checks admin/is_band_leader_of
+  // itself. Populates the bank_* fields above (initialised empty) once it
+  // resolves; connectAccountId feeds BandConnectPayoutSetup below.
+  const [connectAccountId, setConnectAccountId] = useState(null);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('get_band_payment_details', { p_band_id: band.id });
+      if (cancelled) return;
+      const details = data?.[0];
+      if (!details) return;
+      setBankName(details.bank_name || '');
+      setBankAccountName(details.bank_account_name || '');
+      setBankSortCode(details.bank_sort_code || '');
+      setBankAccountNumber(details.bank_account_number || '');
+      setConnectAccountId(details.stripe_connect_account_id || null);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, band?.id]);
 
   async function handleLogoChange(e) {
     const file = e.target.files?.[0];
@@ -392,8 +416,11 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
       {/* Only meaningful once the band exists (Connect setup needs a real
           band id) -- a brand-new band being created here hasn't been saved
-          yet, so this only appears once editing an already-saved band. */}
-      {isEdit && <BandConnectPayoutSetup band={band} />}
+          yet, so this only appears once editing an already-saved band.
+          stripe_connect_account_id is merged in from the RPC fetch above
+          (band.stripe_connect_status is still plainly readable, but the
+          account id isn't). */}
+      {isEdit && <BandConnectPayoutSetup band={{ ...band, stripe_connect_account_id: connectAccountId }} />}
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Logo</p>
       {isEdit ? (
