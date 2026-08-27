@@ -2415,6 +2415,16 @@ input:not([type]) {
    (per request), using its own blue/grey rather than the app's
    amber/teal brand colours, since that specific look was the point.
    ============================================================ */
+/* .roster-section (the section immediately above gig chat in GigDetail.jsx)
+   has no margin-bottom of its own, and .day-sheet__section only sets
+   margin-bottom, not margin-top -- so the gap above gig chat was
+   collapsing to zero while every other section-to-section gap on the page
+   got the usual 14px from the previous section's margin-bottom. Matched
+   here rather than adding margin-bottom to .roster-section itself, which
+   is shared by six other sections and would have changed their spacing too. */
+.gig-chat {
+  margin-top: 14px;
+}
 .gig-chat__messages {
   display: flex;
   flex-direction: column;
