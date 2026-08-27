@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import { notify } from '../utils/toastService.js';
@@ -28,30 +28,44 @@ function rosterSortKey(entry) {
   return 1;
 }
 
-export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelPence, plannedHeadcount }) {
-  const [lineup, setLineup] = useState([]);
+// lineup comes from GigDetail (already loaded via useOfflineGigData) rather
+// than a fresh fetch of its own here -- but unlike GigInvoice/GigQuote/
+// GigContract's read-only use of the parent's lineup, this component
+// genuinely writes fee_pence back to gig_lineup (handleCalculate/
+// handleOverride), so it can't just render a static snapshot forever. The
+// values it writes are already known client-side the moment it writes them
+// (feeForRow's result, or the raw override amount), so both handlers apply
+// that same value to local state directly afterward instead of re-fetching
+// gig_lineup to learn something already known -- same optimistic-update
+// pattern GigRoster's handleConfirm already uses.
+export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelPence, plannedHeadcount, lineup: lineupProp = [] }) {
+  const [lineup, setLineup] = useState(lineupProp);
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [{ data: lineupData }, { data: bandData }] = await Promise.all([
-      supabase
-        .from('gig_lineup')
-        .select('id, instrument_id, vocal_role, is_captain, is_dj, is_roadie, travel_cost_pence, lift_share, fee_pence, profiles(full_name), instruments(name), placeholder_musicians(name)')
-        .eq('gig_id', gigId),
-      bandId
-        ? supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
-    setLineup(lineupData || []);
-    setTemplate(bandData || null);
-    setLoading(false);
-  }, [gigId, bandId]);
+  // Stays in sync if the parent's own lineup changes (a musician added or
+  // removed elsewhere on the page and the parent gig data is refreshed) --
+  // this component's own fee_pence writes are applied on top of that via
+  // local state updates instead, never by re-fetching gig_lineup itself.
+  useEffect(() => { setLineup(lineupProp); }, [lineupProp]);
 
-  useEffect(() => { load(); }, [load]);
+  // The band's fee-split template is the only thing left that's genuinely
+  // this component's own to fetch -- the parent has no reason to carry it.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data: bandData } = bandId
+        ? await supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
+        : { data: null };
+      if (cancelled) return;
+      setTemplate(bandData || null);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [bandId]);
 
   const totalFeePence = feeAmount != null ? Math.round(Number(feeAmount) * 100) : 0;
   const regularCount = lineup.filter((l) => l.instrument_id).length;
@@ -106,17 +120,17 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     if (!split) return;
     setCalculating(true);
     setError(null);
-    for (const row of lineup) {
-      const fee = feeForRow(row, split);
-      const { error: updateError } = await supabase.from('gig_lineup').update({ fee_pence: fee }).eq('id', row.id);
+    const fees = new Map(lineup.map((row) => [row.id, feeForRow(row, split)]));
+    for (const [id, fee] of fees) {
+      const { error: updateError } = await supabase.from('gig_lineup').update({ fee_pence: fee }).eq('id', id);
       if (updateError) {
         setError(updateError.message);
         setCalculating(false);
         return;
       }
     }
+    setLineup((prev) => prev.map((row) => (fees.has(row.id) ? { ...row, fee_pence: fees.get(row.id) } : row)));
     setCalculating(false);
-    load();
   }
 
   async function handleOverride(entryId, pounds) {
@@ -126,7 +140,7 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
       notify("Couldn't save fee: " + updateError.message);
       return;
     }
-    load();
+    setLineup((prev) => prev.map((row) => (row.id === entryId ? { ...row, fee_pence: pence } : row)));
   }
 
   if (loading) return <p className="state-message">Loading fee split…</p>;

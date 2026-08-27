@@ -56,6 +56,12 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     setCalculating(true);
     setError(null);
 
+    // Written values (miles/cost) are computed here, client-side, before
+    // each write -- so once a write succeeds, applying that same value to
+    // local state directly is exactly as correct as re-fetching gig_lineup
+    // to learn it back, without the extra round trip.
+    const updates = new Map();
+
     for (const entry of needsCalc) {
       const home = homeOf(entry);
       try {
@@ -63,28 +69,37 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
         if (miles == null) continue;
         const roundTrip = miles * 2;
         const costPence = Math.round(roundTrip * rate);
+        const travelMiles = Math.round(roundTrip * 10) / 10;
         const { error } = await supabase
           .from('gig_lineup')
-          .update({ travel_miles: Math.round(roundTrip * 10) / 10, travel_cost_pence: costPence })
+          .update({ travel_miles: travelMiles, travel_cost_pence: costPence })
           .eq('id', entry.id);
-        if (error) notify("Couldn't save travel cost for " + (entry.profiles?.full_name || entry.placeholder_musicians?.name || 'a musician') + ": " + error.message);
+        if (error) {
+          notify("Couldn't save travel cost for " + (entry.profiles?.full_name || entry.placeholder_musicians?.name || 'a musician') + ": " + error.message);
+        } else {
+          updates.set(entry.id, { travel_miles: travelMiles, travel_cost_pence: costPence });
+        }
       } catch {
         // silently skip if routing fails for one musician
       }
     }
 
+    setLineup((prev) => prev.map((l) => (updates.has(l.id) ? { ...l, ...updates.get(l.id) } : l)));
     setCalculating(false);
-    load();
   }
 
   async function toggleLiftShare(entry) {
     const nextLiftShare = !entry.lift_share;
+    // Toggling ON zeroes travel_cost_pence (matches the write below); toggling
+    // OFF leaves whatever cost was last calculated untouched, same as the
+    // write, which doesn't include travel_cost_pence in that case at all.
+    const patch = nextLiftShare ? { lift_share: true, travel_cost_pence: 0 } : { lift_share: false };
     const { error } = await supabase
       .from('gig_lineup')
-      .update(nextLiftShare ? { lift_share: true, travel_cost_pence: 0 } : { lift_share: false })
+      .update(patch)
       .eq('id', entry.id);
     if (error) { notify("Couldn't update lift share: " + error.message); return; }
-    load();
+    setLineup((prev) => prev.map((l) => (l.id === entry.id ? { ...l, ...patch } : l)));
   }
 
   const totalTravelPence = lineup.reduce((sum, l) => sum + (l.travel_cost_pence || 0), 0);

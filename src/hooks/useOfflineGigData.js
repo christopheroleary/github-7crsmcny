@@ -51,7 +51,7 @@ async function fetchGigData(gigId) {
     supabase
       .from('gig_lineup')
       .select(
-        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, vocal_role, is_captain, is_dj, is_roadie, fee_pence, confirmed_fee_pence, profiles(full_name, share_phone_on_daysheet, avatar_url), instruments(name), placeholder_musicians(name)'
+        'id, profile_id, placeholder_id, confirmed, instrument_id, travel_cost_pence, lift_share, vocal_role, is_captain, is_dj, is_roadie, fee_pence, confirmed_fee_pence, profiles(full_name, share_phone_on_daysheet, avatar_url), instruments(name), placeholder_musicians(name)'
       )
       .eq('gig_id', gigId),
 

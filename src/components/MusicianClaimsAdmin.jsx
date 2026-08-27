@@ -24,33 +24,33 @@ const STATUS_COLORS = {
   rejected: 'cancelled',
 };
 
-export default function MusicianClaimsAdmin({ gigId }) {
+// gig_lineup's fee_pence/travel_cost_pence are only ever READ here (to
+// compare against what a musician claimed), never written, so there's no
+// need to fetch them independently -- GigDetail already has them loaded
+// via useOfflineGigData and passes them straight through.
+export default function MusicianClaimsAdmin({ gigId, lineup: lineupProp = [] }) {
   const { isPro } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
-  const [expectedByProfile, setExpectedByProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState(null);
 
+  // What the roster/fee-split view actually allocated this musician for
+  // this gig -- fee_pence + travel_cost_pence -- to compare against what
+  // they claimed. A musician no longer on the roster (removed after
+  // claiming) has no entry here, so the comparison is simply skipped for
+  // them rather than showing a misleading "expected £0" diff.
+  const expectedByProfile = {};
+  lineupProp.forEach((l) => {
+    if (l.profile_id) expectedByProfile[l.profile_id] = (l.fee_pence || 0) + (l.travel_cost_pence || 0);
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data }, { data: lineup }] = await Promise.all([
-      supabase
-        .from('musician_claims')
-        .select('*, profiles(full_name, stripe_connect_status), musician_claim_items(*)')
-        .eq('gig_id', gigId)
-        .order('created_at'),
-      // What the roster/fee-split view actually allocated this musician for
-      // this gig -- fee_pence + travel_cost_pence -- to compare against what
-      // they claimed. A musician no longer on the roster (removed after
-      // claiming) has no entry here, so the comparison is simply skipped
-      // for them rather than showing a misleading "expected £0" diff.
-      supabase.from('gig_lineup').select('profile_id, fee_pence, travel_cost_pence').eq('gig_id', gigId),
-    ]);
-    const expected = {};
-    (lineup || []).forEach((l) => {
-      expected[l.profile_id] = (l.fee_pence || 0) + (l.travel_cost_pence || 0);
-    });
-    setExpectedByProfile(expected);
+    const { data } = await supabase
+      .from('musician_claims')
+      .select('*, profiles(full_name, stripe_connect_status), musician_claim_items(*)')
+      .eq('gig_id', gigId)
+      .order('created_at');
     setClaims(data || []);
     setLoading(false);
   }, [gigId]);

@@ -412,10 +412,11 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         bandId={gig.band_id}
         estimatedTravelPence={gig.estimated_travel_pence}
         plannedHeadcount={gig.planned_headcount}
+        lineup={lineup}
       />
 
       <div id="gig-section-claims">
-        <MusicianClaimsAdmin gigId={gigId} />
+        <MusicianClaimsAdmin gigId={gigId} lineup={lineup} />
       </div>
 
       <GigQuote
