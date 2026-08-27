@@ -970,7 +970,7 @@ export default function GigRoster({ gigId }) {
           instruments={instruments}
           initialInstrumentId={wizardInstrumentId}
           onClose={() => setWizardInstrumentId(null)}
-          onAdded={load}
+          onAdded={loadLineup}
         />
       )}
     </div>

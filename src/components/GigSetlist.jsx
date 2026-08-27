@@ -226,7 +226,7 @@ export default function GigSetlist({ gigId, bandId }) {
           onReorder={handleReorderSongs}
           onDetach={() => handleDetach(setlist.id)}
           onDeleteTemplate={() => handleDeleteTemplate(setlist)}
-          reload={load}
+          reload={loadSetlists}
         />
       ))}
 
