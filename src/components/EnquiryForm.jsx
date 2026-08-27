@@ -18,7 +18,7 @@ const LIMITS = {
   requirements: 2000,
 };
 
-export default function EnquiryForm() {
+export default function EnquiryForm({ bandId = null, embedded = false }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -72,6 +72,7 @@ export default function EnquiryForm() {
       estimated_budget: budgetNum,
       band_size: bandSize || null,
       requirements: trimmed.requirements || null,
+      band_id: bandId,
     });
 
     setSubmitting(false);
@@ -90,19 +91,17 @@ export default function EnquiryForm() {
   }
 
   if (submitted) {
-    return (
-      <div className="enquiry-page">
-        <div className="enquiry-success">
-          <div className="enquiry-success__icon">🎸</div>
-          <h1>Enquiry received!</h1>
-          <p>Thanks {name.split(' ')[0]}, we'll be in touch shortly to discuss your event.</p>
-        </div>
+    const success = (
+      <div className="enquiry-success">
+        <div className="enquiry-success__icon">🎸</div>
+        <h1>Enquiry received!</h1>
+        <p>Thanks {name.split(' ')[0]}, we'll be in touch shortly to discuss your event.</p>
       </div>
     );
+    return embedded ? success : <div className="enquiry-page">{success}</div>;
   }
 
-  return (
-    <div className="enquiry-page">
+  const card = (
       <div className="enquiry-card">
         <div className="enquiry-card__header">
           <h1 className="enquiry-card__title">Book us for your event</h1>
@@ -220,6 +219,7 @@ export default function EnquiryForm() {
           </button>
         </form>
       </div>
-    </div>
   );
+
+  return embedded ? card : <div className="enquiry-page">{card}</div>;
 }

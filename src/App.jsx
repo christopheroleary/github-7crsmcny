@@ -15,6 +15,7 @@ import EnquiriesList from './components/EnquiriesList.jsx';
 import UserActivity from './components/UserActivity.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
 import PublicDocumentView from './components/PublicDocumentView.jsx';
+import PublicBandPage from './components/PublicBandPage.jsx';
 import ResetPassword from './components/ResetPassword.jsx';
 import ConfirmHost from './components/ConfirmHost.jsx';
 import ToastHost from './components/ToastHost.jsx';
@@ -70,6 +71,14 @@ export default function App() {
       const token = window.location.pathname.split('/')[2];
       return <PublicDocumentView type={docType} token={token} />;
     }
+  }
+
+  // Public, no-login band booking page — reads through get_public_band_page/
+  // get_band_availability, scoped to bands with public_enabled = true (see
+  // PublicBandPage.jsx).
+  if (window.location.pathname.startsWith('/band/')) {
+    const slug = window.location.pathname.split('/')[2];
+    return <PublicBandPage slug={slug} />;
   }
 
 

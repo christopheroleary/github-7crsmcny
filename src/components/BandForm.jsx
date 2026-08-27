@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { prepareLogoUpload } from '../utils/resizeImage.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { slugify } from '../utils/slugify.js';
 import NumberInput from './NumberInput.jsx';
 
 const LOGO_BUCKET = 'band-logos';
@@ -32,6 +33,10 @@ export default function BandForm({ band, onSaved, onCancel }) {
   const [logoUrl, setLogoUrl] = useState(band?.logo_url || '');
   const [websiteUrl, setWebsiteUrl] = useState(band?.website_url || '');
   const [socialLinks, setSocialLinks] = useState(band?.social_links || []);
+  const [publicEnabled, setPublicEnabled] = useState(band?.public_enabled || false);
+  const [publicSlug, setPublicSlug] = useState(band?.public_slug || '');
+  const [publicBio, setPublicBio] = useState(band?.public_bio || '');
+  const [publicGenres, setPublicGenres] = useState((band?.public_genres || []).join(', '));
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -115,6 +120,12 @@ export default function BandForm({ band, onSaved, onCancel }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+
+    if (publicEnabled && !slugify(publicSlug)) {
+      setError('The public page needs a page address before it can be published — enter one above, or turn publishing off for now.');
+      return;
+    }
+
     setSubmitting(true);
 
     const payload = {
@@ -126,6 +137,10 @@ export default function BandForm({ band, onSaved, onCancel }) {
       address: address || null,
       website_url: websiteUrl || null,
       social_links: socialLinks.filter((link) => link.label.trim() && link.url.trim()),
+      public_enabled: publicEnabled,
+      public_slug: publicSlug ? slugify(publicSlug) : null,
+      public_bio: publicBio || null,
+      public_genres: publicGenres.split(',').map((g) => g.trim()).filter(Boolean),
       bank_name: bankName || null,
       bank_account_name: bankAccountName || null,
       bank_sort_code: bankSortCode || null,
@@ -148,7 +163,11 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
     setSubmitting(false);
     if (error) {
-      setError(error.message);
+      setError(
+        error.code === '23505'
+          ? 'That page address is already taken by another band — please choose a different one.'
+          : error.message
+      );
       return;
     }
     onSaved?.();
@@ -239,6 +258,78 @@ export default function BandForm({ band, onSaved, onCancel }) {
         <button type="button" className="btn btn--ghost btn--small" onClick={addSocialLink}>+ Add social link</button>
         <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>Shown on invoices, quotes and contracts alongside the website above.</span>
       </div>
+
+      <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Public booking page</p>
+      <p className="field__hint" style={{ marginBottom: 8 }}>
+        A free, no-login page anyone can visit to see this band, check upcoming Saturdays, and send an enquiry — a shareable
+        alternative to a full website. Off by default; nothing is public until you turn this on.
+      </p>
+
+      <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          style={{ width: 'auto' }}
+          checked={publicEnabled}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setPublicEnabled(checked);
+            if (checked && !publicSlug.trim()) setPublicSlug(slugify(name));
+          }}
+        />
+        <span className="field__label" style={{ marginBottom: 0 }}>Publish this band's page</span>
+      </label>
+
+      <div className="field">
+        <span className="field__label">Page address</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="field__hint" style={{ whiteSpace: 'nowrap' }}>{window.location.origin}/band/</span>
+          <input
+            value={publicSlug}
+            onChange={(e) => setPublicSlug(e.target.value)}
+            onBlur={(e) => setPublicSlug(slugify(e.target.value))}
+            placeholder="your-band-name"
+            style={{ flex: '1 1 160px' }}
+          />
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => setPublicSlug(slugify(name))}>
+            Suggest from name
+          </button>
+        </div>
+        {isEdit && publicEnabled && publicSlug && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+            <input
+              readOnly
+              value={window.location.origin + '/band/' + slugify(publicSlug)}
+              style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13 }}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => navigator.clipboard.writeText(window.location.origin + '/band/' + slugify(publicSlug))}
+            >
+              Copy
+            </button>
+          </div>
+        )}
+      </div>
+
+      <label className="field">
+        <span className="field__label">Style / genre tags</span>
+        <input value={publicGenres} onChange={(e) => setPublicGenres(e.target.value)} placeholder="Wedding band, Function band, Motown, Pop" />
+        <span className="field__hint">Comma-separated — shown as a short line under the band name.</span>
+      </label>
+
+      <label className="field">
+        <span className="field__label">Bio</span>
+        <textarea
+          value={publicBio}
+          onChange={(e) => setPublicBio(e.target.value.slice(0, 2000))}
+          rows={4}
+          placeholder="A few sentences about the band — what you play, how long you've been going, what makes you the right choice for someone's day."
+        />
+        {publicBio.length > 1600 && (
+          <span className="field__hint">{2000 - publicBio.length} characters left</span>
+        )}
+      </label>
 
       <div className="field-row">
         <label className="field">

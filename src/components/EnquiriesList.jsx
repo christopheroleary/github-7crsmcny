@@ -21,7 +21,10 @@ export default function EnquiriesList() {
     setLoading(true);
     const { data, error } = await supabase
       .from('enquiries')
-      .select('*')
+      // band_id is set when the enquiry came from a specific band's public
+      // page (see PublicBandPage.jsx) rather than the generic /enquiry
+      // form -- joined in so the admin knows which band to route it to.
+      .select('*, bands(name)')
       .order('created_at', { ascending: false });
     if (error) setError(error.message);
     else setEnquiries(data || []);
@@ -76,6 +79,9 @@ export default function EnquiriesList() {
       _clientHint: enq.client_name || '',
       _clientEmail: enq.client_email || '',
       _clientPhone: enq.client_phone || '',
+      // Pre-selects the band GigForm's own picker already reads gig?.band_id
+      // for -- set when this enquiry came from that band's public page.
+      band_id: enq.band_id || '',
     };
   }
 
@@ -145,6 +151,7 @@ export default function EnquiriesList() {
                       {enq.event_date ? formatShortDate(enq.event_date) : 'Date TBC'}
                       {enq.venue_name ? ' · ' + enq.venue_name : ''}
                       {enq.estimated_budget ? ' · £' + Math.round(enq.estimated_budget).toLocaleString('en-GB') : ''}
+                      {enq.bands?.name ? ' · via ' + enq.bands.name + "'s page" : ''}
                     </span>
                   </div>
                   <div className="simple-list__actions">
@@ -158,6 +165,7 @@ export default function EnquiriesList() {
                 {expandedId === enq.id && (
                   <div className="enquiry-detail">
                     <dl className="detail-list">
+                      {enq.bands?.name && (<><dt>Enquired via</dt><dd>{enq.bands.name}'s public page</dd></>)}
                       <dt>Email</dt><dd>{enq.client_email || '—'}</dd>
                       <dt>Phone</dt><dd>{enq.client_phone || '—'}</dd>
                       <dt>Event type</dt><dd>{enq.event_type || '—'}</dd>
