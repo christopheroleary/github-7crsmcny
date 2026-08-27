@@ -4,6 +4,20 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import qrcode from '../utils/qrcode.js';
 import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
 import { notify } from '../utils/toastService.js';
+import { formatShortDate } from '../utils/formatDate.js';
+
+// Matches the window get_gig_requests_page/submit_song_request/
+// song_requests_anon_select all check server-side (gig_date-1..gig_date)
+// -- opens the day before the gig (covers one still running past
+// midnight) and closes at the end of the gig's own calendar day. Pure
+// date arithmetic, not timezone-sensitive the way a Date-object diff
+// would be, since gig_date arrives as a plain "YYYY-MM-DD" string.
+function requestWindow(gigDate) {
+  if (!gigDate) return null;
+  const [y, m, d] = gigDate.split('-').map(Number);
+  const opens = new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+  return { opens, closes: gigDate };
+}
 
 // The song_requests table only stores song_id -- title/artist live on the
 // joined songs row. The initial select joins it directly; a request that
@@ -143,13 +157,20 @@ export default function SongRequestsPanel({ gig }) {
   if (requests.length === 0 && !showQr && loading) return null;
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  const win = requestWindow(gig.gig_date);
 
   return (
     <div className="roster-section">
       <h3 className="roster-section__title">Song requests {pendingCount > 0 && <span className="field__hint">({pendingCount} new)</span>}</h3>
-      <p className="field__hint" style={{ marginBottom: 12 }}>
+      <p className="field__hint" style={{ marginBottom: 4 }}>
         A QR code guests scan at the gig to request a song from tonight's setlist — no app, no login.
       </p>
+      {win && (
+        <p className="field__hint" style={{ marginBottom: 12 }}>
+          Live from <strong>{formatShortDate(win.opens)}</strong> to <strong>{formatShortDate(win.closes)}</strong> — opens the day
+          before so it still works if the gig runs past midnight. Outside that window the code just shows "not available".
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowQr((v) => !v)}>
@@ -166,6 +187,11 @@ export default function SongRequestsPanel({ gig }) {
         <div style={{ textAlign: 'center', marginBottom: 16, padding: 16, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10 }}>
           <img src={dataUrl} alt="QR code for song requests" style={{ width: 160, height: 160 }} />
           <p className="field__hint" style={{ marginTop: 8, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{url}</p>
+          {win && (
+            <p className="field__hint" style={{ marginTop: 4 }}>
+              Valid {formatShortDate(win.opens)} – {formatShortDate(win.closes)}
+            </p>
+          )}
         </div>
       )}
 
