@@ -16,6 +16,7 @@ import UserActivity from './components/UserActivity.jsx';
 import EnquiryForm from './components/EnquiryForm.jsx';
 import PublicDocumentView from './components/PublicDocumentView.jsx';
 import PublicBandPage from './components/PublicBandPage.jsx';
+import PublicSongRequests from './components/PublicSongRequests.jsx';
 import ResetPassword from './components/ResetPassword.jsx';
 import ConfirmHost from './components/ConfirmHost.jsx';
 import ToastHost from './components/ToastHost.jsx';
@@ -79,6 +80,14 @@ export default function App() {
   if (window.location.pathname.startsWith('/band/')) {
     const slug = window.location.pathname.split('/')[2];
     return <PublicBandPage slug={slug} />;
+  }
+
+  // Public, no-login song request page for a gig's QR code -- reads
+  // through get_gig_requests_page/submit_song_request, scoped to gigs
+  // within their active request window (see PublicSongRequests.jsx).
+  if (window.location.pathname.startsWith('/requests/')) {
+    const token = window.location.pathname.split('/')[2];
+    return <PublicSongRequests token={token} />;
   }
 
 

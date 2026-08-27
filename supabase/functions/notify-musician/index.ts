@@ -245,6 +245,43 @@ Deno.serve(async (req) => {
       ).flat();
     }
 
+    // ── New song request from a gig's QR code ────────────────────────────────
+    // Fires once per genuinely new request (a repeat tap for the same song
+    // is an UPDATE via the request_count upsert, not an INSERT -- see
+    // notify_song_request() -- so this never re-fires on duplicate taps).
+    if (table === 'song_requests' && type === 'INSERT') {
+      const [{ data: gig }, { data: song }, { data: lineup }] = await Promise.all([
+        supabase.from('gigs').select('venues(name)').eq('id', record.gig_id).single(),
+        record.song_id
+          ? supabase.from('songs').select('title, artist').eq('id', record.song_id).single()
+          : Promise.resolve({ data: null }),
+        supabase.from('gig_lineup').select('profile_id').eq('gig_id', record.gig_id).not('profile_id', 'is', null),
+      ]);
+
+      const venue = (gig as any)?.venues?.name || 'the gig';
+      const songLabel = (song as any)
+        ? (song as any).title + ((song as any).artist ? ' — ' + (song as any).artist : '')
+        : record.requested_text;
+      const recipientIds = Array.from(
+        new Set((lineup || []).map((l: any) => l.profile_id))
+      ) as string[];
+
+      pushResults = (
+        await Promise.all(
+          recipientIds.map((profileId) =>
+            notifyMusician(profileId, {
+              title: 'Song request at ' + venue,
+              body: songLabel,
+              tag: 'song-request-' + record.id,
+              url: '/gigs',
+              gig_id: record.gig_id,
+              section: 'requests',
+            })
+          )
+        )
+      ).flat();
+    }
+
     // ── Invoice claim status changed ─────────────────────────────────────────
     if (table === 'musician_claims' && type === 'UPDATE') {
       const oldStatus = old_record?.status;

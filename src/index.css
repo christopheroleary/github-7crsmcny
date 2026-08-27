@@ -3900,6 +3900,102 @@ input:not([type]) {
 .band-page-date__status--free { color: var(--teal); }
 .band-page-date__status--booked { color: var(--rust); }
 
+/* ---- Song requests (public guest page + band panel) ---- */
+.song-request-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.song-request-leaderboard__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.song-request-leaderboard__song {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.song-request-leaderboard__artist {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.song-request-leaderboard__count {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--amber);
+  flex: none;
+}
+
+.song-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.song-request-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.song-request-list__item:disabled {
+  cursor: default;
+}
+
+.song-request-list__item--done {
+  opacity: 0.6;
+}
+
+.song-request-list__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.song-request-list__artist {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.song-request-list__action {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+.song-request-list__item--done .song-request-list__action {
+  color: var(--teal);
+}
+
+.song-request-custom {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
 /* ---- Enquiry admin view ---- */
 .enquiry-share-hint {
   display: flex;
