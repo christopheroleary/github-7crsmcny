@@ -7,8 +7,7 @@ function formatSortCode(raw) {
   return digits.replace(/(\d{2})(?=\d)/g, '$1-');
 }
 
-export default function ProfilePaymentDetails({ profileId }) {
-  const [loading, setLoading]   = useState(true);
+export default function ProfilePaymentDetails({ profileId, paymentDetails }) {
   const [editing, setEditing]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState(null);
@@ -25,32 +24,21 @@ export default function ProfilePaymentDetails({ profileId }) {
   // draft values while editing
   const [draft, setDraft] = useState({ ...stored });
 
+  // paymentDetails is fetched once by MyProfile (a single get_payment_details
+  // call shared with ConnectPayoutSetup, which used to each fetch it
+  // independently) and passed down here instead of this component fetching
+  // its own copy.
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      // Bank columns aren't directly selectable (see
-      // 20260826130000_restrict_sensitive_profile_columns.sql) -- this RPC
-      // checks the caller itself (self, or admin) rather than relying on
-      // RLS row access, since "can see this row" no longer means "can see
-      // every column".
-      const { data } = await supabase
-        .rpc('get_payment_details', { p_profile_id: profileId })
-        .maybeSingle();
-
-      if (data) {
-        const vals = {
-          bank_name:           data.bank_name           || '',
-          bank_account_name:   data.bank_account_name   || '',
-          bank_sort_code:      data.bank_sort_code       || '',
-          bank_account_number: data.bank_account_number || '',
-        };
-        setStored(vals);
-        setDraft(vals);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [profileId]);
+    if (!paymentDetails) return;
+    const vals = {
+      bank_name:           paymentDetails.bank_name           || '',
+      bank_account_name:   paymentDetails.bank_account_name   || '',
+      bank_sort_code:      paymentDetails.bank_sort_code       || '',
+      bank_account_number: paymentDetails.bank_account_number || '',
+    };
+    setStored(vals);
+    setDraft(vals);
+  }, [paymentDetails]);
 
   function startEdit() {
     setDraft({ ...stored });
@@ -99,8 +87,6 @@ export default function ProfilePaymentDetails({ profileId }) {
     setEditing(false);
     setSuccess(true);
   }
-
-  if (loading) return null;
 
   const hasDetails = stored.bank_account_name || stored.bank_account_number;
 

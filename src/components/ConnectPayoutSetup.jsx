@@ -16,43 +16,36 @@ const STATUS_LABEL = {
 // error occurred while authenticating your account" on this account's
 // Sandbox-mode keys, a known open bug in Connect.js's popup-based
 // authentication step, not something fixable from this app's side.
-export default function ConnectPayoutSetup({ profileId }) {
-  const [status, setStatus] = useState(null); // null | 'pending' | 'active' | 'restricted'
-  const [loading, setLoading] = useState(true);
+export default function ConnectPayoutSetup({ paymentDetails }) {
+  const [status, setStatus] = useState(paymentDetails?.stripe_connect_status || null); // null | 'pending' | 'active' | 'restricted'
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState(null);
 
+  // paymentDetails is fetched once by MyProfile (a single get_payment_details
+  // call shared with ProfilePaymentDetails, which used to each fetch it
+  // independently) and passed down here instead of this component fetching
+  // its own copy.
   useEffect(() => {
-    async function load() {
-      // stripe_connect_account_id isn't directly selectable (see
-      // 20260826130000_restrict_sensitive_profile_columns.sql) -- this RPC
-      // checks the caller itself (self, or admin) rather than relying on
-      // RLS row access, since "can see this row" no longer means "can see
-      // every column".
-      const { data } = await supabase
-        .rpc('get_payment_details', { p_profile_id: profileId })
-        .maybeSingle();
-      setStatus(data?.stripe_connect_status || null);
-      setLoading(false);
+    setStatus(paymentDetails?.stripe_connect_status || null);
 
-      // Belt-and-braces: if there's an account but it's not showing active
-      // yet, re-check with Stripe directly rather than relying solely on
-      // the account.updated webhook -- catches a missed or not-yet-existing
-      // webhook delivery (exactly what happened setting this up: onboarding
-      // finished before the endpoint was registered) without needing a
-      // manual fix. Once status is active there's nothing left to chase,
-      // so this doesn't run on every load forever.
-      if (data?.stripe_connect_account_id && data.stripe_connect_status !== 'active') {
+    // Belt-and-braces: if there's an account but it's not showing active
+    // yet, re-check with Stripe directly rather than relying solely on
+    // the account.updated webhook -- catches a missed or not-yet-existing
+    // webhook delivery (exactly what happened setting this up: onboarding
+    // finished before the endpoint was registered) without needing a
+    // manual fix. Once status is active there's nothing left to chase,
+    // so this doesn't run on every load forever.
+    if (paymentDetails?.stripe_connect_account_id && paymentDetails.stripe_connect_status !== 'active') {
+      (async () => {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
         const { data: syncData } = await supabase.functions.invoke('sync-connect-status', {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (syncData?.status) setStatus(syncData.status);
-      }
+      })();
     }
-    load();
-  }, [profileId]);
+  }, [paymentDetails]);
 
   async function startOnboarding() {
     setError(null);
@@ -84,8 +77,6 @@ export default function ConnectPayoutSetup({ profileId }) {
     // back here once onboarding is done (or abandoned).
     window.location.href = data.url;
   }
-
-  if (loading) return null;
 
   return (
     <div className="day-sheet__section">

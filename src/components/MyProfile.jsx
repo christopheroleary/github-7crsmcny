@@ -56,6 +56,7 @@ export default function MyProfile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [removingAvatar, setRemovingAvatar] = useState(false);
   const [usageLoggingOptOut, setUsageLoggingOptOut] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -65,7 +66,7 @@ export default function MyProfile() {
       setUserId(uid);
       setEmail(userData.user.email || '');
 
-      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }] = await Promise.all([
+      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }, { data: paymentDetailsData }] = await Promise.all([
         supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, available_for_dep_work, ui_theme, has_pa, has_subs, has_iem, has_mics, has_cables, has_lighting, equipment_notes, avatar_url, usage_logging_opt_out').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
@@ -73,6 +74,11 @@ export default function MyProfile() {
         // 20260826150000_restrict_profile_phone.sql) -- self-read still
         // goes through the same RPC everyone else does.
         supabase.rpc('get_profile_phones', { p_profile_ids: [uid] }),
+        // Fetched once here and passed down to both ConnectPayoutSetup and
+        // ProfilePaymentDetails, which used to each call this RPC
+        // independently for the same row -- get_payment_details returns
+        // both the bank_* and stripe_connect_* columns together.
+        supabase.rpc('get_payment_details', { p_profile_id: uid }).maybeSingle(),
       ]);
 
       if (profileError) notify("Couldn't load profile: " + profileError.message);
@@ -92,6 +98,7 @@ export default function MyProfile() {
       }
       setAllInstruments(instruments || []);
       setSelectedIds((links || []).map((l) => l.instrument_id));
+      setPaymentDetails(paymentDetailsData || null);
       setLoading(false);
     }
     load();
@@ -448,8 +455,8 @@ export default function MyProfile() {
       {userId && <CalendarFeed profileId={userId} />}
 
       <ProSubscription />
-      {userId && <ConnectPayoutSetup profileId={userId} />}
-      {userId && <ProfilePaymentDetails profileId={userId} />}
+      {userId && <ConnectPayoutSetup paymentDetails={paymentDetails} />}
+      {userId && <ProfilePaymentDetails profileId={userId} paymentDetails={paymentDetails} />}
       {userId && <OutstandingClaims profileId={userId} />}
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
