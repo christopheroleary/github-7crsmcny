@@ -642,7 +642,7 @@ input {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  border-left: 2px dashed var(--line);
+  border-right: 2px dashed var(--line);
   background: var(--paper);
 }
 
@@ -650,7 +650,7 @@ input {
 .gig-card__stub::after {
   content: '';
   position: absolute;
-  left: -7px;
+  right: -7px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -845,8 +845,8 @@ input {
   .gig-card__stub {
     width: auto;
     flex-direction: row;
-    border-left: none;
-    border-top: 2px dashed var(--line);
+    border-right: none;
+    border-bottom: 2px dashed var(--line);
     padding: 10px 0;
   }
   .gig-card__stub::before,
