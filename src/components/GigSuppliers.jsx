@@ -29,18 +29,17 @@ export default function GigSuppliers({ gigId, gig, readOnly = false }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
+  // Split from loadAllSuppliers below: attaching/removing a supplier on
+  // THIS gig never changes the supplier directory itself, so a mutation's
+  // post-write refresh only needs to redo this, not the whole directory.
+  const loadAttached = useCallback(async () => {
     setLoading(true);
-    const [{ data: gs }, { data: suppliers }] = await Promise.all([
-      supabase
-        .from('gig_suppliers')
-        .select('id, person_met_on_site, supplier_id, suppliers(*)')
-        .eq('gig_id', gigId)
-        .order('created_at'),
-      canManage ? supabase.from('suppliers').select('id, company_name, category').order('company_name') : Promise.resolve({ data: [] }),
-    ]);
+    const { data: gs } = await supabase
+      .from('gig_suppliers')
+      .select('id, person_met_on_site, supplier_id, suppliers(*)')
+      .eq('gig_id', gigId)
+      .order('created_at');
     setAttached(gs || []);
-    setAllSuppliers(suppliers || []);
 
     // "Worked together before" -- does this supplier show up on any OTHER
     // gig besides this one -- drives which follow-up email tone gets used.
@@ -58,9 +57,18 @@ export default function GigSuppliers({ gigId, gig, readOnly = false }) {
       setPriorCounts({});
     }
     setLoading(false);
-  }, [gigId, canManage]);
+  }, [gigId]);
 
-  useEffect(() => { load(); }, [load]);
+  // The supplier-picker directory -- not scoped to this gig at all, so it
+  // only needs loading once per mount, plus again on the one mutation that
+  // can actually change it: quick-adding a brand new supplier below.
+  const loadAllSuppliers = useCallback(async () => {
+    if (!canManage) return;
+    const { data: suppliers } = await supabase.from('suppliers').select('id, company_name, category').order('company_name');
+    setAllSuppliers(suppliers || []);
+  }, [canManage]);
+
+  useEffect(() => { loadAttached(); loadAllSuppliers(); }, [loadAttached, loadAllSuppliers]);
 
   function startAdd() {
     setPickedSupplierId('');
@@ -84,13 +92,20 @@ export default function GigSuppliers({ gigId, gig, readOnly = false }) {
       return;
     }
     setAdding(false);
-    load();
+    loadAttached();
   }
 
   function handleQuickAddSaved(newSupplier) {
     setShowQuickAdd(false);
-    if (newSupplier?.id) attachSupplier(newSupplier.id);
-    else load();
+    if (newSupplier?.id) {
+      // A brand new supplier was just created -- unlike attaching an
+      // existing one, this DOES change the directory, so it's refreshed
+      // here too rather than just the per-gig attached list.
+      loadAllSuppliers();
+      attachSupplier(newSupplier.id);
+    } else {
+      loadAttached();
+    }
   }
 
   async function handleRemove(row) {
@@ -101,7 +116,7 @@ export default function GigSuppliers({ gigId, gig, readOnly = false }) {
       notify("Couldn't remove: " + deleteError.message);
       return;
     }
-    load();
+    loadAttached();
   }
 
   const availableSuppliers = allSuppliers.filter((s) => !attached.some((a) => a.supplier_id === s.id));

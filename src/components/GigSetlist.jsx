@@ -22,7 +22,10 @@ export default function GigSetlist({ gigId, bandId }) {
   const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
+  // Split from loadSongs below: attaching/detaching/reordering a setlist on
+  // THIS gig never creates or renames a song, so most mutations' post-write
+  // refresh only need to redo this, not the whole song catalog too.
+  const loadSetlists = useCallback(async () => {
     if (!bandId) {
       setLoading(false);
       return;
@@ -43,15 +46,22 @@ export default function GigSetlist({ gigId, bandId }) {
 
     const { data: links } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
     setAttachedIds((links || []).map((l) => l.setlist_id));
-
-    const { data: songRows } = await supabase.from('songs').select('id, title, artist').order('title');
-    setSongs(songRows || []);
     setLoading(false);
   }, [gigId, bandId]);
 
+  // The whole-catalog "add a song" picker -- not scoped to this band or gig
+  // at all, so it only needs loading once per mount, plus again on the two
+  // mutations that can actually add to it: typing a brand new song title in
+  // handleAddSong, or importing a pasted setlist with unmatched songs.
+  const loadSongs = useCallback(async () => {
+    const { data: songRows } = await supabase.from('songs').select('id, title, artist').order('title');
+    setSongs(songRows || []);
+  }, []);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    loadSetlists();
+    loadSongs();
+  }, [loadSetlists, loadSongs]);
 
   async function handleCreateAndAttach(e) {
     e.preventDefault();
@@ -71,7 +81,7 @@ export default function GigSetlist({ gigId, bandId }) {
       return;
     }
     setNewSetName('');
-    load();
+    loadSetlists();
   }
 
   async function handleAttachExisting(e) {
@@ -83,7 +93,7 @@ export default function GigSetlist({ gigId, bandId }) {
       return;
     }
     setPickedExistingId('');
-    load();
+    loadSetlists();
   }
 
   async function handleDetach(setlistId) {
@@ -94,7 +104,7 @@ export default function GigSetlist({ gigId, bandId }) {
       notify("Couldn't remove: " + error.message);
       return;
     }
-    load();
+    loadSetlists();
   }
 
   async function handleDeleteTemplate(setlist) {
@@ -107,11 +117,12 @@ export default function GigSetlist({ gigId, bandId }) {
       notify("Couldn't delete: " + error.message);
       return;
     }
-    load();
+    loadSetlists();
   }
 
   async function handleAddSong(setlist, songId, newTitle) {
     let finalSongId = songId;
+    let createdNewSong = false;
     if (!finalSongId && newTitle && newTitle.trim()) {
       const { data: newSong, error: songError } = await supabase
         .from('songs')
@@ -123,6 +134,7 @@ export default function GigSetlist({ gigId, bandId }) {
         return;
       }
       finalSongId = newSong.id;
+      createdNewSong = true;
     }
     if (!finalSongId) return;
 
@@ -134,7 +146,10 @@ export default function GigSetlist({ gigId, bandId }) {
       notify("Couldn't add song: " + error.message);
       return;
     }
-    load();
+    loadSetlists();
+    // Only a brand new song title changes the catalog -- picking an
+    // existing song from the dropdown doesn't need this refreshed too.
+    if (createdNewSong) loadSongs();
   }
 
   async function handleRemoveSong(item) {
@@ -143,7 +158,7 @@ export default function GigSetlist({ gigId, bandId }) {
       notify("Couldn't remove song: " + error.message);
       return;
     }
-    load();
+    loadSetlists();
   }
 
   // Optimistic reorder: update the on-screen order immediately (no network
@@ -245,7 +260,7 @@ export default function GigSetlist({ gigId, bandId }) {
                 gigId={gigId}
                 allSongs={songs}
                 newSongCreatedBy={isAdmin ? null : profile?.id}
-                onImported={() => { setShowImport(false); load(); }}
+                onImported={() => { setShowImport(false); loadSetlists(); loadSongs(); }}
                 onCancel={() => setShowImport(false)}
               />
             </div>

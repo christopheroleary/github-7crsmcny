@@ -18,16 +18,16 @@ function vatPenceFor(subtotalPence, ratePercent) {
   return Math.round(subtotalPence * (ratePercent / 100));
 }
 
-export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
+// gig/client/band/lineup all come from GigDetail, which already has them
+// loaded (gig/lineup via useOfflineGigData, client/band via its own single
+// shared fetch) -- fetching any of them again here would just repeat a
+// query GigDetail already ran, for the same gig, moments earlier.
+export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigFeeAmount, mileageRatePence }) {
   const { isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [lineup, setLineup] = useState([]);
-  const [gig, setGig] = useState(null);
-  const [band, setBand] = useState(null);
-  const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -41,16 +41,6 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-
-    const { data: gigData } = await supabase
-      .from('gigs')
-      .select('*, venues(name, address), clients(*), bands(*)')
-      .eq('id', gigId)
-      .single();
-
-    setGig(gigData);
-    setClient(gigData?.clients || null);
-    setBand(gigData?.bands || null);
 
     const { data: invData, error: invLoadError } = await supabase
       .from('invoices')
@@ -69,12 +59,6 @@ export default function GigInvoice({ gigId, gigFeeAmount, mileageRatePence }) {
       setItems(itemData || []);
       setPayments(paymentData || []);
     }
-
-    const { data: lineupData } = await supabase
-      .from('gig_lineup')
-      .select('id, travel_cost_pence, profiles(full_name)')
-      .eq('gig_id', gigId);
-    setLineup(lineupData || []);
 
     setLoading(false);
   }, [gigId]);

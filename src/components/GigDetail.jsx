@@ -26,6 +26,37 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     useOfflineGigData(gigId);
   const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
+  // GigInvoice/GigQuote/GigContract each need the FULL clients/bands rows
+  // (address, VAT rate, bank details, etc. for the printed documents) --
+  // more than the `name`-only embeds useOfflineGigData fetches for the
+  // shared day-sheet view. Rather than let each of those three components
+  // independently repeat the entire gigs+venues+clients+bands join (the
+  // exact same query, three times, on every gig detail load), it's fetched
+  // once here and passed down alongside `gig` itself.
+  const [docClient, setDocClient] = useState(null);
+  const [docBand, setDocBand] = useState(null);
+  // Gated the same way the render logic below decides admin vs musician
+  // view: a plain musician never sees GigInvoice/GigQuote/GigContract at
+  // all (GigDetailBandMember renders instead), so there's no point firing
+  // this for them -- gig is still null on the very first render, before
+  // useOfflineGigData resolves, hence the optional chaining.
+  const canManageThisGig = isAdminRole || (gig?.band_id && ledBandIds.includes(gig.band_id));
+  useEffect(() => {
+    if (!canManageThisGig) return;
+    let cancelled = false;
+    supabase
+      .from('gigs')
+      .select('clients(*), bands(*)')
+      .eq('id', gigId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setDocClient(data?.clients || null);
+        setDocBand(data?.bands || null);
+      });
+    return () => { cancelled = true; };
+  }, [gigId, canManageThisGig]);
+
   const [editing, setEditing] = useState(false);
   // Bumped when a quote converts to an invoice, forcing GigInvoice to
   // remount and pick up the newly-created invoice it wouldn't otherwise
@@ -389,18 +420,28 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
       <GigQuote
         gigId={gigId}
+        gig={gig}
+        client={docClient}
+        band={docBand}
         gigFeeAmount={gig.fee_amount}
         onConverted={() => setInvoiceRefreshKey((k) => k + 1)}
       />
 
       <GigContract
         gigId={gigId}
+        gig={gig}
+        client={docClient}
+        band={docBand}
         gigFeeAmount={gig.fee_amount}
       />
 
       <GigInvoice
         key={invoiceRefreshKey}
         gigId={gigId}
+        gig={gig}
+        client={docClient}
+        band={docBand}
+        lineup={lineup}
         gigFeeAmount={gig.fee_amount}
         mileageRatePence={gig.mileage_rate_pence}
       />

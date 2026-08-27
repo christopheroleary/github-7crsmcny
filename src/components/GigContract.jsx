@@ -14,13 +14,13 @@ function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
 }
 
-export default function GigContract({ gigId, gigFeeAmount }) {
+// gig/client/band come from GigDetail, which already has them loaded --
+// fetching them again here would just repeat the same gigs+venues+clients+
+// bands join GigDetail (and GigInvoice, and GigQuote) already ran.
+export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) {
   const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [contract, setContract] = useState(null);
-  const [gig, setGig] = useState(null);
-  const [band, setBand] = useState(null);
-  const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -32,16 +32,6 @@ export default function GigContract({ gigId, gigFeeAmount }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-
-    const { data: gigData } = await supabase
-      .from('gigs')
-      .select('*, venues(name, address), clients(*), bands(*)')
-      .eq('id', gigId)
-      .single();
-
-    setGig(gigData);
-    setClient(gigData?.clients || null);
-    setBand(gigData?.bands || null);
 
     const { data: contractData, error: contractLoadError } = await supabase
       .from('contracts')
