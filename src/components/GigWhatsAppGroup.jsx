@@ -176,10 +176,8 @@ export default function GigWhatsAppGroup({ gig }) {
   }
 
   return (
-    <div style={{ marginTop: 32 }}>
-      <div className="section-header">
-        <h2 className="section-header__title">WhatsApp group</h2>
-      </div>
+    <div className="roster-section">
+      <h3 className="roster-section__title">WhatsApp group</h3>
 
       <details>
         <summary className="field__hint" style={{ cursor: 'pointer', userSelect: 'none' }}>
