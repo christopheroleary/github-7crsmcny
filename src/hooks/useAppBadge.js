@@ -7,14 +7,13 @@ import { useEffect } from 'react';
 // all installed-PWA-only; Firefox doesn't implement it anywhere, and it's
 // feature-detected below so that's a silent no-op there, not an error.
 //
-// Real limitation, iOS specifically: the badge only updates while this
-// code actually runs, which only happens while the PWA is open/foregrounded
-// -- there's no Web Push wired up in this app (no VAPID keys, no push
-// subscription, no service-worker push handler), which is the only way to
-// update a badge while a PWA is closed. So the number a user sees on their
-// home screen is "as of the last time they had the app open", not truly
-// live -- still useful (closing the app with 3 unread leaves "3" showing
-// as a reminder), just not a live background counter.
+// This is the foreground half only -- keeps the badge accurate the instant
+// unreadCount changes while the app is actually open, including the moment
+// it drops back to 0 (read/cleared) since a push notification never fires
+// for that. The background half -- staying accurate while the app is
+// closed -- is public/sw.js's push handler, which calls the same
+// setAppBadge()/clearAppBadge() from inside the push event using the
+// unreadCount this app's existing Web Push payloads already carry.
 export function useAppBadge(count) {
   useEffect(() => {
     if (!('setAppBadge' in navigator)) return;
