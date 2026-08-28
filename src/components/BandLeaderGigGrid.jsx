@@ -14,16 +14,34 @@ import { readGigCache, getKnownCachedIds } from '../hooks/useOfflineGigList.js';
 // online is exactly what warms this view's data too.
 const OFFLINE_MESSAGE = "You're offline and haven't loaded grid view's data before — open List or Calendar view while online first, which pre-caches everything this view needs too.";
 
-// Which role group an instrument's cells belong to. Anything not listed here
-// (Saxophone, Backing Vocals, etc.) is out of scope for this grid.
+// Which role group an instrument's cells belong to. Percussion shares the
+// Drums column (see instrumentRank below, which keeps it sorted below the
+// actual drummer rather than interleaved alphabetically) rather than
+// getting a column of its own. Anything with a real instrument that isn't
+// explicitly listed here -- Backing Vocals, Double Bass, Saxophone, or any
+// instrument added later -- falls into the Gtr2/Key column by default (see
+// groupFor below), so a gig requiring or booking an odd-one-out instrument
+// still shows up somewhere instead of silently vanishing from the grid.
 const INSTRUMENT_TO_GROUP = {
   Drums: 'drummer',
+  Percussion: 'drummer',
   'Bass Guitar': 'bass',
   'Electric Guitar': 'guitarKeys',
   'Acoustic Guitar': 'guitarKeys',
   Keys: 'guitarKeys',
+  Saxophone: 'guitarKeys',
   'Lead Vocals': 'singer',
 };
+
+// Shared by both the lineup pass (who's actually booked) and the
+// requirements pass (how many are needed) below, so an unfilled slot for
+// an unmapped instrument (e.g. "needs 1 Saxophone") still shows its "?" in
+// the same column a booked player of that instrument would land in,
+// instead of the two disagreeing about where it belongs.
+function groupFor(instrumentName) {
+  if (!instrumentName) return null;
+  return INSTRUMENT_TO_GROUP[instrumentName] || 'guitarKeys';
+}
 
 // Short codes keep header cells narrow — full names are in the legend
 // under the table instead. Guitar/Keys is split into two columns: Gtr
@@ -41,6 +59,42 @@ const GROUPS_RIGHT = [
 ];
 
 const BASE_TOTAL_COLS = 4 + GROUPS_LEFT.length + 2 + GROUPS_RIGHT.length;
+
+// Relative weights, not literal pixel/percentage widths -- normalized to
+// sum to exactly 100% at render time (see colWidthPercents below), which
+// is what actually guarantees the table can never be wider than its
+// container (the previous px-based widths could add up to MORE than
+// 100% of the viewport at some screen sizes -- table-layout:fixed does
+// NOT shrink columns to compensate when that happens, it just makes the
+// whole table wider than intended, which is what forced the horizontal
+// scrollbar). Date gets the most generous share relative to how little
+// text it holds ("Sat 29"), since it's the one column that must never
+// truncate.
+const COL_WEIGHTS = {
+  date: 14,
+  band: 12,
+  town: 16,
+  arr: 9,
+  fin: 9,
+  drummer: 9,
+  bass: 9,
+  guitar1: 9,
+  guitar2Keys: 10,
+  singer: 9,
+  dj: 8,
+  roadie: 8,
+};
+
+// Builds the ordered list of {key, widthPercent} for exactly the columns
+// this render actually shows (band is conditional) -- excluding it from
+// the weight sum here, not just from the output list, is what keeps the
+// remaining columns' percentages correctly summing to 100 on their own
+// rather than leaving a gap the width of band's share.
+function colWidthPercents(showBandColumn) {
+  const keys = ['date', ...(showBandColumn ? ['band'] : []), 'town', 'arr', 'fin', 'drummer', 'bass', 'guitar1', 'guitar2Keys', 'singer', 'dj', 'roadie'];
+  const totalWeight = keys.reduce((sum, k) => sum + COL_WEIGHTS[k], 0);
+  return keys.map((key) => ({ key, widthPercent: (COL_WEIGHTS[key] / totalWeight) * 100 }));
+}
 
 function initialsFor(name) {
   if (!name) return '?';
@@ -84,9 +138,17 @@ function buildRows(gigs, lineupRows, reqRows) {
     const gig = gigMap[row.gig_id];
     if (!gig) continue;
     const name = row.profiles?.full_name || row.placeholder_musicians?.name || '';
-    const entry = { initials: initialsFor(name), isCaptain: !!row.is_captain, sortKey: name };
+    const entry = {
+      initials: initialsFor(name),
+      isCaptain: !!row.is_captain,
+      sortKey: name,
+      // Sorts a Drums-column percussionist below the actual drummer(s)
+      // rather than interleaved alphabetically -- 0 for every other
+      // instrument, so this has no effect on any other column's ordering.
+      instrumentRank: row.instruments?.name === 'Percussion' ? 1 : 0,
+    };
 
-    const instrumentGroup = INSTRUMENT_TO_GROUP[row.instruments?.name];
+    const instrumentGroup = groupFor(row.instruments?.name);
     if (instrumentGroup) gig.people[instrumentGroup].push(entry);
     if (row.is_dj) gig.people.dj.push(entry);
     if (row.is_roadie) gig.people.roadie.push(entry);
@@ -95,13 +157,13 @@ function buildRows(gigs, lineupRows, reqRows) {
   for (const row of reqRows || []) {
     const gig = gigMap[row.gig_id];
     if (!gig) continue;
-    const group = INSTRUMENT_TO_GROUP[row.instruments?.name];
+    const group = groupFor(row.instruments?.name);
     if (group) gig.required[group] += row.quantity || 0;
   }
 
   for (const gig of Object.values(gigMap)) {
     for (const key of Object.keys(gig.people)) {
-      gig.people[key].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+      gig.people[key].sort((a, b) => (a.instrumentRank - b.instrumentRank) || a.sortKey.localeCompare(b.sortKey));
     }
     gig.people.guitar1 = gig.people.guitarKeys.slice(0, 1);
     gig.people.guitar2Keys = gig.people.guitarKeys.slice(1);
@@ -285,6 +347,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
   }
 
   const totalCols = BASE_TOTAL_COLS + (showBandColumn ? 1 : 0);
+  const colWidths = colWidthPercents(showBandColumn);
   let prevMonth = null;
 
   return (
@@ -292,18 +355,8 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
       <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
         <table>
           <colgroup>
-            <col className="gig-grid__col-date" />
-            {showBandColumn && <col className="gig-grid__col-town" />}
-            <col className="gig-grid__col-town" />
-            <col className="gig-grid__col-time" />
-            <col className="gig-grid__col-time" />
-            {GROUPS_LEFT.map((g) => (
-              <col key={g.key} className="gig-grid__col-role" />
-            ))}
-            <col className="gig-grid__col-role" />
-            <col className="gig-grid__col-role" />
-            {GROUPS_RIGHT.map((g) => (
-              <col key={g.key} className="gig-grid__col-role" />
+            {colWidths.map((c) => (
+              <col key={c.key} style={{ width: c.widthPercent + '%' }} />
             ))}
           </colgroup>
           <thead ref={theadRef}>
@@ -349,7 +402,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
         </table>
       </div>
       <p className="gig-grid__legend">
-        Drm Drummer &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2 or Keys &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
+        Drm Drummer (percussion below) &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2, Keys, Sax or other &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
       </p>
     </div>
   );
