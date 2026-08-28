@@ -84,6 +84,7 @@ async function notifyMusician(profileId: string, payload: {
             unreadCount: unreadCount ?? 0,
           })
         );
+        await supabase.rpc('record_push_success', { p_endpoint: sub.endpoint });
         return { endpoint: sub.endpoint, ok: true };
       } catch (err: any) {
         // 403 here means the push service rejected the VAPID JWT as not
@@ -91,7 +92,20 @@ async function notifyMusician(profileId: string, payload: {
         // for this subscription (it was created under a different
         // VAPID_PUBLIC_KEY than the one currently configured), so it's
         // pruned exactly like a 410 Gone rather than retried forever.
-        if (err.statusCode === 410 || err.statusCode === 403) stale.push(sub.endpoint);
+        if (err.statusCode === 410 || err.statusCode === 403) {
+          stale.push(sub.endpoint);
+        } else {
+          // Anything else (timeout, 5xx from the push service, network
+          // blip) used to just get logged and forgotten -- the row stayed
+          // looking perfectly healthy with no visibility into it actually
+          // failing. Recorded instead so the admin Activity tab can flag a
+          // subscription that's technically still there but not really
+          // getting through.
+          await supabase.rpc('record_push_failure', {
+            p_endpoint: sub.endpoint,
+            p_reason: 'HTTP ' + (err.statusCode ?? '?') + ': ' + (err.message || 'unknown error'),
+          });
+        }
         console.error(
           'push send failed',
           JSON.stringify({

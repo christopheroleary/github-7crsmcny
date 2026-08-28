@@ -140,10 +140,21 @@ async function pushToAdmins(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
           JSON.stringify({ ...payload, unreadCount: unreadCounts.get(sub.profile_id) || 0 })
         );
+        await supabase.rpc('record_push_success', { p_endpoint: sub.endpoint });
       } catch (err: any) {
         // See notify-musician/index.ts -- a 403 here means a VAPID key
         // mismatch, which is just as permanently dead as a 410.
-        if (err.statusCode === 410 || err.statusCode === 403) stale.push(sub.endpoint);
+        if (err.statusCode === 410 || err.statusCode === 403) {
+          stale.push(sub.endpoint);
+        } else {
+          // See notify-musician/index.ts's matching branch -- surfaces a
+          // subscription that's still there but not really getting
+          // through, instead of silently doing nothing about it.
+          await supabase.rpc('record_push_failure', {
+            p_endpoint: sub.endpoint,
+            p_reason: 'HTTP ' + (err.statusCode ?? '?') + ': ' + (err.message || 'unknown error'),
+          });
+        }
       }
     })
   );
