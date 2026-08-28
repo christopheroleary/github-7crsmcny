@@ -42,6 +42,19 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     refresh();
   }
 
+  // The manual "↻ Refresh" button below only ever called refresh() -- which
+  // only touches this hook's own gig/lineup snapshot. GigRoster,
+  // TravelCalculator, and GigSetlist all keep their own independent fetches
+  // (same reason as rosterVersion above), so the button visibly changed
+  // nothing about any of them. This counter, threaded into all three as an
+  // extra dependency on top of whatever normally triggers their fetch, is
+  // what makes the button actually force them to refetch too.
+  const [manualRefreshSignal, setManualRefreshSignal] = useState(0);
+  function handleManualRefresh() {
+    refresh();
+    setManualRefreshSignal((v) => v + 1);
+  }
+
   // GigInvoice/GigQuote/GigContract each need the FULL clients/bands rows
   // (address, VAT rate, bank details, etc. for the printed documents) --
   // more than the `name`-only embeds useOfflineGigData fetches for the
@@ -287,7 +300,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
           )}
         </div>
         {!isOffline && !syncing && (
-          <button className="sync-bar__refresh" onClick={refresh} title="Refresh">
+          <button className="sync-bar__refresh" onClick={handleManualRefresh} title="Refresh">
             ↻ Refresh
           </button>
         )}
@@ -434,7 +447,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       )}
 
       <div id="gig-section-roster">
-        <GigRoster gigId={gigId} onRosterChanged={bumpRoster} />
+        <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} />
       </div>
 
       <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
@@ -453,6 +466,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         venueLon={venue?.longitude}
         mileageRatePence={gig.mileage_rate_pence}
         rosterVersion={rosterVersion}
+        refreshSignal={manualRefreshSignal}
       />
 
       <GigFeeSplit
@@ -496,7 +510,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         mileageRatePence={gig.mileage_rate_pence}
       />
 
-      <GigSetlist gigId={gigId} bandId={gig.band_id} />
+      <GigSetlist gigId={gigId} bandId={gig.band_id} refreshSignal={manualRefreshSignal} />
 
       <div className="form-actions">
         {!isOffline && (

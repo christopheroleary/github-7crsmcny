@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
 
-export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence, rosterVersion }) {
+export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence, rosterVersion, refreshSignal }) {
   const [lineup, setLineup] = useState([]);
   const [calculating, setCalculating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -35,14 +35,16 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
   useEffect(() => {
     load();
-    // rosterVersion is otherwise unused here -- it's a signal, not data. This
-    // component keeps its own independent gig_lineup query (it needs columns
-    // -- home lat/lon, travel_miles -- GigDetail's own shared lineup fetch
-    // doesn't select), so nothing else tells it a musician was added/removed
-    // elsewhere on the page. GigDetail bumps this prop on every roster
-    // mutation specifically to give this effect a reason to re-run.
+    // rosterVersion and refreshSignal are otherwise unused here -- they're
+    // signals, not data. This component keeps its own independent gig_lineup
+    // query (it needs columns -- home lat/lon, travel_miles -- GigDetail's
+    // own shared lineup fetch doesn't select), so nothing else tells it a
+    // musician was added/removed elsewhere on the page. GigDetail bumps
+    // rosterVersion on every roster mutation, and refreshSignal when the
+    // top "↻ Refresh" button is clicked, specifically to give this effect a
+    // reason to re-run in both cases.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, rosterVersion]);
+  }, [load, rosterVersion, refreshSignal]);
 
   async function calculateAll() {
     if (!venueLat || !venueLon) {

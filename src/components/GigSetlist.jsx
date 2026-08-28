@@ -12,7 +12,7 @@ import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function GigSetlist({ gigId, bandId }) {
+export default function GigSetlist({ gigId, bandId, refreshSignal }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
   const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
@@ -66,7 +66,13 @@ export default function GigSetlist({ gigId, bandId }) {
   useEffect(() => {
     loadSetlists();
     loadSongs();
-  }, [loadSetlists, loadSongs]);
+    // refreshSignal is otherwise unused here -- it's a signal, not data. This
+    // component keeps its own independent fetch, entirely separate from
+    // GigDetail's own shared gig/lineup snapshot, so nothing else tells it to
+    // refetch. GigDetail bumps this prop when the top "↻ Refresh" button is
+    // clicked specifically to give this effect a reason to re-run too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadSetlists, loadSongs, refreshSignal]);
 
   async function handleCreateAndAttach(e) {
     e.preventDefault();

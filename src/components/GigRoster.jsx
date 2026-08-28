@@ -100,7 +100,7 @@ function CaptainBadge() {
   );
 }
 
-export default function GigRoster({ gigId, onRosterChanged }) {
+export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
   const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
@@ -266,7 +266,15 @@ export default function GigRoster({ gigId, onRosterChanged }) {
     setPlaceholders(phWithInsts);
   }, []);
 
-  useEffect(() => { loadLineup(); loadPickerData(); }, [loadLineup, loadPickerData]);
+  useEffect(() => {
+    loadLineup();
+    loadPickerData();
+    // refreshSignal is otherwise unused here -- it's a signal, not data. The
+    // top "↻ Refresh" button in GigDetail bumps it specifically to give this
+    // effect a reason to re-run too, since this component's own mutations
+    // already refetch themselves via reloadAndNotify() above and don't need it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadLineup, loadPickerData, refreshSignal]);
 
   // Warns (doesn't block) when adding another musician on an instrument that's
   // already filled to its requested quantity — e.g. a 2nd bass player when
