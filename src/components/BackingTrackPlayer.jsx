@@ -83,6 +83,30 @@ export default function BackingTrackPlayer({ band, song }) {
   const clickGainRef = useRef(null);
   const stopClickSchedulerRef = useRef(null);
   const rateRef = useRef(1);
+  // Bumped on every loadTrack() call -- lets a call whose async work (signed
+  // URL, fetch, decode) finishes *after* a newer call has already started
+  // recognise it's stale and tear itself down instead of overwriting the
+  // refs a newer, still-in-flight or already-finished load owns.
+  const loadTokenRef = useRef(0);
+
+  // The single place that stops and releases everything -- called both at
+  // the start of every loadTrack() (so reloading the *same* track, or
+  // clicking it again mid-load, can't leave the previous graph playing
+  // alongside the new one) and on unmount. Deliberately not tied to a
+  // useEffect keyed on activeTrackId: that only re-runs when the id
+  // *changes*, so clicking the same track's button twice -- the actual bug
+  // reported -- left the first AudioContext running with nothing left
+  // referencing it, able to stop it.
+  function teardownAudioGraph() {
+    stopClickSchedulerRef.current?.();
+    stopClickSchedulerRef.current = null;
+    try { stretchNodeRef.current?.stop(); } catch { /* already stopped */ }
+    audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    stretchNodeRef.current = null;
+    trackGainRef.current = null;
+    clickGainRef.current = null;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -102,21 +126,22 @@ export default function BackingTrackPlayer({ band, song }) {
     return () => { cancelled = true; };
   }, [band.id, song.id]);
 
-  // Tear down the whole audio graph on unmount or track change -- an
-  // AudioContext left running after the component using it disappears
-  // leaks audio hardware resources and can keep playing into silence.
+  // Unmount-only -- an AudioContext left running after this component
+  // disappears leaks audio hardware resources and can keep playing into
+  // silence. Track-to-track and same-track-reclick teardown both happen
+  // explicitly at the start of loadTrack() instead (see teardownAudioGraph).
   useEffect(() => {
-    return () => {
-      stopClickSchedulerRef.current?.();
-      audioCtxRef.current?.close();
-      audioCtxRef.current = null;
-      stretchNodeRef.current = null;
-    };
-  }, [activeTrackId]);
+    return () => teardownAudioGraph();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     rateRef.current = rate;
-    stretchNodeRef.current?.schedule({ rate, semitones });
+    // Formant compensation keeps vocals sounding like a voice rather than a
+    // chipmunk/Vader effect at larger pitch shifts -- formantBaseHz: 0 lets
+    // it pitch-track the source automatically rather than assuming one
+    // fixed vocal range for every band's every recording.
+    stretchNodeRef.current?.schedule({ rate, semitones, formantCompensation: true, formantBaseHz: 0 });
   }, [rate, semitones]);
 
   useEffect(() => {
@@ -186,10 +211,19 @@ export default function BackingTrackPlayer({ band, song }) {
   }
 
   async function loadTrack(track) {
+    // Tear down whatever's currently loaded *first* -- unconditionally,
+    // even if it's this same track -- otherwise re-clicking the same
+    // "Backing track" button (or clicking a different one before the first
+    // finishes loading) leaves the previous AudioContext running with
+    // nothing left pointing at it to stop it, playing on top of the new one.
+    teardownAudioGraph();
+    const myToken = ++loadTokenRef.current;
+
     setError(null);
     setPlayerLoading(true);
     setPlaying(false);
     setActiveTrackId(track.id);
+    let audioContext;
     try {
       const { data: signed, error: signError } = await supabase.storage
         .from(BUCKET)
@@ -199,16 +233,30 @@ export default function BackingTrackPlayer({ band, song }) {
       const res = await fetch(signed.signedUrl);
       const arrayBuffer = await res.arrayBuffer();
 
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
       const stretchNode = await SignalsmithStretch(audioContext);
+
+      // A newer loadTrack() call started (and possibly already finished)
+      // while this one was still awaiting the network/decode/WASM-init --
+      // this call's work is stale, so close what it built instead of
+      // clobbering the refs the newer call owns.
+      if (loadTokenRef.current !== myToken) {
+        audioContext.close();
+        return;
+      }
+
       const channels = [];
       for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
         channels.push(audioBuffer.getChannelData(i));
       }
       await stretchNode.addBuffers(channels);
-      stretchNode.schedule({ rate, semitones });
+      // formantCompensation keeps vocals sounding like a voice rather than
+      // a chipmunk/Vader effect at larger pitch shifts -- formantBaseHz: 0
+      // lets it pitch-track the source instead of assuming one fixed vocal
+      // range for every band's every recording.
+      stretchNode.schedule({ rate, semitones, formantCompensation: true, formantBaseHz: 0 });
 
       const trackGain = audioContext.createGain();
       trackGain.gain.value = trackVolume;
@@ -231,10 +279,14 @@ export default function BackingTrackPlayer({ band, song }) {
         );
       }
     } catch (err) {
+      if (loadTokenRef.current !== myToken) return;
+      audioContext?.close();
       setError(err.message || 'Could not load that track');
       setActiveTrackId(null);
     } finally {
-      setPlayerLoading(false);
+      // Guard here too -- a stale call's finally would otherwise clear the
+      // loading spinner while a newer, still-in-flight load owns it.
+      if (loadTokenRef.current === myToken) setPlayerLoading(false);
     }
   }
 
