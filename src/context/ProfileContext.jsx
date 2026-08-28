@@ -136,6 +136,12 @@ export function ProfileProvider({ children }) {
         setLoading(false);
         loadedRef.current = false;
         applyUiTheme('default');
+        // A stale unread-count badge left on the home-screen icon after
+        // signing out (shared device, switching accounts) would be
+        // confusing/wrong for whoever's using it next.
+        if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
       } else if (event === 'SIGNED_IN' && !loadedRef.current) {
         // Only reload if we don't already have a profile —
         // prevents tab-focus token refreshes from wiping navigation state

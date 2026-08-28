@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useAppBadge } from '../hooks/useAppBadge.js';
 import { notify } from '../utils/toastService.js';
 
 export default function NotificationBell({ onNavigate }) {
@@ -11,6 +12,7 @@ export default function NotificationBell({ onNavigate }) {
   const panelRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  useAppBadge(unreadCount);
 
   const load = useCallback(async () => {
     if (!profile?.id) return;
