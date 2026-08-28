@@ -58,7 +58,7 @@ async function fetchGigData(gigId) {
     supabase
       .from('gig_setlists')
       .select(
-        'setlists(id, name, setlist_items(id, position, songs(id, title, artist, original_key, lyrics, reference_url)))'
+        'setlists(id, name, setlist_items(id, position, songs(id, title, artist, original_key, bpm, lyrics, reference_url)))'
       )
       .eq('gig_id', gigId),
 

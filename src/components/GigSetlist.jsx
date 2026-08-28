@@ -35,7 +35,7 @@ export default function GigSetlist({ gigId, bandId }) {
 
     const { data: setlistRows } = await supabase
       .from('setlists')
-      .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, lyrics, reference_url, is_public))')
+      .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, bpm, lyrics, reference_url, is_public))')
       .eq('band_id', bandId)
       .order('name');
 
