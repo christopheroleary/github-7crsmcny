@@ -3,8 +3,6 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
-import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
-import PullToRefreshIndicator from './PullToRefreshIndicator.jsx';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigMessages from './GigMessages.jsx';
@@ -132,17 +130,6 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   // an edge swipe there should act on whichever screen is actually showing,
   // not jump straight out of the gig entirely.
   const [exiting, setExiting] = useState(false);
-
-  // Emergency backup for the ↻ Refresh button -- a phone's native "pull down
-  // to refresh" gesture, wired to the exact same handler. Disabled whenever
-  // this render is actually about to return GigDetailBandMember or GigForm
-  // instead of GigDetail's own view below (self-guard demotion, editing,
-  // "view as musician") -- otherwise both this hook's window listeners and
-  // that other component's own copy of the same hook would be bound at
-  // once, double-firing on a single pull.
-  const showingOwnView = gig && canManageThisGig && !editing && !viewAsProfileId;
-  const { pullDistance, refreshing: pullRefreshing, threshold: pullThreshold } =
-    usePullToRefresh(handleManualRefresh, { disabled: isOffline || !showingOwnView });
 
   useSwipeBack(
     exiting || editing || viewAsProfileId
@@ -296,7 +283,6 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
   return (
     <div className={'entity-detail' + (exiting ? ' swipe-back-exiting' : '')}>
-      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={pullRefreshing} threshold={pullThreshold} />
       <button className="link-button" onClick={onBack}>← Back to gigs</button>
 
       {/* ── Offline / sync status bar (mirrors GigDetailBandMember) ─────────── */}

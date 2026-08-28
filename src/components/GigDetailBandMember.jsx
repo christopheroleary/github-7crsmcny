@@ -3,11 +3,9 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
-import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
 import PerformanceMode from './PerformanceMode.jsx';
-import PullToRefreshIndicator from './PullToRefreshIndicator.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
@@ -119,12 +117,6 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
     setManualRefreshSignal((v) => v + 1);
   }
 
-  // Emergency backup for the button above -- a phone's native "pull down to
-  // refresh" gesture, wired to the exact same handler. Disabled while
-  // offline (nothing to actually re-fetch) and while `gig` hasn't loaded yet.
-  const { pullDistance, refreshing: pullRefreshing, threshold: pullThreshold } =
-    usePullToRefresh(handleManualRefresh, { disabled: isOffline || !gig });
-
   // Scroll to the section a notification pointed at (e.g. straight to the
   // roster or your claim) once the gig has actually rendered. Placed above
   // the loading/error early returns below to keep this an unconditional
@@ -228,7 +220,6 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
 
   return (
     <div className={'day-sheet' + (exiting ? ' swipe-back-exiting' : '')}>
-      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={pullRefreshing} threshold={pullThreshold} />
       <button className="link-button" onClick={onBack}>{backLabel}</button>
 
       {/* Sync status bar */}

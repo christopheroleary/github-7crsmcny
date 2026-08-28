@@ -12,7 +12,7 @@ const MAX_VERTICAL_RATIO = 0.5;
 
 // Callbacks are read via refs (not a hook dependency) so passing a fresh
 // inline function every render doesn't tear down and rebind the window
-// listeners -- same reason usePullToRefresh.js does this for onRefresh.
+// listeners.
 export function useSwipeHorizontal(onSwipeLeft, onSwipeRight, { disabled = false } = {}) {
   const gestureRef = useRef(null);
   const onSwipeLeftRef = useRef(onSwipeLeft);
