@@ -137,19 +137,27 @@ export default function BackingTrackPlayer({ band, song }) {
 
   useEffect(() => {
     rateRef.current = rate;
-    // Formant compensation keeps vocals sounding like a voice rather than a
-    // chipmunk/Vader effect at larger pitch shifts -- formantBaseHz: 0 lets
-    // it pitch-track the source automatically rather than assuming one
-    // fixed vocal range for every band's every recording.
-    stretchNodeRef.current?.schedule({ rate, semitones, formantCompensation: true, formantBaseHz: 0 });
+    stretchNodeRef.current?.schedule({ rate, semitones });
   }, [rate, semitones]);
 
+  // setTargetAtTime, not a direct .value assignment -- setting .value
+  // repeatedly while a slider is being dragged creates a stepped signal
+  // (a new discontinuity at every input event), heard as "zipper noise":
+  // small clicks that get proportionally louder, and so more noticeable,
+  // the higher the gain -- easy to mistake for the track itself getting
+  // harsher/brighter as you turn it up. Ramping to the new value over a
+  // few milliseconds removes the discontinuity instead of just making it
+  // quieter.
   useEffect(() => {
-    if (trackGainRef.current) trackGainRef.current.gain.value = trackVolume;
+    if (trackGainRef.current && audioCtxRef.current) {
+      trackGainRef.current.gain.setTargetAtTime(trackVolume, audioCtxRef.current.currentTime, 0.015);
+    }
   }, [trackVolume]);
 
   useEffect(() => {
-    if (clickGainRef.current) clickGainRef.current.gain.value = clickEnabled ? clickVolume : 0;
+    if (clickGainRef.current && audioCtxRef.current) {
+      clickGainRef.current.gain.setTargetAtTime(clickEnabled ? clickVolume : 0, audioCtxRef.current.currentTime, 0.015);
+    }
   }, [clickEnabled, clickVolume]);
 
   async function handleUpload(e) {
@@ -252,11 +260,15 @@ export default function BackingTrackPlayer({ band, song }) {
         channels.push(audioBuffer.getChannelData(i));
       }
       await stretchNode.addBuffers(channels);
-      // formantCompensation keeps vocals sounding like a voice rather than
-      // a chipmunk/Vader effect at larger pitch shifts -- formantBaseHz: 0
-      // lets it pitch-track the source instead of assuming one fixed vocal
-      // range for every band's every recording.
-      stretchNode.schedule({ rate, semitones, formantCompensation: true, formantBaseHz: 0 });
+      // formantCompensation was tried here and reverted -- it's built for
+      // isolated vocals (it assumes something like a fixed vocal-tract
+      // resonance structure to preserve while the pitch moves), not a
+      // full-band mix. On a whole backing track it fought the *other*
+      // instruments, especially anything doing a continuous pitch glide at
+      // the same time (a guitar string bend), producing an audible warble
+      // instead of a cleaner one plain pitch-shifting -- with no formant
+      // model to satisfy -- doesn't have.
+      stretchNode.schedule({ rate, semitones });
 
       const trackGain = audioContext.createGain();
       trackGain.gain.value = trackVolume;
