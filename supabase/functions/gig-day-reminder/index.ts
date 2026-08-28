@@ -42,9 +42,26 @@ async function getSubscriptions(profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data } = await supabase
     .from('push_subscriptions')
-    .select('endpoint, p256dh, auth_key')
+    .select('endpoint, p256dh, auth_key, profile_id')
     .in('profile_id', profileIds);
   return data || [];
+}
+
+// See notify-admin/index.ts's getUnreadCounts -- same reasoning: each
+// recipient has their own unread total, so it's looked up once per batch
+// and merged in per-device below rather than shared across the payload.
+async function getUnreadCounts(profileIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!profileIds.length) return counts;
+  const { data: rows } = await supabase
+    .from('notifications')
+    .select('profile_id')
+    .in('profile_id', profileIds)
+    .eq('read', false);
+  for (const row of rows || []) {
+    counts.set(row.profile_id, (counts.get(row.profile_id) || 0) + 1);
+  }
+  return counts;
 }
 
 async function notifyGigDay(profileIds: string[], payload: { title: string; body: string; tag: string; url: string; gig_id: string }) {
@@ -62,6 +79,7 @@ async function notifyGigDay(profileIds: string[], payload: { title: string; body
   );
 
   const subscriptions = await getSubscriptions(profileIds);
+  const unreadCounts = await getUnreadCounts(profileIds);
   const stale: string[] = [];
 
   await Promise.allSettled(
@@ -69,7 +87,13 @@ async function notifyGigDay(profileIds: string[], payload: { title: string; body
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-          JSON.stringify({ title: payload.title, body: payload.body, tag: payload.tag, url: payload.url })
+          JSON.stringify({
+            title: payload.title,
+            body: payload.body,
+            tag: payload.tag,
+            url: payload.url,
+            unreadCount: unreadCounts.get(sub.profile_id) || 0,
+          })
         );
       } catch (err: any) {
         // See notify-musician/index.ts -- a 403 here means a VAPID key

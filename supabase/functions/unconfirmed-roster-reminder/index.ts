@@ -27,8 +27,25 @@ async function getRecipientIds(bandId: string | null): Promise<string[]> {
 
 async function getSubscriptionsFor(profileIds: string[]) {
   if (!profileIds.length) return [];
-  const { data } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth_key').in('profile_id', profileIds);
+  const { data } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth_key, profile_id').in('profile_id', profileIds);
   return data || [];
+}
+
+// See notify-admin/index.ts's getUnreadCounts -- same reasoning: each
+// recipient has their own unread total, so it's looked up once per batch
+// and merged in per-device below rather than shared across the payload.
+async function getUnreadCounts(profileIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!profileIds.length) return counts;
+  const { data: rows } = await supabase
+    .from('notifications')
+    .select('profile_id')
+    .in('profile_id', profileIds)
+    .eq('read', false);
+  for (const row of rows || []) {
+    counts.set(row.profile_id, (counts.get(row.profile_id) || 0) + 1);
+  }
+  return counts;
 }
 
 async function pushTo(recipientIds: string[], payload: { title: string; body: string; url: string; gig_id: string; section: string }) {
@@ -47,13 +64,14 @@ async function pushTo(recipientIds: string[], payload: { title: string; body: st
   );
 
   const subscriptions = await getSubscriptionsFor(recipientIds);
+  const unreadCounts = await getUnreadCounts(recipientIds);
   const stale: string[] = [];
   await Promise.allSettled(
     subscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-          JSON.stringify(payload)
+          JSON.stringify({ ...payload, unreadCount: unreadCounts.get(sub.profile_id) || 0 })
         );
       } catch (err: any) {
         // See notify-musician/index.ts -- a 403 here means a VAPID key

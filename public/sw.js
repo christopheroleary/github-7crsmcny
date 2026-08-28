@@ -79,18 +79,43 @@ self.addEventListener('push', (event) => {
     payload = { title: 'Gig Manager', body: event.data.text() };
   }
 
-  const { title, body, icon, badge, tag, url, requireInteraction } = payload;
+  // `badge` here is the small monochrome status-bar icon Chrome/Android
+  // shows next to the notification text -- unrelated to `unreadCount`
+  // below, which is the actual number this sets on the home-screen app
+  // icon itself via the Badging API.
+  const { title, body, icon, badge, tag, url, requireInteraction, unreadCount } = payload;
 
   event.waitUntil(
-    self.registration.showNotification(title || 'Gig Manager', {
-      body,
-      icon: icon || '/icons/icon-192.png',
-      badge: badge || '/icons/icon-192.png',
-      tag: tag || 'gig-manager',
-      data: { url: url || '/' },
-      requireInteraction: requireInteraction || false,
-      vibrate: [200, 100, 200],
-    })
+    (async () => {
+      await self.registration.showNotification(title || 'Gig Manager', {
+        body,
+        icon: icon || '/icons/icon-192.png',
+        badge: badge || '/icons/icon-192.png',
+        tag: tag || 'gig-manager',
+        data: { url: url || '/' },
+        requireInteraction: requireInteraction || false,
+        vibrate: [200, 100, 200],
+      });
+
+      // Keeps the home-screen icon badge accurate even while the app is
+      // closed, since the push event is the only code that runs in that
+      // state -- see useAppBadge.js for the foreground half of this (and
+      // why, without this, iOS especially would only ever show "count as
+      // of last time the app was open"). Feature-detected: unsupported
+      // browsers (Firefox on any platform) just skip this silently.
+      if (typeof unreadCount === 'number' && 'setAppBadge' in self.navigator) {
+        try {
+          if (unreadCount > 0) {
+            await self.navigator.setAppBadge(unreadCount);
+          } else {
+            await self.navigator.clearAppBadge();
+          }
+        } catch {
+          // Badging API present but the call itself threw -- badge just
+          // doesn't update this time, nothing else here depends on it.
+        }
+      }
+    })()
   );
 });
 

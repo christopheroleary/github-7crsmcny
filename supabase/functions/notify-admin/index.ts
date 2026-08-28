@@ -81,9 +81,27 @@ async function getSubscriptionsFor(profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data: subs } = await supabase
     .from('push_subscriptions')
-    .select('endpoint, p256dh, auth_key')
+    .select('endpoint, p256dh, auth_key, profile_id')
     .in('profile_id', profileIds);
   return subs || [];
+}
+
+// Each recipient has their own unread total, so the push payload can't be
+// identically shared across every subscription the way the rest of it is --
+// this is looked up once per pushToAdmins() call and merged in per-device
+// below, keyed by whichever profile owns that subscription.
+async function getUnreadCounts(profileIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!profileIds.length) return counts;
+  const { data: rows } = await supabase
+    .from('notifications')
+    .select('profile_id')
+    .in('profile_id', profileIds)
+    .eq('read', false);
+  for (const row of rows || []) {
+    counts.set(row.profile_id, (counts.get(row.profile_id) || 0) + 1);
+  }
+  return counts;
 }
 
 async function pushToAdmins(
@@ -112,6 +130,7 @@ async function pushToAdmins(
 
   // Send push notification to all their subscribed devices
   const subscriptions = await getSubscriptionsFor(recipientIds);
+  const unreadCounts = await getUnreadCounts(recipientIds);
   const stale: string[] = [];
 
   await Promise.allSettled(
@@ -119,7 +138,7 @@ async function pushToAdmins(
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-          JSON.stringify(payload)
+          JSON.stringify({ ...payload, unreadCount: unreadCounts.get(sub.profile_id) || 0 })
         );
       } catch (err: any) {
         // See notify-musician/index.ts -- a 403 here means a VAPID key

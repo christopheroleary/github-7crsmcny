@@ -53,6 +53,17 @@ async function notifyMusician(profileId: string, payload: {
     read: false,
   });
 
+  // This recipient's current total unread count (including the row just
+  // inserted above) -- carried in the push payload so the service worker
+  // can set the home-screen icon badge to the true total, not just "one
+  // more arrived" (see public/sw.js's push handler and useAppBadge.js's
+  // notes on why this app has no other way to update it in the background).
+  const { count: unreadCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', profileId)
+    .eq('read', false);
+
   // Send push notification to all their subscribed devices
   const subscriptions = await getSubscriptions(profileId);
   const stale: string[] = [];
@@ -70,6 +81,7 @@ async function notifyMusician(profileId: string, payload: {
             body: payload.body,
             tag: payload.tag,
             url: payload.url || '/gigs',
+            unreadCount: unreadCount ?? 0,
           })
         );
         return { endpoint: sub.endpoint, ok: true };
