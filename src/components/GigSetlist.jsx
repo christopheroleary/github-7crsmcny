@@ -5,6 +5,7 @@ import ImportSetlist from './ImportSetlist.jsx';
 import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
+import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
@@ -22,6 +23,9 @@ export default function GigSetlist({ gigId, bandId }) {
   const [pickedExistingId, setPickedExistingId] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState(null);
+  // Which songs actually have a band backing track -- the "Backing track"
+  // button only shows for those, rather than unconditionally on every row.
+  const { songIds: backingTrackSongIds, reload: reloadBackingTracks } = useBandBackingTrackSongIds(bandId);
 
   // Split from loadSongs below: attaching/detaching/reordering a setlist on
   // THIS gig never creates or renames a song, so most mutations' post-write
@@ -221,6 +225,8 @@ export default function GigSetlist({ gigId, bandId }) {
           setlist={setlist}
           songs={songs}
           bandId={bandId}
+          backingTrackSongIds={backingTrackSongIds}
+          onTracksChanged={reloadBackingTracks}
           isAdmin={canManage}
           canMakePublic={isAdmin}
           onAddSong={handleAddSong}
@@ -273,7 +279,7 @@ export default function GigSetlist({ gigId, bandId }) {
   );
 }
 
-function SetlistBlock({ setlist, songs, bandId, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
@@ -357,6 +363,8 @@ function SetlistBlock({ setlist, songs, bandId, isAdmin, canMakePublic, onAddSon
                   item={item}
                   idx={idx}
                   bandId={bandId}
+                  backingTrackSongIds={backingTrackSongIds}
+                  onTracksChanged={onTracksChanged}
                   isAdmin={isAdmin}
                   canMakePublic={canMakePublic}
                   isEditing={editingItemId === item.id}
@@ -410,7 +418,7 @@ function SetlistBlock({ setlist, songs, bandId, isAdmin, canMakePublic, onAddSon
 }
 
 function SortableSongItem({
-  item, idx, bandId, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
+  item, idx, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
   onRemoveSong, setShowPlayerId, setShowLyricsId, setShowTrackId, setEditingItemId, reload,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -452,7 +460,7 @@ function SortableSongItem({
               {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
             </button>
           )}
-          {song && bandId && (
+          {song && bandId && backingTrackSongIds?.has(song.id) && (
             <button className="link-button" onClick={() => setShowTrackId(showTrackId === item.id ? null : item.id)}>
               {showTrackId === item.id ? 'Hide backing track' : 'Backing track'}
             </button>
@@ -470,6 +478,8 @@ function SortableSongItem({
         <SongEditFields
           song={song}
           canMakePublic={canMakePublic}
+          bandId={bandId}
+          onTracksChanged={onTracksChanged}
           onSaved={() => {
             setEditingItemId(null);
             reload();

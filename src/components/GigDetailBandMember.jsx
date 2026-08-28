@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
+import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
+import BackingTrackPlayer from './BackingTrackPlayer.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
@@ -92,6 +94,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   const [justConfirmedId, setJustConfirmedId] = useState(null);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
+  const [showTrackId, setShowTrackId] = useState(null);
+  // Which songs actually have a band backing track -- read-only here (no
+  // Edit/upload on this view at all), same has-track gating as GigSetlist.jsx
+  // so the button only appears where there's actually something to play.
+  const { songIds: backingTrackSongIds } = useBandBackingTrackSongIds(gig?.band_id);
 
   // Scroll to the section a notification pointed at (e.g. straight to the
   // roster or your claim) once the gig has actually rendered. Placed above
@@ -476,6 +483,14 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
                               {isShowingLyrics ? 'Hide' : 'Lyrics'}
                             </button>
                           )}
+                          {song && gig.band_id && !isOffline && backingTrackSongIds?.has(song.id) && (
+                            <button
+                              className="link-button"
+                              onClick={() => setShowTrackId(showTrackId === item.id ? null : item.id)}
+                            >
+                              {showTrackId === item.id ? 'Hide' : 'Backing track'}
+                            </button>
+                          )}
                         </div>
                       </div>
                       {isShowingPlayer && song?.reference_url && !isOffline && (
@@ -483,6 +498,9 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
                       )}
                       {isShowingLyrics && song?.lyrics && (
                         <LyricsView text={song.lyrics} />
+                      )}
+                      {showTrackId === item.id && song && gig.band_id && !isOffline && (
+                        <BackingTrackPlayer band={{ id: gig.band_id }} song={song} />
                       )}
                     </li>
                   );

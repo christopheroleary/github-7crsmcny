@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import BackingTrackManager from './BackingTrackManager.jsx';
 
 function cleanArtist(artist) {
   return artist
@@ -15,7 +16,7 @@ function cleanArtist(artist) {
 // SongsList.jsx (the admin repertoire page) -- same form, same save
 // behaviour, so the two don't drift the way the invoice preview/print
 // paths did.
-export default function SongEditFields({ song, canMakePublic, onSaved, onCancel }) {
+export default function SongEditFields({ song, canMakePublic, onSaved, onCancel, bandId, onTracksChanged }) {
   const [title, setTitle] = useState(song.title || '');
   const [artist, setArtist] = useState(song.artist || '');
   const [key, setKey] = useState(song.original_key || '');
@@ -162,6 +163,13 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
           placeholder={'Paste lyrics (or your own chord notes) here. Wrap section markers in brackets to bold them, e.g.\n[Verse 1]\n[Chorus]'}
         />
       </label>
+
+      {/* Only appears when editing from a band-scoped context (GigSetlist) --
+          songs themselves aren't band-owned (shared/public catalog, see
+          is_public above), but backing tracks are, so this has nothing
+          sensible to show on the global Repertoire page (SongsList.jsx),
+          which never passes bandId. */}
+      {bandId && <BackingTrackManager band={{ id: bandId }} song={song} onChanged={onTracksChanged} />}
 
       {canMakePublic && (
         <label className="field field--checkbox">
