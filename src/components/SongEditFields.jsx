@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import NumberInput from './NumberInput.jsx';
 
 function cleanArtist(artist) {
   return artist
@@ -60,7 +59,7 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
       title,
       artist: artist || null,
       original_key: key || null,
-      bpm: bpm === '' ? null : Math.round(Number(bpm)),
+      bpm: bpm === '' ? null : Math.min(300, Math.max(30, Math.round(Number(bpm)))),
       reference_url: referenceUrl || null,
       lyrics: lyrics || null,
     };
@@ -95,11 +94,22 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
         </label>
         <label className="field" style={{ maxWidth: 100 }}>
           <span className="field__label">BPM</span>
-          <NumberInput
+          {/* A plain live input, not NumberInput -- that component opens a
+              confirm-then-close keypad (right for a money field where an
+              accidental scroll-wheel edit is a real risk), but its overlay
+              covers the whole form while open, including Save. Typing a
+              BPM and then clicking Save without first tapping the keypad's
+              own "Done" landed on that overlay instead, which *cancels*
+              rather than commits -- silently reverting to blank. BPM is
+              typed once and immediately followed by Save, so a plain
+              always-live field removes the trap; inputMode="numeric" still
+              gets a numeric keyboard on mobile without inheriting
+              type="number"'s mouse-scroll-changes-the-value bug. */}
+          <input
+            type="text"
+            inputMode="numeric"
             value={bpm}
-            onChange={(e) => setBpm(e.target.value)}
-            min={30}
-            max={300}
+            onChange={(e) => setBpm(e.target.value.replace(/[^0-9]/g, ''))}
             placeholder="e.g. 120"
           />
         </label>
