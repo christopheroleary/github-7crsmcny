@@ -92,6 +92,17 @@ export default function GigsList() {
   }
 
   const [showHistoric, setShowHistoric] = useState(false);
+  // Ascending date order means turning Show historic on tacks a potentially
+  // long run of past gigs onto the FRONT of the list -- without this, the
+  // user lands on the oldest gig in their history instead of where they
+  // actually want to start: today, working backwards or forwards from there.
+  // todayRowRef marks that boundary row (set inside the list render below);
+  // scrolledForHistoricRef guards the scroll to once per "on" toggle, not
+  // every re-render while it stays on (a later search/filter change, a
+  // background resync, etc.), and resets when historic is switched off so
+  // turning it on again scrolls again.
+  const todayRowRef = useRef(null);
+  const scrolledForHistoricRef = useRef(false);
   const [showAddForm, setShowAddForm] = useState(false);
   // Set when "add a gig" is triggered from a specific calendar date (an
   // empty day, or the "Add gig" option in a day's popover) rather than the
@@ -179,6 +190,42 @@ export default function GigsList() {
     'notes',
     { name: 'dateLabel', getFn: (gig) => formatShortDate(gig.gig_date) },
   ]);
+
+  // First gig at or after today in the (ascending-sorted) currently-rendered
+  // list -- the row todayRowRef marks below, and what the scroll-to-today
+  // effect targets. Only meaningful for the plain historic list, not one of
+  // the other filtered views (needs invoicing/unpaid claims/pending claims/
+  // incomplete roster) -- those are already narrowed to a specific subset
+  // with no "today" divider to scroll to.
+  const otherFilterActive =
+    showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || showIncompleteRoster;
+  const firstUpcomingGig = otherFilterActive ? null : searchedGigs.find((g) => g.gig_date >= today());
+  // Whether the historic gigs this scroll targets have actually arrived yet
+  // -- checked against `gigs` (pre-search-filter), not `searchedGigs`, so a
+  // search query that happens to hide every historic row doesn't itself
+  // read as "still loading". `syncing` looked like the obvious gate here,
+  // but there's a real render race: the very first render right after the
+  // toggle click still shows syncing's PREVIOUS value (false, from before
+  // the click) because useOfflineGigList's own effect -- the one that
+  // actually flips it true and starts the fetch -- hasn't run yet at that
+  // point. Checking for a genuine historic row directly sidesteps that
+  // timing entirely.
+  const hasHistoricLoaded = gigs.some((g) => g.gig_date < today());
+
+  useEffect(() => {
+    if (!showHistoric || otherFilterActive) {
+      // Reset so switching historic off and back on scrolls again, rather
+      // than only ever firing once per mount.
+      scrolledForHistoricRef.current = false;
+      return;
+    }
+    if (scrolledForHistoricRef.current || !todayRowRef.current || !hasHistoricLoaded) return;
+    // 'center' rather than 'start' -- leaves a few recent-past gigs visible
+    // just above today's row, so scrolling up from here immediately shows
+    // more of them instead of landing with today pinned to the very top edge.
+    todayRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrolledForHistoricRef.current = true;
+  }, [showHistoric, otherFilterActive, hasHistoricLoaded, searchedGigs]);
 
   // ── Keep cross-tab navigation working (notification clicks etc.) ─────────────
   useEffect(() => {
@@ -459,6 +506,7 @@ export default function GigsList() {
               return (
                 <li
                   key={gig.id}
+                  ref={gig.id === firstUpcomingGig?.id ? todayRowRef : undefined}
                   className={[
                     'gig-card',
                     isPast ? 'gig-card--historic' : '',
