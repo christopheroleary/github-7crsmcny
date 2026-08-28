@@ -375,7 +375,7 @@ function buildMusicianInvoiceHTML({ claim, gig, band, profile }) {
 // -------------------------------------------------------------------
 // 3. Main component
 // -------------------------------------------------------------------
-export default function MusicianClaim({ gigId, myProfileId }) {
+export default function MusicianClaim({ gigId, myProfileId, refreshSignal }) {
   const { isPro } = useCurrentProfile();
   const [claim, setClaim]       = useState(null);
   const [myLineup, setMyLineup] = useState(null);
@@ -431,7 +431,14 @@ export default function MusicianClaim({ gigId, myProfileId }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+    // refreshSignal is otherwise unused here -- it's a signal, not data. The
+    // top "↻ Refresh" button in GigDetailBandMember bumps it specifically to
+    // give this effect a reason to re-run too, e.g. picking up a fee an admin
+    // just set without needing to leave and reopen. Safe to fire mid-edit --
+    // load() never touches `items`/`notes`, only the read-only fields above
+    // the edit form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, refreshSignal]);
 
   function handlePrintInvoice() {
     if (!claim) return;

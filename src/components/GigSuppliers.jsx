@@ -14,7 +14,7 @@ import { buildSupplierFollowUpEmail, buildSupplierMailtoHref } from '../utils/su
 // never quite happens. `gig` is the already-loaded gig object (needs
 // .venues.name, .gig_date, .bands.name for the email template) -- both
 // GigDetail and GigDetailBandMember already have this on hand.
-export default function GigSuppliers({ gigId, gig, readOnly = false }) {
+export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSignal }) {
   const { isAdmin, isBandLeader } = useCurrentProfile();
   const canManage = !readOnly && (isAdmin || isBandLeader);
 
@@ -68,7 +68,15 @@ export default function GigSuppliers({ gigId, gig, readOnly = false }) {
     setAllSuppliers(suppliers || []);
   }, [canManage]);
 
-  useEffect(() => { loadAttached(); loadAllSuppliers(); }, [loadAttached, loadAllSuppliers]);
+  useEffect(() => {
+    loadAttached();
+    loadAllSuppliers();
+    // refreshSignal is otherwise unused here -- it's a signal, not data. Both
+    // GigDetail and GigDetailBandMember bump it when their top "↻ Refresh"
+    // button is clicked, specifically to give this effect a reason to re-run
+    // too (this component keeps its own independent fetch either way).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadAttached, loadAllSuppliers, refreshSignal]);
 
   function startAdd() {
     setPickedSupplierId('');

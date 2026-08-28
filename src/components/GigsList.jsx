@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigList } from '../hooks/useOfflineGigList.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import GigForm from './GigForm.jsx';
+import PullToRefreshIndicator from './PullToRefreshIndicator.jsx';
 import GigDetail from './GigDetail.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
@@ -206,6 +208,16 @@ export default function GigsList() {
     }
   }, [showAddForm, addGigDate]);
 
+  // Emergency backup for staleness on this page (e.g. a gig added on Grid
+  // view not appearing until switching views) -- a phone's native "pull down
+  // to refresh" gesture, wired to the same bumpGigs() every mutation here
+  // already calls. Disabled while offline, and while a gig's detail view is
+  // open below -- that renders GigDetail/GigDetailBandMember instead, each
+  // with their own copy of this same hook; leaving this one enabled too
+  // would double-fire on a single pull.
+  const { pullDistance, refreshing: pullRefreshing, threshold: pullThreshold } =
+    usePullToRefresh(bumpGigs, { disabled: isOffline || !!selectedGigId });
+
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selectedGigId) {
     // Looked up from the unfiltered rawGigs, not the client-filtered `gigs`
@@ -237,6 +249,7 @@ export default function GigsList() {
   // ── List view ────────────────────────────────────────────────────────────────
   return (
     <div>
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={pullRefreshing} threshold={pullThreshold} />
       <div className="section-header">
         <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
         {isAdmin && (

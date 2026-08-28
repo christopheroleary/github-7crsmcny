@@ -3,8 +3,10 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
+import PullToRefreshIndicator from './PullToRefreshIndicator.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
@@ -98,7 +100,28 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   // Which songs actually have a band backing track -- read-only here (no
   // Edit/upload on this view at all), same has-track gating as GigSetlist.jsx
   // so the button only appears where there's actually something to play.
-  const { songIds: backingTrackSongIds } = useBandBackingTrackSongIds(gig?.band_id);
+  const { songIds: backingTrackSongIds, reload: reloadBackingTracks } = useBandBackingTrackSongIds(gig?.band_id);
+
+  // The manual "↻ Refresh" button below used to only call refresh() --
+  // which is enough on its own for the roster and setlist above (both read
+  // straight off useOfflineGigData's shared state here, unlike GigDetail.jsx's
+  // admin view, so there's no separate copy of gig_lineup to go stale). But
+  // GigSuppliers, MusicianClaim, and the backing-track availability check
+  // all keep their own independent fetches, same reason as GigRoster/
+  // TravelCalculator/GigSetlist did on the admin page -- so the button still
+  // didn't touch any of them.
+  const [manualRefreshSignal, setManualRefreshSignal] = useState(0);
+  function handleManualRefresh() {
+    refresh();
+    reloadBackingTracks();
+    setManualRefreshSignal((v) => v + 1);
+  }
+
+  // Emergency backup for the button above -- a phone's native "pull down to
+  // refresh" gesture, wired to the exact same handler. Disabled while
+  // offline (nothing to actually re-fetch) and while `gig` hasn't loaded yet.
+  const { pullDistance, refreshing: pullRefreshing, threshold: pullThreshold } =
+    usePullToRefresh(handleManualRefresh, { disabled: isOffline || !gig });
 
   // Scroll to the section a notification pointed at (e.g. straight to the
   // roster or your claim) once the gig has actually rendered. Placed above
@@ -203,6 +226,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
 
   return (
     <div className={'day-sheet' + (exiting ? ' swipe-back-exiting' : '')}>
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={pullRefreshing} threshold={pullThreshold} />
       <button className="link-button" onClick={onBack}>{backLabel}</button>
 
       {/* Sync status bar */}
@@ -221,7 +245,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           )}
         </div>
         {!isOffline && !syncing && (
-          <button className="sync-bar__refresh" onClick={refresh} title="Refresh">
+          <button className="sync-bar__refresh" onClick={handleManualRefresh} title="Refresh">
             ↻ Refresh
           </button>
         )}
@@ -531,13 +555,13 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           myProfileId, not role context), so management stays on the
           admin-facing gig view regardless of who's actually signed in. */}
       {!isOffline && (
-        <GigSuppliers gigId={gigId} gig={gig} readOnly />
+        <GigSuppliers gigId={gigId} gig={gig} readOnly refreshSignal={manualRefreshSignal} />
       )}
 
       {/* Payment claim — only when online */}
       <div id="gig-section-claims">
         {!isOffline && (
-          <MusicianClaim gigId={gigId} myProfileId={myProfileId} />
+          <MusicianClaim gigId={gigId} myProfileId={myProfileId} refreshSignal={manualRefreshSignal} />
         )}
         {isOffline && (
           <div className="day-sheet__section">

@@ -2775,6 +2775,51 @@ input:not([type]) {
   text-decoration: underline;
 }
 
+/* ---- Pull-to-refresh indicator (emergency backup for ↻ Refresh, mobile touch only) ---- */
+.pull-refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 0 0 10px 10px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-top: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--teal);
+  pointer-events: none;
+}
+
+.pull-refresh-indicator--ready {
+  color: var(--amber-dark);
+}
+
+.pull-refresh-indicator__spinner {
+  display: inline-block;
+  line-height: 1;
+}
+
+.pull-refresh-indicator__spinner--spin {
+  animation: pull-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes pull-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh-indicator__spinner--spin {
+    animation: none;
+  }
+}
+
 /* ---- Offline banner ---- */
 .offline-banner {
   background: rgba(200, 134, 46, 0.1);
