@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import NumberInput from './NumberInput.jsx';
 
 function cleanArtist(artist) {
   return artist
@@ -19,6 +20,7 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
   const [title, setTitle] = useState(song.title || '');
   const [artist, setArtist] = useState(song.artist || '');
   const [key, setKey] = useState(song.original_key || '');
+  const [bpm, setBpm] = useState(song.bpm != null ? String(song.bpm) : '');
   const [referenceUrl, setReferenceUrl] = useState(song.reference_url || '');
   const [lyrics, setLyrics] = useState(song.lyrics || '');
   const [isPublic, setIsPublic] = useState(Boolean(song.is_public));
@@ -58,6 +60,7 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
       title,
       artist: artist || null,
       original_key: key || null,
+      bpm: bpm === '' ? null : Math.round(Number(bpm)),
       reference_url: referenceUrl || null,
       lyrics: lyrics || null,
     };
@@ -89,6 +92,16 @@ export default function SongEditFields({ song, canMakePublic, onSaved, onCancel 
         <label className="field" style={{ maxWidth: 90 }}>
           <span className="field__label">Key</span>
           <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="e.g. G" />
+        </label>
+        <label className="field" style={{ maxWidth: 100 }}>
+          <span className="field__label">BPM</span>
+          <NumberInput
+            value={bpm}
+            onChange={(e) => setBpm(e.target.value)}
+            min={30}
+            max={300}
+            placeholder="e.g. 120"
+          />
         </label>
       </div>
 
