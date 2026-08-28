@@ -4092,3 +4092,327 @@ input:not([type]) {
 .u-pre-line {
   white-space: pre-line;
 }
+
+/* ============================================================
+   Performance mode -- full-screen swipe-through setlist for stage use.
+   Fixed dark-terminal look (black/white/bright green) regardless of the
+   user's own --data-theme pick (MyProfile.jsx) -- this isn't a 5th theme
+   option, it's this view's own identity. Scoping fresh values for the
+   SAME tokens the rest of the app already uses (--ink/--paper/--paper-
+   raised/--line/--amber/--amber-dark/--teal/--text-muted) is what reskins
+   ReferencePlayer and BackingTrackPlayer for free, with zero source
+   changes to either -- both are already entirely token-driven, confirmed
+   by direct read before writing this.
+   ============================================================ */
+.performance-mode {
+  --ink: #f0f0f0;
+  --paper: #000;
+  --paper-raised: #0a0a0a;
+  --line: #1a1a1a;
+  --amber: #39ff14;
+  --amber-dark: #2ecc0f;
+  --teal: #39ff14;
+  --text-muted: #7a7a7a;
+
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-body);
+}
+
+.pm-icon-btn {
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.pm-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: env(safe-area-inset-top) 4px 0;
+  flex-shrink: 0;
+}
+
+.pm-topbar__title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-topbar__song {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.pm-topbar__artist {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.pm-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pm-meta__set,
+.pm-meta__key,
+.pm-meta__bpm {
+  color: var(--amber);
+}
+
+.pm-meta__position {
+  margin-left: auto;
+}
+
+.pm-lyrics {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+  padding: 8px 20px 40px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pm-lyrics__body {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.pm-lyrics__empty {
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 40px;
+  font-family: var(--font-mono);
+}
+
+.pm-lyrics__line {
+  margin: 0 0 6px;
+  font-size: calc(1.15rem * var(--pm-font-scale, 1));
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.pm-lyrics__section {
+  margin: 20px 0 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  font-size: calc(0.95rem * var(--pm-font-scale, 1));
+}
+
+.pm-lyrics__chord {
+  margin: 0 0 2px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--amber);
+  font-size: calc(1.05rem * var(--pm-font-scale, 1));
+  white-space: pre-wrap;
+}
+
+/* Narrow edge strips over the lyrics area for tap-to-change-song --
+   secondary to the swipe gesture (useSwipeHorizontal.js, bound on
+   `window` so it fires from anywhere), not the primary input. Kept
+   narrow so most of the screen stays free for an ordinary vertical
+   scroll touch. */
+.pm-tap-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 15%;
+  min-width: 36px;
+  max-width: 64px;
+  background: none;
+  border: none;
+  color: rgba(240, 240, 240, 0.15);
+  font-size: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.pm-tap-zone--left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 6px;
+}
+
+.pm-tap-zone--right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 6px;
+}
+
+.pm-tap-zone:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pm-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--paper-raised);
+  flex-shrink: 0;
+}
+
+.pm-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-chip {
+  background: none;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pm-chip:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pm-chip--label {
+  border-color: transparent;
+  color: var(--ink);
+  min-width: 32px;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.pm-panel {
+  padding: 0 16px 16px;
+  flex-shrink: 0;
+}
+
+.pm-empty {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.pm-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+}
+
+.pm-drawer {
+  width: 100%;
+  max-height: 75vh;
+  background: var(--paper-raised);
+  border-radius: 16px 16px 0 0;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pm-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 8px 12px 20px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  color: var(--text-muted);
+  position: sticky;
+  top: 0;
+  background: var(--paper-raised);
+}
+
+.pm-drawer__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.pm-drawer__set-header {
+  padding: 14px 20px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+}
+
+.pm-drawer__item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--ink);
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.pm-drawer__item--active {
+  background: rgba(57, 255, 20, 0.08);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.pm-drawer__num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 20px;
+}
+
+.pm-drawer__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-drawer__artist {
+  color: var(--text-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}

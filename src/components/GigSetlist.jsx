@@ -5,6 +5,7 @@ import ImportSetlist from './ImportSetlist.jsx';
 import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
+import PerformanceMode from './PerformanceMode.jsx';
 import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
@@ -23,6 +24,7 @@ export default function GigSetlist({ gigId, bandId, refreshSignal }) {
   const [pickedExistingId, setPickedExistingId] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState(null);
+  const [showPerformanceMode, setShowPerformanceMode] = useState(false);
   // Which songs actually have a band backing track -- the "Backing track"
   // button only shows for those, rather than unconditionally on every row.
   const { songIds: backingTrackSongIds, reload: reloadBackingTracks } = useBandBackingTrackSongIds(bandId);
@@ -223,7 +225,22 @@ export default function GigSetlist({ gigId, bandId, refreshSignal }) {
     <div className="roster-section">
       <h3 className="roster-section__title">Setlist</h3>
 
-      {attachedSetlists.length === 0 && <p className="state-message">No sets attached to this gig yet.</p>}
+      {attachedSetlists.length === 0 ? (
+        <p className="state-message">No sets attached to this gig yet.</p>
+      ) : (
+        <button type="button" className="btn btn--primary btn--small" style={{ marginBottom: 12 }} onClick={() => setShowPerformanceMode(true)}>
+          ▶ Performance mode
+        </button>
+      )}
+
+      {showPerformanceMode && (
+        <PerformanceMode
+          setlists={attachedSetlists}
+          bandId={bandId}
+          backingTrackSongIds={backingTrackSongIds}
+          onClose={() => setShowPerformanceMode(false)}
+        />
+      )}
 
       {attachedSetlists.map((setlist) => (
         <SetlistBlock

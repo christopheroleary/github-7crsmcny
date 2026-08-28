@@ -6,6 +6,7 @@ import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
+import PerformanceMode from './PerformanceMode.jsx';
 import PullToRefreshIndicator from './PullToRefreshIndicator.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
@@ -97,6 +98,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
   const [showTrackId, setShowTrackId] = useState(null);
+  const [showPerformanceMode, setShowPerformanceMode] = useState(false);
   // Which songs actually have a band backing track -- read-only here (no
   // Edit/upload on this view at all), same has-track gating as GigSetlist.jsx
   // so the button only appears where there's actually something to play.
@@ -470,6 +472,20 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
       {setlists.length > 0 && (
         <div className="day-sheet__section">
           <h3 className="day-sheet__section-title">Setlist</h3>
+          {/* Not gated on isOffline -- lyrics/key/bpm are already cached
+              (the whole point of useOfflineGigData), so the core reading
+              purpose of this works fine with no connection. PerformanceMode
+              itself hides just the Listen/Backing track buttons offline,
+              matching the same gate the plain list view above already
+              applies to those two per-song. */}
+          <button
+            type="button"
+            className="btn btn--primary"
+            style={{ marginBottom: 12 }}
+            onClick={() => setShowPerformanceMode(true)}
+          >
+            ▶ Performance mode
+          </button>
           {setlists.map((sl) => (
             <div key={sl.id} className="day-sheet__set">
               <p className="day-sheet__set-name">{sl.name}</p>
@@ -533,6 +549,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
             </div>
           ))}
         </div>
+      )}
+
+      {showPerformanceMode && (
+        <PerformanceMode
+          setlists={setlists}
+          bandId={gig.band_id}
+          backingTrackSongIds={backingTrackSongIds}
+          isOffline={isOffline}
+          onClose={() => setShowPerformanceMode(false)}
+        />
       )}
 
       {/* Gig chat — only when online */}
