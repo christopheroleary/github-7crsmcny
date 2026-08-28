@@ -100,7 +100,7 @@ function CaptainBadge() {
   );
 }
 
-export default function GigRoster({ gigId }) {
+export default function GigRoster({ gigId, onRosterChanged }) {
   const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
@@ -194,7 +194,7 @@ export default function GigRoster({ gigId }) {
 
     setApplyingPreset(false);
     if (added === 0) setError('All band preset members are already in the lineup.');
-    loadLineup();
+    reloadAndNotify();
   }
 
   // Split from the picker-data load below: requirements/lineup are the only
@@ -211,6 +211,19 @@ export default function GigRoster({ gigId }) {
     setLineup(lineupRows || []);
     setLoading(false);
   }, [gigId]);
+
+  // Every mutation below (add/remove/confirm/toggle) calls this instead of
+  // loadLineup() directly -- it does the same local reload plus tells the
+  // parent (GigDetail) the roster changed, which is what keeps sibling
+  // components that hold their own separate copy of gig_lineup (the "View
+  // as musician" picker, TravelCalculator) in sync instead of going stale
+  // until the gig is closed and reopened. Deliberately not folded into
+  // loadLineup() itself, since that's also called on mount -- notifying the
+  // parent then would trigger a redundant extra fetch on every page load.
+  async function reloadAndNotify() {
+    await loadLineup();
+    onRosterChanged?.();
+  }
 
   // The "add a musician" picker's reference data -- every active profile,
   // every instrument, every placeholder/dep and their known instruments --
@@ -304,7 +317,7 @@ export default function GigRoster({ gigId }) {
     setNewVocalRole('');
     setNewIsDj(false);
     setNewIsRoadie(false);
-    loadLineup();
+    reloadAndNotify();
   }
 
   // ── Add existing dep ─────────────────────────────────────────────────────
@@ -351,7 +364,7 @@ export default function GigRoster({ gigId }) {
     setPlaceholderIsDj(false);
     setPlaceholderIsRoadie(false);
     setShowPlaceholder(false);
-    loadLineup();
+    reloadAndNotify();
   }
 
   // ── Add brand new dep ────────────────────────────────────────────────────
@@ -415,7 +428,7 @@ export default function GigRoster({ gigId }) {
     setNewDepIsDj(false);
     setNewDepIsRoadie(false);
     setShowPlaceholder(false);
-    loadLineup();
+    reloadAndNotify();
     // Only this handler can mint a brand-new placeholder_musician (the
     // other add paths pick an existing one), so it's the only mutation
     // that needs the picker list refreshed too -- otherwise the person
@@ -453,7 +466,7 @@ export default function GigRoster({ gigId }) {
     setBusyEntryId(entry.id);
     const { error } = await supabase.from('gig_lineup').delete().eq('id', entry.id);
     if (error) { notify("Couldn't remove: " + error.message); setBusyEntryId(null); return; }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -472,7 +485,7 @@ export default function GigRoster({ gigId }) {
       setBusyEntryId(null);
       return;
     }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -482,7 +495,7 @@ export default function GigRoster({ gigId }) {
     const { error } = await supabase.rpc('resend_gig_invite', { p_lineup_id: entry.id });
     if (error) { notify("Couldn't resend: " + error.message); setBusyEntryId(null); return; }
     notify('Reminder sent to ' + (entry.profiles?.full_name || 'the musician') + '.');
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -491,7 +504,7 @@ export default function GigRoster({ gigId }) {
     setBusyEntryId(entryId);
     const { error } = await supabase.from('gig_lineup').update({ vocal_role: vocal_role || null }).eq('id', entryId);
     if (error) { notify("Couldn't update vocal role: " + error.message); setBusyEntryId(null); return; }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -506,7 +519,7 @@ export default function GigRoster({ gigId }) {
       .update({ is_dj: makingDj, vocal_role: makingDj ? null : entry.vocal_role })
       .eq('id', entry.id);
     if (error) { notify("Couldn't update DJ role: " + error.message); setBusyEntryId(null); return; }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -518,7 +531,7 @@ export default function GigRoster({ gigId }) {
       .update({ is_roadie: makingRoadie, vocal_role: makingRoadie ? null : entry.vocal_role })
       .eq('id', entry.id);
     if (error) { notify("Couldn't update roadie role: " + error.message); setBusyEntryId(null); return; }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 
@@ -536,7 +549,7 @@ export default function GigRoster({ gigId }) {
     }
     const { error } = await supabase.from('gig_lineup').update({ is_captain: makingCaptain }).eq('id', entry.id);
     if (error) { notify("Couldn't update captain: " + error.message); setBusyEntryId(null); return; }
-    await loadLineup();
+    await reloadAndNotify();
     setBusyEntryId(null);
   }
 

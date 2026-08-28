@@ -131,6 +131,18 @@ export default function GigsList() {
     showHistoric: showHistoric || showNeedsInvoicing || showUnclaimedGigs || showPendingClaims || viewMode === 'calendar',
   });
 
+  // BandLeaderGigGrid (the Grid view) keeps its own independent gigs fetch,
+  // entirely separate from rawGigs above -- List and Calendar already share
+  // rawGigs directly, but Grid only refetches on its own mount, so a gig
+  // added/edited elsewhere doesn't show there until the view is switched
+  // away and back. Bumping this counter alongside every existing loadGigs()
+  // call gives Grid's own fetch effect a reason to re-run too.
+  const [gigsVersion, setGigsVersion] = useState(0);
+  function bumpGigs() {
+    setGigsVersion((v) => v + 1);
+    loadGigs();
+  }
+
   // ── Client-side filters ───────────────────────────────────────────────────────
   // Admin: past gigs whose band invoice hasn't been sent or paid.
   //   Assumes gig objects expose `invoice_status` (joined from the invoices table).
@@ -204,8 +216,8 @@ export default function GigsList() {
       return (
         <GigDetail
           gigId={selectedGigId}
-          onBack={() => { selectGig(null); loadGigs(); }}
-          onDeleted={() => { selectGig(null); loadGigs(); }}
+          onBack={() => { selectGig(null); bumpGigs(); }}
+          onDeleted={() => { selectGig(null); bumpGigs(); }}
           scrollToSection={selectedSection}
           onScrolled={() => setSelectedSection(null)}
         />
@@ -215,7 +227,7 @@ export default function GigsList() {
       <GigDetailBandMember
         gigId={selectedGigId}
         myProfileId={me?.id}
-        onBack={() => { selectGig(null); loadGigs(); }}
+        onBack={() => { selectGig(null); bumpGigs(); }}
         scrollToSection={selectedSection}
         onScrolled={() => setSelectedSection(null)}
       />
@@ -355,7 +367,7 @@ export default function GigsList() {
         <div ref={addFormRef}>
           <GigForm
             gig={addGigDate ? { _isConvert: true, gig_date: addGigDate } : undefined}
-            onSaved={() => { closeAddForm(); loadGigs(); }}
+            onSaved={() => { closeAddForm(); bumpGigs(); }}
             onCancel={closeAddForm}
           />
         </div>
@@ -373,7 +385,7 @@ export default function GigsList() {
       )}
 
       {viewMode === 'grid' && (
-        <BandLeaderGigGrid onSelectGig={selectGig} />
+        <BandLeaderGigGrid onSelectGig={selectGig} gigsVersion={gigsVersion} />
       )}
 
       {viewMode === 'list' && (

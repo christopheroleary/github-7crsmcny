@@ -131,7 +131,7 @@ function buildRows(gigs, lineupRows, reqRows) {
 // per role. The Band column only appears when more than one band shows
 // up in the current result set, so a single-band leader's view stays as
 // compact as before.
-export default function BandLeaderGigGrid({ onSelectGig }) {
+export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
   const [rows, setRows] = useState([]);
   const [showBandColumn, setShowBandColumn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -269,7 +269,14 @@ export default function BandLeaderGigGrid({ onSelectGig }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+    // gigsVersion is otherwise unused here -- it's a signal, not data. This
+    // component keeps its own independent gigs fetch, entirely separate from
+    // GigsList.jsx's shared rawGigs (which List/Calendar already consume as
+    // a prop), so nothing else tells it a gig was added/edited elsewhere.
+    // GigsList bumps this prop alongside every existing refresh it already
+    // does, specifically to give this effect a reason to re-run too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, gigsVersion]);
 
   if (loading) return <p className="state-message">Loading gig grid…</p>;
   if (error) return <p className="state-message state-message--error">Couldn't load: {error}</p>;

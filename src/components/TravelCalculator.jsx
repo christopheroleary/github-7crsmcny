@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
 
-export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence }) {
+export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence, rosterVersion }) {
   const [lineup, setLineup] = useState([]);
   const [calculating, setCalculating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,14 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
   useEffect(() => {
     load();
-  }, [load]);
+    // rosterVersion is otherwise unused here -- it's a signal, not data. This
+    // component keeps its own independent gig_lineup query (it needs columns
+    // -- home lat/lon, travel_miles -- GigDetail's own shared lineup fetch
+    // doesn't select), so nothing else tells it a musician was added/removed
+    // elsewhere on the page. GigDetail bumps this prop on every roster
+    // mutation specifically to give this effect a reason to re-run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, rosterVersion]);
 
   async function calculateAll() {
     if (!venueLat || !venueLon) {

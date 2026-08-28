@@ -27,6 +27,21 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     useOfflineGigData(gigId);
   const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
+  // GigRoster and TravelCalculator each keep their own independent copy of
+  // gig_lineup (GigRoster for its own snappy add/remove UI; TravelCalculator
+  // because it needs columns -- home lat/lon, travel_miles -- this hook's
+  // own lineup query doesn't select) -- neither knows when the other
+  // changes the roster, nor does this hook's own `lineup` (which is what
+  // "View as musician"'s picker reads below). Bumping this counter on every
+  // roster mutation, threaded down as a prop, is what tells TravelCalculator
+  // to refetch; calling refresh() in the same place is what keeps this
+  // hook's own lineup (and so the picker) current.
+  const [rosterVersion, setRosterVersion] = useState(0);
+  function bumpRoster() {
+    setRosterVersion((v) => v + 1);
+    refresh();
+  }
+
   // GigInvoice/GigQuote/GigContract each need the FULL clients/bands rows
   // (address, VAT rate, bank details, etc. for the printed documents) --
   // more than the `name`-only embeds useOfflineGigData fetches for the
@@ -419,7 +434,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       )}
 
       <div id="gig-section-roster">
-        <GigRoster gigId={gigId} />
+        <GigRoster gigId={gigId} onRosterChanged={bumpRoster} />
       </div>
 
       <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
@@ -437,6 +452,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         venueLat={venue?.latitude}
         venueLon={venue?.longitude}
         mileageRatePence={gig.mileage_rate_pence}
+        rosterVersion={rosterVersion}
       />
 
       <GigFeeSplit
