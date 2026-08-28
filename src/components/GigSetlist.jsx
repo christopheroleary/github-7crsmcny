@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
 import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
+import BackingTrackPlayer from './BackingTrackPlayer.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
@@ -219,6 +220,7 @@ export default function GigSetlist({ gigId, bandId }) {
           key={setlist.id}
           setlist={setlist}
           songs={songs}
+          bandId={bandId}
           isAdmin={canManage}
           canMakePublic={isAdmin}
           onAddSong={handleAddSong}
@@ -271,12 +273,13 @@ export default function GigSetlist({ gigId, bandId }) {
   );
 }
 
-function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, bandId, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
+  const [showTrackId, setShowTrackId] = useState(null);
   const [activeId, setActiveId] = useState(null);
 
   function handleAdd(e) {
@@ -353,14 +356,17 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
                   key={item.id}
                   item={item}
                   idx={idx}
+                  bandId={bandId}
                   isAdmin={isAdmin}
                   canMakePublic={canMakePublic}
                   isEditing={editingItemId === item.id}
                   showPlayerId={showPlayerId}
                   showLyricsId={showLyricsId}
+                  showTrackId={showTrackId}
                   onRemoveSong={onRemoveSong}
                   setShowPlayerId={setShowPlayerId}
                   setShowLyricsId={setShowLyricsId}
+                  setShowTrackId={setShowTrackId}
                   setEditingItemId={setEditingItemId}
                   reload={reload}
                 />
@@ -404,8 +410,8 @@ function SetlistBlock({ setlist, songs, isAdmin, canMakePublic, onAddSong, onRem
 }
 
 function SortableSongItem({
-  item, idx, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId,
-  onRemoveSong, setShowPlayerId, setShowLyricsId, setEditingItemId, reload,
+  item, idx, bandId, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
+  onRemoveSong, setShowPlayerId, setShowLyricsId, setShowTrackId, setEditingItemId, reload,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const song = item.songs;
@@ -446,6 +452,11 @@ function SortableSongItem({
               {showLyricsId === item.id ? 'Hide lyrics' : 'Lyrics'}
             </button>
           )}
+          {song && bandId && (
+            <button className="link-button" onClick={() => setShowTrackId(showTrackId === item.id ? null : item.id)}>
+              {showTrackId === item.id ? 'Hide backing track' : 'Backing track'}
+            </button>
+          )}
           {song && (
             <button className="link-button" onClick={() => setEditingItemId(isEditing ? null : item.id)}>
               {isEditing ? 'Close' : 'Edit'}
@@ -469,6 +480,9 @@ function SortableSongItem({
 
       {!isEditing && showPlayerId === item.id && <ReferencePlayer url={song?.reference_url} />}
       {!isEditing && showLyricsId === item.id && <LyricsView text={song?.lyrics} />}
+      {!isEditing && showTrackId === item.id && song && bandId && (
+        <BackingTrackPlayer band={{ id: bandId }} song={song} />
+      )}
     </li>
   );
 }
