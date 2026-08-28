@@ -101,6 +101,13 @@ html, body {
   color: var(--ink);
   font-family: var(--font-body);
   overflow-x: hidden; /* ADDED: Completely disables page-level horizontal scroll */
+  /* Stops the browser's own native pull-to-refresh/rubber-band bounce from
+     ever engaging, so it can't compete with usePullToRefresh.js's own
+     touch-driven gesture (the two fighting each other is exactly what
+     made an ordinary downward drag anywhere on the page misfire a
+     refresh). The custom gesture is JS/touch-event-driven, not reliant on
+     native overscroll chaining, so it's unaffected by this. */
+  overscroll-behavior-y: contain;
 }
 
 /* Ensure all elements fit within their containers */
