@@ -30,7 +30,18 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
     [gig, venue, lineup, hasBackingTracks]
   );
 
-  const { config, loading, error, save } = useGigStagePlot(gigId, buildSeed);
+  const { config, visibleToBand, setVisibleToBand, loading, error, save } = useGigStagePlot(gigId, buildSeed);
+
+  // Stamped with the gig id so StagePlot's own identity check
+  // (initialConfig !== the last one it saw) treats a genuinely different
+  // gig's seed as something to load, not the same object re-rendering.
+  // Memoized deliberately -- an inline object literal here gets a fresh
+  // identity on every unrelated parent re-render (e.g. the tab regaining
+  // focus), and StagePlot resets its whole in-progress edit back to
+  // `config` whenever this prop's identity changes. That was the real
+  // cause of an edit (a delete, mid-autosave-debounce) silently vanishing
+  // after switching away from the app and back.
+  const seed = useMemo(() => (config ? { ...config, __gigId: gigId } : null), [config, gigId]);
 
   if (loading) {
     return (
@@ -50,14 +61,25 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
     );
   }
 
-  // Stamped with the gig id so StagePlot's own identity check
-  // (initialConfig !== the last one it saw) treats a genuinely different
-  // gig's seed as something to load, not the same object re-rendering.
-  const seed = { ...config, __gigId: gigId };
+  // Automated from the roster, but not always right first time and not
+  // polished enough yet for a musician-facing view -- stays hidden from
+  // the band until an admin/leader has actually checked it over and
+  // switched it on (see the toggle below, editable side only).
+  if (readOnly && !visibleToBand) return null;
 
   return (
     <div className="roster-section">
       <h3 className="roster-section__title">Stage plot</h3>
+      {!readOnly && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={visibleToBand}
+            onChange={(e) => { setVisibleToBand(e.target.checked).catch(() => {}); }}
+          />
+          Visible to musicians
+        </label>
+      )}
       <StagePlot
         initialConfig={seed}
         onSave={readOnly ? undefined : save}

@@ -18,24 +18,33 @@ import { displayBandName } from './bandName.js';
    Percussion is NOT mapped to "drums" -- StagePlot only ever draws a kit
    for the first member found with role==="drums" (buildItems in
    StagePlot.jsx); a second one wouldn't get a kit, it would get nothing
-   at all (backliners explicitly excludes role==="drums"). "other" gets
-   an amp-box-and-wedge placement instead, which is a real stage position
-   rather than an invisible one. Saxophone has no dedicated role either,
-   so it lands in "other" too -- shown in the Gtr2/Key pool alongside a
-   second guitarist/keys player, same as the gig grid's Gt2/Key column
-   this session already established that convention for. */
+   at all. It also isn't "other" any more (that role assumes an amp/DI
+   rig) -- hand percussion needs a mic on a stand, not a backline choice,
+   so it gets its own "percussion" role (backline: "mic"). Saxophone gets
+   its own "horn" role for the same reason -- almost always just miked,
+   never an amp. Both default their `source` to "mic" below. */
 const INSTRUMENT_TO_ROLE = {
   Drums: 'drums',
-  Percussion: 'other',
+  Percussion: 'percussion',
   'Bass Guitar': 'bass',
   'Double Bass': 'bass',
   'Electric Guitar': 'guitar',
   'Acoustic Guitar': 'guitar',
   Keys: 'keys',
-  Saxophone: 'other',
+  Saxophone: 'horn',
   'Lead Vocals': 'vocals',
   'Backing Vocals': 'vocals',
 };
+
+/* ---- instrument name -> default source ----------------------------------
+   Real-world defaults, not a blanket guess: an acoustic-electric is DI'd,
+   not mic'd/amp'd, so Acoustic Guitar seeds "di" while Electric Guitar and
+   Bass Guitar/Double Bass seed "amp". Percussion/Saxophone seed "mic" via
+   their role's own default, handled in roleFor's caller below. */
+function sourceFor(instrumentName) {
+  if (instrumentName === 'Acoustic Guitar') return 'di';
+  return 'amp';
+}
 
 function roleFor(row) {
   // is_dj is an independent boolean on gig_lineup (someone can be a pure
@@ -96,30 +105,32 @@ export function buildStagePlotSeed({ gig = {}, venue = null, lineup = [], hasBac
       const instrumentSings = instrumentName === 'Lead Vocals' || instrumentName === 'Backing Vocals';
       const sings = instrumentSings || row.vocal_role === 'lead' || row.vocal_role === 'backing';
       const lead = instrumentName === 'Lead Vocals' || row.vocal_role === 'lead';
+      const role = roleFor(row);
       return {
         id: stableId(row.id),
         name,
-        role: roleFor(row),
+        role,
         sings,
+        // Real bands do have co-leads -- two singers trading verses,
+        // nobody the sole "frontperson". StagePlot centres every member
+        // flagged lead (spread across the front centre-line if there's
+        // more than one) rather than forcing a single winner, so every
+        // `vocal_role === 'lead'` row comes through as-is here.
         lead,
         // A dep/session musician has placeholder_id set instead of
         // profile_id -- already the exact distinction this app draws
         // everywhere else (GigRoster, the day sheet, etc.).
         guest: row.placeholder_id != null,
-        source: 'amp',
-        monitor: 'wedge',
+        source: role === 'percussion' || role === 'horn' ? 'mic' : sourceFor(instrumentName),
+        // IEMs are the default now, not wedges -- most function bands
+        // this app books run in-ears; wedges are the exception, one tap
+        // away per person (or "Everyone on Wedges" in the panel).
+        monitor: 'iem',
         kit: 'standard',
       };
     });
 
-  // Exactly one lead vocal, even if the roster data disagrees (e.g. two
-  // people both marked lead by mistake).
-  let leadSeen = false;
-  members.forEach((m) => {
-    if (m.lead && leadSeen) m.lead = false;
-    if (m.lead) leadSeen = true;
-  });
-  if (!leadSeen) {
+  if (!members.some((m) => m.lead)) {
     const firstSinger = members.find((m) => m.sings);
     if (firstSinger) firstSinger.lead = true;
   }

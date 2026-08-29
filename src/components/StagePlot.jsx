@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import {
   Plus, Trash2, RotateCcw, Download, Printer, Copy, Save, FolderOpen,
   Check, X, ImageDown, Crosshair, ClipboardPaste,
+  Maximize2, Minimize2, ZoomIn, BringToFront,
 } from "../utils/stagePlotIcons.jsx";
 
 /* ────────────────────────────────────────────────────────────────
@@ -27,14 +28,21 @@ const C = {
   riser: "#C8CFD7", tape: "#F3C118",
 };
 
+/* backline: "instrument" is the generalised case -- anyone whose sound
+   reaches the desk via a per-person choice of mic'd amp / DI / mic-only
+   (the SOURCES list below). Guitar, bass, percussion, horn and the manual
+   "other" catch-all all share it; keys/drums/dj/vocals have their own
+   fixed rig instead and never show a source picker. */
 const ROLES = {
   vocals: { label: "Lead vocal", short: "VOX", backline: null, tint: "#8E44AD" },
-  guitar: { label: "Guitar", short: "GTR", backline: "amp", tint: "#1F8A70" },
-  bass: { label: "Bass", short: "BASS", backline: "amp", tint: "#C77B22" },
+  guitar: { label: "Guitar", short: "GTR", backline: "instrument", tint: "#1F8A70" },
+  bass: { label: "Bass", short: "BASS", backline: "instrument", tint: "#C77B22" },
   keys: { label: "Keys", short: "KEYS", backline: "keys", tint: "#2F6FED" },
   drums: { label: "Drums", short: "DRUMS", backline: "kit", tint: "#5C6B7A" },
+  percussion: { label: "Percussion", short: "PERC", backline: "instrument", tint: "#9C6B1F" },
+  horn: { label: "Horn / sax", short: "HORN", backline: "instrument", tint: "#0E7C86" },
   dj: { label: "DJ", short: "DJ", backline: "dj", tint: "#C0392B" },
-  other: { label: "Other", short: "MISC", backline: "amp", tint: "#B03A6E" },
+  other: { label: "Other", short: "MISC", backline: "instrument", tint: "#B03A6E" },
 };
 
 const STAGES = {
@@ -76,6 +84,7 @@ const SOURCES = {
   both: { label: "Mic'd amp + DI", cab: true, di: true },
   di: { label: "DI only, no amp", cab: false, di: true },
   modeller: { label: "Modeller, stereo DI", cab: false, di: true, stereo: true },
+  mic: { label: "Mic only, no DI/amp", cab: false, di: false, mic: true },
 };
 
 /* placeable gear. w/h in metres, top-down footprint */
@@ -101,6 +110,21 @@ const GEAR = {
   custom: { label: "Other", w: 0.8, h: 0.5, group: "Extras" },
 };
 
+/* Generic, sensibly-roled shapes for the "Band size" quick-presets --
+   every real gig's plot is already auto-seeded from its actual roster
+   (see stagePlotAdapter.js), this is for starting from scratch or
+   reshaping one by hand. */
+const BAND_PRESETS = {
+  1: [{ role: "vocals", name: "Vocal", sings: true, lead: true }],
+  2: [{ role: "guitar", name: "Guitar", sings: true, lead: true }, { role: "drums", name: "Drums" }],
+  3: [{ role: "guitar", name: "Guitar", sings: true, lead: true }, { role: "bass", name: "Bass" }, { role: "drums", name: "Drums" }],
+  4: [{ role: "vocals", name: "Lead vocal", sings: true, lead: true }, { role: "guitar", name: "Guitar" }, { role: "bass", name: "Bass" }, { role: "drums", name: "Drums" }],
+  5: [{ role: "vocals", name: "Lead vocal", sings: true, lead: true }, { role: "guitar", name: "Guitar" }, { role: "bass", name: "Bass" }, { role: "keys", name: "Keys" }, { role: "drums", name: "Drums" }],
+  6: [{ role: "vocals", name: "Lead vocal", sings: true, lead: true }, { role: "guitar", name: "Guitar" }, { role: "guitar", name: "Guitar 2" }, { role: "bass", name: "Bass" }, { role: "keys", name: "Keys" }, { role: "drums", name: "Drums" }],
+  7: [{ role: "vocals", name: "Lead vocal", sings: true, lead: true }, { role: "guitar", name: "Guitar" }, { role: "guitar", name: "Guitar 2" }, { role: "bass", name: "Bass" }, { role: "keys", name: "Keys" }, { role: "drums", name: "Drums" }, { role: "horn", name: "Sax" }],
+};
+const PRESET_LABELS = { 1: "Solo", 2: "Duo", 3: "Trio", 4: "4-piece", 5: "5-piece", 6: "6-piece", 7: "7-piece" };
+
 const S = 94;            // px per metre
 const PAD = 30;          // px margin for dimension text
 /* How far off the deck new gear lands, and how far anything may be
@@ -122,13 +146,14 @@ const defaultConfig = () => ({
   stage: "pub", custom: { w: 5, d: 3.5 },
   riser: false, lefty: false, tracks: false,
   members: [
-    { id: uid(), name: "Nick", role: "guitar", sings: true, lead: false, guest: false, source: "amp", monitor: "wedge", kit: "standard" },
-    { id: uid(), name: "Chris", role: "bass", sings: true, lead: true, guest: false, source: "ampDI", monitor: "wedge", kit: "standard" },
-    { id: uid(), name: "Macca", role: "drums", sings: false, lead: false, guest: false, source: "amp", monitor: "wedge", kit: "standard" },
+    { id: uid(), name: "Nick", role: "guitar", sings: true, lead: false, guest: false, source: "amp", monitor: "iem", kit: "standard" },
+    { id: uid(), name: "Chris", role: "bass", sings: true, lead: true, guest: false, source: "ampDI", monitor: "iem", kit: "standard" },
+    { id: uid(), name: "Macca", role: "drums", sings: false, lead: false, guest: false, source: "amp", monitor: "iem", kit: "standard" },
   ],
   gear: [],
   power: { on: true, hidden: [], extra: [] },
   overrides: {},
+  zOrder: {},
   notes: "Load-in through the side door. We bring our own wedges.",
 });
 
@@ -146,6 +171,7 @@ function mergeIntoDefaults(seed) {
     members: Array.isArray(seed.members) && seed.members.length ? seed.members : base.members,
     gear: Array.isArray(seed.gear) ? seed.gear : [],
     overrides: seed.overrides || {},
+    zOrder: seed.zOrder || {},
   };
 }
 
@@ -210,19 +236,20 @@ function buildItems(cfg) {
       backX[m.id] = x;
       const back = ROLES[m.role].backline;
       const src = SOURCES[m.source] || SOURCES.amp;
-      const isRig = back === "amp";
-      const boxOnly = isRig && !src.cab;
-      const kind = back === "dj" ? "dj" : back === "keys" ? "keys" : boxOnly ? "di" : "amp";
-      const ampSub = src.silent
-        ? `${ROLES[m.role].label} amp — DI'd, not mic'd`
-        : src.di ? `${ROLES[m.role].label} amp + DI` : `${ROLES[m.role].label} amp`;
+      const isRig = back === "instrument";
+      const micOnly = isRig && src.mic;
+      const boxOnly = isRig && !src.cab && !src.mic;
+      const kind = back === "dj" ? "dj" : back === "keys" ? "keys" : micOnly ? "instMic" : boxOnly ? "di" : "amp";
+      const ampSub = src.silent ? "Amp — DI only" : src.di ? "Amp + DI" : "Amp";
       items.push({
         key: `${m.id}.back`, kind, memberId: m.id, labelBelow: true,
         label: boxOnly ? `${m.name} — ${ROLES[m.role].short} DI` : m.name,
-        sub: back === "dj" ? "DJ booth" : back === "keys" ? "Keys" : boxOnly ? "" : ampSub,
-        x, y: back === "dj" ? 0.95 : boxOnly ? 0.6 : 0.78,
-        w: back === "dj" ? 1.4 : boxOnly ? 0.5 : 0.85,
-        h: back === "dj" ? 0.6 : boxOnly ? 0.4 : 0.62,
+        sub: back === "dj" ? "DJ booth" : back === "keys" ? "Keys" : micOnly ? ROLES[m.role].label : boxOnly ? "" : ampSub,
+        tint: micOnly ? ROLES[m.role].tint : undefined,
+        tag: micOnly ? ROLES[m.role].short : undefined,
+        x, y: back === "dj" ? 0.95 : micOnly ? 0.72 : boxOnly ? 0.6 : 0.78,
+        w: back === "dj" ? 1.4 : micOnly ? 0.42 : boxOnly ? 0.5 : 0.85,
+        h: back === "dj" ? 0.6 : micOnly ? 0.42 : boxOnly ? 0.4 : 0.62,
       });
       if (isRig && src.cab && src.di) {
         items.push({
@@ -238,8 +265,15 @@ function buildItems(cfg) {
   const micY = clamp(D - 1.05, 1.4, D - 0.7);
   const wedgeY = clamp(D - 0.42, 1.9, D - 0.28);
 
+  // The lead(s) anchor at/around dead centre rather than wherever their
+  // backline rig happens to be -- real co-leads (more than one person
+  // genuinely marked lead) spread out evenly straddling the centre line.
+  // Backing singers keep inheriting their rig's x, as before.
+  const leadMembers = singers.filter((m) => m.lead);
+  const leadX = new Map(leadMembers.map((m, i) => [m.id, W / 2 + (i - (leadMembers.length - 1) / 2) * 1.15]));
+
   const seats = singers
-    .map((m) => ({ m, x: backX[m.id] != null ? backX[m.id] : W / 2 }))
+    .map((m) => ({ m, x: leadX.has(m.id) ? leadX.get(m.id) : (backX[m.id] != null ? backX[m.id] : W / 2) }))
     .sort((a, b) => a.x - b.x);
 
   for (let pass = 0; pass < 4; pass++) {
@@ -339,7 +373,7 @@ function buildItems(cfg) {
     return ov ? { ...it, x: ov.x, y: ov.y, moved: true } : it;
   });
 
-  return flipClashingLabels(placed);
+  return flipClashingLabels(markClashes(placed));
 }
 
 /* If something sits where a caption would go, put the caption above instead. */
@@ -351,6 +385,21 @@ function flipClashingLabels(items) {
     const zone = { x1: it.x - 0.5, x2: it.x + 0.5, y1: it.y + it.h / 2 + 0.02, y2: it.y + it.h / 2 + 0.46 };
     const clash = items.some((o) => o.key !== it.key && !o.power && hits(zone, box(o)));
     return clash ? { ...it, labelAbove: true } : it;
+  });
+}
+
+/* Flags two draggable objects actually sitting on top of each other --
+   different from flipClashingLabels above, which only reacts to a caption
+   overlapping something. Power drops are excluded both ways: small,
+   expected to sit close to other things, not worth flagging. */
+function markClashes(items) {
+  const box = (i) => ({ x1: i.x - i.w / 2, x2: i.x + i.w / 2, y1: i.y - i.h / 2, y2: i.y + i.h / 2 });
+  const hits = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+  const solid = items.filter((i) => i.kind !== "power");
+  return items.map((it) => {
+    if (it.kind === "power") return it;
+    const b = box(it);
+    return solid.some((o) => o.key !== it.key && hits(b, box(o))) ? { ...it, clash: true } : it;
   });
 }
 
@@ -374,7 +423,7 @@ function buildInputs(cfg) {
     KIT_CHANNELS.filter((c) => sel.includes(c.id)).forEach((c) => push(c.label, c.mic));
   }
 
-  cfg.members.filter((m) => ["bass", "guitar", "other"].includes(m.role)).forEach((m) => {
+  cfg.members.filter((m) => ROLES[m.role].backline === "instrument").forEach((m) => {
     const src = SOURCES[m.source] || SOURCES.amp;
     const lbl = m.role === "bass" ? "bass" : ROLES[m.role].label.toLowerCase();
     if (src.stereo) {
@@ -382,6 +431,7 @@ function buildInputs(cfg) {
       push(`${m.name} — ${lbl} R`, "DI");
       return;
     }
+    if (src.mic) { push(`${m.name} — ${lbl}`, "Condenser"); return; }
     if (src.cab && !src.silent) push(`${m.name} — ${lbl} cab`, m.role === "bass" ? "Dynamic" : "SM57");
     if (src.di) push(`${m.name} — ${lbl} DI`, src.silent ? "DI out of amp head" : "Active DI");
   });
@@ -412,13 +462,47 @@ function buildInputs(cfg) {
 
 /* ── svg pieces ─────────────────────────────────────────────────── */
 
+/* SVG <text> doesn't wrap on its own -- split into at most two short
+   lines (a third would just crowd the neighbour it's already clashing
+   with), ellipsizing the second if it's still too long. */
+function wrapLabel(label, maxChars = 11) {
+  const words = String(label).split(" ");
+  const lines = [];
+  let cur = "";
+  words.forEach((w) => {
+    const next = cur ? `${cur} ${w}` : w;
+    if (next.length > maxChars && cur) { lines.push(cur); cur = w; }
+    else cur = next;
+  });
+  if (cur) lines.push(cur);
+  if (lines.length > 2) {
+    const second = lines[1].length > maxChars - 1 ? `${lines[1].slice(0, maxChars - 1)}…` : lines[1];
+    return [lines[0], second];
+  }
+  return lines;
+}
+
 function Caption({ item, dy = 0 }) {
   const half = (item.h * S) / 2;
-  const y = item.labelAbove ? -half - (item.sub ? 30 : 14) - dy : half + 18 + dy;
+  // Wrap only once a label's already been flagged as clashing (labelAbove)
+  // -- keeps the common case tight and single-line, and a wrapped label
+  // takes less lateral space, which is exactly what helps it stop
+  // clashing with a neighbour in turn.
+  const lines = item.labelAbove ? wrapLabel(item.label) : null;
+  const wrapped = lines && lines.length > 1 ? lines : null;
+  const lineGap = 13;
+  const labelH = wrapped ? (wrapped.length - 1) * lineGap : 0;
+  const y = item.labelAbove ? -half - (item.sub ? 22 : 10) - dy - labelH : half + 13 + dy;
   return (
     <>
-      <text y={y} textAnchor="middle" className="sp-lbl" fill={C.ink}>{item.label}</text>
-      {item.sub && <text y={y + 14} textAnchor="middle" className="sp-sub" fill={C.ink70}>{item.sub}</text>}
+      {wrapped ? (
+        <text textAnchor="middle" className="sp-lbl" fill={C.ink}>
+          {wrapped.map((ln, i) => <tspan key={i} x={0} y={y + i * lineGap}>{ln}</tspan>)}
+        </text>
+      ) : (
+        <text y={y} textAnchor="middle" className="sp-lbl" fill={C.ink}>{item.label}</text>
+      )}
+      {item.sub && <text y={y + labelH + 12} textAnchor="middle" className="sp-sub" fill={C.ink70}>{item.sub}</text>}
     </>
   );
 }
@@ -520,12 +604,12 @@ function DIBox({ item }) {
   );
 }
 
-function MicStand({ item, tint, tagFill }) {
+function MicStand({ item, tint, tagFill, tag }) {
   return (
     <g>
       <circle r={17} fill={tint || C.mic} />
       <circle r={17} fill="none" stroke="#FFF" strokeWidth={2} />
-      {tint && <text y={4} textAnchor="middle" className="sp-tag" fill={tagFill || "#FFF"}>TB</text>}
+      {tag && <text y={4} textAnchor="middle" className="sp-tag" fill={tagFill || "#FFF"}>{tag}</text>}
       <Caption item={item} dy={12} />
     </g>
   );
@@ -633,6 +717,7 @@ function Piece({ item, cfg, selected }) {
     case "dj": return <DjBooth item={item} />;
     case "di": return <DIBox item={item} />;
     case "mic": return <MicStand item={item} />;
+    case "instMic": return <MicStand item={item} tint={item.tint} tag={item.tag} />;
     case "wedge": return <Wedge item={item} />;
     case "iem": return <IemPack item={item} />;
     case "power": return <PowerDrop selected={selected} />;
@@ -644,7 +729,7 @@ function Piece({ item, cfg, selected }) {
     case "mover": return <LightPod item={item} mover />;
     case "riserBlk": return <Box item={item} tint={C.ink40} />;
     case "micStand": return <MicStand item={item} />;
-    case "talkback": return <MicStand item={item} tint={C.wedge} tagFill="#4A2C05" />;
+    case "talkback": return <MicStand item={item} tint={C.wedge} tagFill="#4A2C05" tag="TB" />;
     default: return <Box item={item} />;
   }
 }
@@ -661,6 +746,22 @@ function useNarrow(bp = 1040) {
     return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
   }, [bp]);
   return narrow;
+}
+
+/* For the full-screen mode's "rotate for a better view" hint. */
+function useIsPortrait() {
+  const [portrait, setPortrait] = useState(typeof window !== "undefined" ? window.innerHeight > window.innerWidth : false);
+  useEffect(() => {
+    const on = () => setPortrait(window.innerHeight > window.innerWidth);
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    on();
+    return () => {
+      window.removeEventListener("resize", on);
+      window.removeEventListener("orientationchange", on);
+    };
+  }, []);
+  return portrait;
 }
 
 /* ── main ───────────────────────────────────────────────────────── */
@@ -703,12 +804,50 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     }
   }, [initialConfig]);
 
+  // onConfigChange is the same async save() that can reject -- calling it
+  // bare inside a setTimeout left a rejection completely unhandled and
+  // invisible, which is almost certainly the real explanation for
+  // "worked on the solo gig, silently failed on the 7-piece": a jsonb
+  // column has no meaningful size ceiling for a config this size (a few
+  // KB either way), so this was never a size limit, just this exact
+  // silent-failure path hit on a transient blip. One quiet retry covers
+  // that; only flash if the retry also fails.
+  const autosave = useCallback((config) => {
+    if (!onConfigChange) return;
+    Promise.resolve(onConfigChange(config)).catch(() => {
+      window.setTimeout(() => {
+        Promise.resolve(onConfigChange(config)).catch((err) => {
+          console.error("Stage plot autosave failed", err);
+          flash("Autosave failed — check your connection, then press Save to gig");
+        });
+      }, 4000);
+    });
+  }, [onConfigChange]);
+
   useEffect(() => {
     if (!onConfigChange) return;
     window.clearTimeout(changeTimer.current);
-    changeTimer.current = window.setTimeout(() => onConfigChange(cfg), 800);
+    changeTimer.current = window.setTimeout(() => { changeTimer.current = null; autosave(cfg); }, 800);
     return () => window.clearTimeout(changeTimer.current);
-  }, [cfg, onConfigChange]);
+  }, [cfg, onConfigChange, autosave]);
+
+  // Mobile browsers can suspend timers indefinitely once a tab is
+  // backgrounded -- flush a pending autosave immediately on the way out
+  // rather than let it race being switched away from, which is how an
+  // edit (a delete, mid-debounce) was silently getting lost and then
+  // reappearing on return.
+  useEffect(() => {
+    if (!onConfigChange) return;
+    const onHidden = () => {
+      if (document.visibilityState === "hidden" && changeTimer.current) {
+        window.clearTimeout(changeTimer.current);
+        changeTimer.current = null;
+        autosave(cfg);
+      }
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, [cfg, onConfigChange, autosave]);
 
   const saveToGig = async () => {
     if (!onSave) return;
@@ -723,22 +862,32 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
   const [snap, setSnap] = useState(true);
   const [tab, setTab] = useState("plot");
   const [toast, setToast] = useState("");
-  const [saved, setSaved] = useState(null);
-  const [saveName, setSaveName] = useState("");
-  const [storageOK, setStorageOK] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState("export");
   const [png, setPng] = useState("");
   const [importLen, setImportLen] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
   const importRef = useRef(null);
   const fileRef = useRef(null);
   const svgRef = useRef(null);
   const drag = useRef(null);
   const narrow = useNarrow();
+  const portrait = useIsPortrait();
 
   const { w: W, d: D } = stageSize(cfg);
   const items = useMemo(() => buildItems(cfg), [cfg]);
   const inputs = useMemo(() => buildInputs(cfg), [cfg]);
+  const selItem = items.find((i) => i.key === selected);
+  // Paint order only, driven by cfg.zOrder (see bringToFront) -- SVG
+  // paints in document order, so a higher rank simply gets drawn later.
+  const orderedItems = useMemo(() => {
+    const zOrder = cfg.zOrder || {};
+    return items
+      .map((it, i) => ({ it, z: zOrder[it.key] ?? i }))
+      .sort((a, b) => a.z - b.z)
+      .map((x) => x.it);
+  }, [items, cfg.zOrder]);
   const wedges = cfg.members.filter((m) => m.monitor === "wedge").length;
   const iems = cfg.members.filter((m) => m.monitor === "iem").length;
   const drops = items.filter((i) => i.kind === "power").length;
@@ -765,7 +914,20 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     setHeld((h) => (h.x0 === bounds.x0 && h.y0 === bounds.y0 && h.x1 === bounds.x1 && h.y1 === bounds.y1 ? h : bounds));
   }, [dragKey, bounds]);
 
-  const view = dragKey
+  // Deliberate and reversible, not automatic-on-every-select (which would
+  // be disorienting mid-drag) -- a dedicated toggle in the selection bar.
+  useEffect(() => { if (!selected) setZoomed(false); }, [selected]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e) => { if (e.key === "Escape") setFullscreen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  const view = zoomed && selItem
+    ? { x0: selItem.x - 1.1, y0: selItem.y - 1.1, x1: selItem.x + 1.1, y1: selItem.y + 1.1 }
+    : dragKey
     ? {
         x0: Math.min(held.x0, bounds.x0), y0: Math.min(held.y0, bounds.y0),
         x1: Math.max(held.x1, bounds.x1), y1: Math.max(held.y1, bounds.y1),
@@ -781,6 +943,59 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     return () => document.removeEventListener("touchmove", stop);
   }, [dragKey]);
 
+  /* dragKey normally clears in onUp, bound to the specific dragged <g> via
+     pointer capture -- but if that node vanishes from the DOM mid-drag
+     (the item got deleted, or a narrow-mode tab switch unmounted the
+     whole sheet) the browser drops capture silently and never fires
+     pointerup/pointercancel on a node that's gone. onUp then never runs,
+     dragKey never clears, and the touchmove block above is permanent
+     until the page is torn down -- this is the "screen locked, had to
+     restart the app" bug. Three independent nets so no single miss can
+     wedge it again: */
+
+  // 1. A window-level listener that clears drag state on ANY release,
+  //    regardless of which element the event actually landed on.
+  useEffect(() => {
+    if (!dragKey) return;
+    const clear = () => { drag.current = null; setDragKey(null); };
+    window.addEventListener("pointerup", clear, true);
+    window.addEventListener("pointercancel", clear, true);
+    window.addEventListener("lostpointercapture", clear, true);
+    return () => {
+      window.removeEventListener("pointerup", clear, true);
+      window.removeEventListener("pointercancel", clear, true);
+      window.removeEventListener("lostpointercapture", clear, true);
+    };
+  }, [dragKey]);
+
+  // 2. If the dragged/selected key no longer exists in the current
+  //    layout (deleted mid-interaction), drop the stale reference
+  //    immediately rather than wait on a release event that may never come.
+  useEffect(() => {
+    if (dragKey && !items.some((i) => i.key === dragKey)) {
+      drag.current = null;
+      setDragKey(null);
+    }
+    if (selected && !items.some((i) => i.key === selected)) {
+      setSelected(null);
+    }
+  }, [items, dragKey, selected]);
+
+  // 3. Nobody's finger is still on the glass once the app is
+  //    backgrounded -- force-clear any in-progress drag the moment the
+  //    tab is hidden, rather than let a rotation or app-switch leave the
+  //    block permanently armed.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden" && drag.current) {
+        drag.current = null;
+        setDragKey(null);
+      }
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   const flash = useCallback((msg) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2200);
@@ -795,15 +1010,22 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     ...c,
     members: [...c.members, {
       id: uid(), name: `Member ${c.members.length + 1}`, role: "guitar",
-      sings: false, lead: false, guest: false, source: "amp", monitor: "wedge", kit: "standard",
+      sings: false, lead: false, guest: false, source: "amp", monitor: "iem", kit: "standard",
     }],
   }));
 
-  const removeMember = (id) => setCfg((c) => {
-    const overrides = { ...c.overrides };
-    Object.keys(overrides).forEach((k) => k.includes(id) && delete overrides[k]);
-    return { ...c, members: c.members.filter((m) => m.id !== id), overrides };
-  });
+  const removeMember = (id) => {
+    // Belt-and-braces alongside the reconciliation effect above: clear
+    // immediately rather than wait a render cycle for a delete that hits
+    // the currently selected/dragged item.
+    if (selected && selected.includes(id)) setSelected(null);
+    if (dragKey && dragKey.includes(id)) { drag.current = null; setDragKey(null); }
+    setCfg((c) => {
+      const overrides = { ...c.overrides };
+      Object.keys(overrides).forEach((k) => k.includes(id) && delete overrides[k]);
+      return { ...c, members: c.members.filter((m) => m.id !== id), overrides };
+    });
+  };
 
   const addGear = (type) => setCfg((c) => {
     const used = c.gear.filter((g) => g.type === type).map((g) => g.n || 0);
@@ -812,23 +1034,31 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     return { ...c, gear: [...c.gear, { id: uid("g"), type, n }] };
   });
 
-  const removeGear = (gearId) => setCfg((c) => {
-    const overrides = { ...c.overrides };
-    Object.keys(overrides).forEach((k) => k.includes(gearId) && delete overrides[k]);
-    return { ...c, gear: c.gear.filter((g) => g.id !== gearId), overrides };
-  });
+  const removeGear = (gearId) => {
+    if (selected && selected.includes(gearId)) setSelected(null);
+    if (dragKey && dragKey.includes(gearId)) { drag.current = null; setDragKey(null); }
+    setCfg((c) => {
+      const overrides = { ...c.overrides };
+      Object.keys(overrides).forEach((k) => k.includes(gearId) && delete overrides[k]);
+      return { ...c, gear: c.gear.filter((g) => g.id !== gearId), overrides };
+    });
+  };
 
   const addPowerDrop = () => setCfg((c) => ({
     ...c,
     power: { ...c.power, on: true, extra: [...c.power.extra, { id: uid("p"), x: W / 2, y: D / 2 }] },
   }));
 
-  const hidePower = (key) => setCfg((c) => ({
-    ...c,
-    power: key.startsWith("pwr.extra.")
-      ? { ...c.power, extra: c.power.extra.filter((p) => !key.endsWith(p.id)) }
-      : { ...c.power, hidden: [...c.power.hidden, key] },
-  }));
+  const hidePower = (key) => {
+    if (selected === key) setSelected(null);
+    if (dragKey === key) { drag.current = null; setDragKey(null); }
+    setCfg((c) => ({
+      ...c,
+      power: key.startsWith("pwr.extra.")
+        ? { ...c.power, extra: c.power.extra.filter((p) => !key.endsWith(p.id)) }
+        : { ...c.power, hidden: [...c.power.hidden, key] },
+    }));
+  };
 
   const restorePower = () => setCfg((c) => ({ ...c, power: { ...c.power, hidden: [] } }));
 
@@ -850,8 +1080,12 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     const p = toMetres(e);
     if (!p) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* noop */ }
-    drag.current = { key: item.key, id: e.pointerId, ox: p.x - item.x, oy: p.y - item.y };
-    setDragKey(item.key);
+    // Just a select for now -- dragKey (which arms the document-wide
+    // touch block below) only gets set once onMove sees real movement.
+    // A plain tap-to-select used to arm that block immediately, which is
+    // most of why "the screen locks as soon as you select something" and
+    // "locks on a quick select/unselect" were happening.
+    drag.current = { key: item.key, id: e.pointerId, ox: p.x - item.x, oy: p.y - item.y, startX: e.clientX, startY: e.clientY, moved: false };
     setSelected(item.key);
   };
 
@@ -859,6 +1093,11 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     const d = drag.current;
     if (!d || d.key !== item.key || d.id !== e.pointerId) return;
     e.preventDefault();
+    if (!d.moved) {
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
+      d.moved = true;
+      setDragKey(item.key);
+    }
     const p = toMetres(e);
     if (!p) return;
     const g = snap ? 0.1 : 0.01;
@@ -874,6 +1113,21 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     setDragKey(null);
   };
 
+  // Only paint order, never position -- SVG paints in document order, so
+  // "bring to front" bumps a persisted per-item rank used to sort what
+  // actually gets rendered last (see orderedItems below). The max has to
+  // be taken across every current item's EFFECTIVE rank (its zOrder entry,
+  // or its plain array index for anything never explicitly ranked) --
+  // starting fresh ranks at 0 sorted a newly-fronted item ahead of only
+  // other explicitly-ranked items, not the (usually much larger) natural
+  // index of the many un-ranked items like power drops, so it never
+  // actually reached the front at all.
+  const bringToFront = (key) => setCfg((c) => {
+    const zOrder = c.zOrder || {};
+    const maxZ = items.reduce((m, it, i) => Math.max(m, zOrder[it.key] ?? i), 0);
+    return { ...c, zOrder: { ...zOrder, [key]: maxZ + 1 } };
+  });
+
   const resetOne = (key) => setCfg((c) => {
     const overrides = { ...c.overrides };
     delete overrides[key];
@@ -886,7 +1140,7 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     svg.setAttribute("width", String(vbW));   // Safari won't rasterise without these
     svg.setAttribute("height", String(vbH));
-    svg.querySelectorAll(".sp-sel").forEach((n) => n.remove());
+    svg.querySelectorAll(".sp-sel, .sp-clash").forEach((n) => n.remove());
     const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
     style.textContent = `.sp-lbl{font:600 14px 'Space Grotesk',Inter,sans-serif}
       .sp-sub{font:400 11px Inter,sans-serif}.sp-tag{font:600 9px 'IBM Plex Mono',monospace}
@@ -1041,45 +1295,29 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     return `${head}\n${"-".repeat(head.length)}\n${body}${tail}${tb}${cfg.notes ? `\n\nNotes: ${cfg.notes}` : ""}`;
   };
 
-  /* saved plots — swap for Supabase in the app */
-  useEffect(() => {
-    let tries = 0;
-    let dead = false;
-    const attempt = async () => {
-      if (dead) return;
-      if (typeof window !== "undefined" && window.storage) {
-        setStorageOK(true);
-        try { const r = await window.storage.get("stageplots"); setSaved(r ? JSON.parse(r.value) : {}); }
-        catch (err) { setSaved({}); }
-        return;
-      }
-      if (tries++ < 8) window.setTimeout(attempt, 250);
-      else setSaved({});          // show the panel anyway, with a note
-    };
-    attempt();
-    return () => { dead = true; };
-  }, []);
-
-  const savePlot = async () => {
-    const name = (saveName || cfg.venue || cfg.band || "Untitled").trim();
-    const next = { ...(saved || {}), [name]: cfg };
-    setSaved(next);
-    setSaveName("");
-    if (!storageOK) { flash(`Held "${name}" for this session only`); return; }
-    try { await window.storage.set("stageplots", JSON.stringify(next)); flash(`Saved "${name}"`); }
-    catch (err) { flash("Saved for this session only"); }
+  // A generic, sensibly-roled line-up for a given band size -- for
+  // starting a plot from scratch or reshaping one, separate from the
+  // gig-rostered auto-seed most plots never need to touch. Replaces the
+  // current line-up, so it's confirmed first if there's anyone on stage
+  // already worth losing.
+  const applyPreset = (size) => {
+    const shape = BAND_PRESETS[size];
+    if (!shape) return;
+    if (cfg.members.length > 0 && !window.confirm(`Replace the current ${cfg.members.length}-person line-up with a fresh ${PRESET_LABELS[size]}?`)) return;
+    setCfg((c) => ({
+      ...c,
+      members: shape.map((s) => ({
+        id: uid(), name: s.name, role: s.role,
+        sings: !!s.sings, lead: !!s.lead, guest: false,
+        source: s.role === "horn" || s.role === "percussion" ? "mic" : "amp",
+        monitor: "iem", kit: "standard",
+      })),
+      overrides: {},
+    }));
+    setSelected(null);
+    flash(`Loaded a ${PRESET_LABELS[size]} line-up`);
   };
 
-  const deletePlot = async (name) => {
-    const next = { ...(saved || {}) };
-    delete next[name];
-    setSaved(next);
-    if (!storageOK) return;
-    try { await window.storage.set("stageplots", JSON.stringify(next)); flash(`Deleted "${name}"`); }
-    catch (err) { /* the list is already updated */ }
-  };
-
-  const selItem = items.find((i) => i.key === selected);
   const gearGroups = ["PA", "Lights", "Control", "Extras"];
 
   /* ── panel ── */
@@ -1146,7 +1384,7 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                     <option value="none">No monitor</option>
                   </select>
                 </div>
-                {(m.role === "guitar" || m.role === "bass" || m.role === "other") && (
+                {ROLES[m.role].backline === "instrument" && (
                   <select style={inp} value={m.source} onChange={(e) => patchMember(m.id, { source: e.target.value })}>
                     {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
@@ -1157,7 +1395,12 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                   <Check2 on={m.sings} onClick={() => patchMember(m.id, { sings: !m.sings, lead: m.sings ? false : m.lead })}>Sings</Check2>
                   {m.sings && (
-                    <Check2 on={m.lead} onClick={() => setCfg((c) => ({ ...c, members: c.members.map((x) => ({ ...x, lead: x.id === m.id ? !m.lead : false })) }))}>Lead</Check2>
+                    // Independent, not exclusive -- real bands do have
+                    // co-leads, and StagePlot now centres every member
+                    // flagged lead (spread across the front centre-line
+                    // if there's more than one) rather than forcing a
+                    // single winner.
+                    <Check2 on={m.lead} onClick={() => patchMember(m.id, { lead: !m.lead })}>Lead</Check2>
                   )}
                   <Check2 on={m.guest} onClick={() => patchMember(m.id, { guest: !m.guest })}>Guest / dep</Check2>
                 </div>
@@ -1208,32 +1451,17 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
           value={cfg.notes} onChange={(e) => patch({ notes: e.target.value })} />
       </Section>
 
-      {saved !== null && (
-        <Section title="Saved plots">
-          <div style={{ display: "flex", gap: 6 }}>
-            <input style={{ ...inp, flex: 1 }} placeholder="Name this plot" value={saveName} onChange={(e) => setSaveName(e.target.value)} />
-            <button style={btn(C.deckHi)} onClick={savePlot}><Save size={13} /> Save</button>
-          </div>
-          {!storageOK && (
-            <p style={{ ...tiny, marginTop: 6, lineHeight: 1.5 }}>
-              Browser storage isn't available here, so these last until you reload.
-              Use Export &amp; import to keep a plot for good.
-            </p>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-            {Object.keys(saved).length === 0 && <span style={tiny}>Nothing saved yet.</span>}
-            {Object.keys(saved).map((name) => (
-              <div key={name} style={{ display: "flex", gap: 6 }}>
-                <button style={{ ...btn(C.deckHi), flex: 1, justifyContent: "flex-start" }}
-                  onClick={() => { setCfg(saved[name]); flash(`Loaded "${name}"`); }}>
-                  <FolderOpen size={13} /> {name}
-                </button>
-                <button style={btn("#7A2B22")} onClick={() => deletePlot(name)} aria-label={`Delete ${name}`}><Trash2 size={12} /></button>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      <Section title="Band size">
+        <p style={{ ...tiny, marginBottom: 8, lineHeight: 1.5 }}>
+          Swap in a fresh generic line-up to start from, or reshape this one —
+          replaces who's on stage, keeps the venue/notes/gear as they are.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+          {Object.keys(BAND_PRESETS).map((size) => (
+            <Chip key={size} small onClick={() => applyPreset(Number(size))}>{PRESET_LABELS[size]}</Chip>
+          ))}
+        </div>
+      </Section>
 
       <Section title="Hand off">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -1308,8 +1536,14 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
               <text x={W * S - 10} y={26} textAnchor="end" className="sp-dim" fill={C.ink40}>STAGE LEFT →</text>
               <text x={10} y={D * S - 26} className="sp-dim" fill={C.ink40}>← STAGE RIGHT</text>
 
-              {items.map((item) => {
+              {orderedItems.map((item) => {
                 const isSel = selected === item.key;
+                // Enlarged, invisible hit target -- an item's true metric
+                // footprint (a mic is ~40px) is under the ~44px touch
+                // target guideline. fill="transparent" (not "none") is
+                // what makes an SVG shape register pointer events at all.
+                const hw = Math.max(item.w * S, 48) / 2;
+                const hh = Math.max(item.h * S, 48) / 2;
                 return (
                   <g key={item.key}
                     transform={`translate(${item.x * S},${item.y * S})`}
@@ -1319,6 +1553,15 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                     onPointerCancel={onUp(item)}
                     style={{ cursor: dragKey === item.key ? "grabbing" : "grab", touchAction: "none" }}
                   >
+                    {!item.passive && !readOnly && (
+                      <rect x={-hw} y={-hh} width={hw * 2} height={hh * 2} fill="transparent" />
+                    )}
+                    {item.clash && (
+                      <rect className="sp-clash"
+                        x={-(item.w * S) / 2 - 7} y={-(item.h * S) / 2 - 7}
+                        width={item.w * S + 14} height={item.h * S + 14}
+                        rx={6} fill="none" stroke={C.wedge} strokeWidth={2} strokeDasharray="3 3" />
+                    )}
                     {isSel && (
                       <rect className="sp-sel"
                         x={-(item.w * S) / 2 - 14} y={-(item.h * S) / 2 - 14}
@@ -1338,10 +1581,53 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
           </svg>
         </div>
 
+        {/* Fixed-height, always rendered -- an empty state when nothing's
+            selected -- so tapping an item never reflows what's under your
+            thumb (it used to live in the header, shifting the Save/Reset
+            buttons every time it appeared). */}
+        <div className="sp-noprint" style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap",
+          minHeight: 38, padding: "8px 4px", borderTop: `1px solid ${C.hair}`, marginTop: 8,
+        }}>
+          {selItem ? (
+            <>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <strong style={{ fontWeight: 600, fontSize: 13 }}>{selItem.label || selItem.kind}</strong>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: C.ink70 }}>
+                  {positionCode(selItem.x, selItem.y, W, D)} · {selItem.x.toFixed(1)},{selItem.y.toFixed(1)}
+                </span>
+                {selItem.clash && <span style={{ fontSize: 11, color: "#9A6410", fontWeight: 600 }}>⚠ overlapping</span>}
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={() => setZoomed((z) => !z)}>
+                  <ZoomIn size={12} /> {zoomed ? "Zoom out" : "Zoom in"}
+                </button>
+                {!readOnly && selItem.kind !== "power" && (
+                  <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={() => bringToFront(selItem.key)}>
+                    <BringToFront size={12} /> Front
+                  </button>
+                )}
+                {!readOnly && selItem.moved && (
+                  <button style={{ ...btn("transparent"), color: C.ink70, padding: 0 }} onClick={() => resetOne(selItem.key)} aria-label="Reset position"><RotateCcw size={13} /></button>
+                )}
+                {!readOnly && (selItem.kind === "power" || selItem.removable) && (
+                  <button style={{ ...btn("transparent"), color: "#B03A2E", padding: 0 }} aria-label="Delete"
+                    onClick={() => { selItem.kind === "power" ? hidePower(selItem.key) : removeGear(selItem.gearId); setSelected(null); }}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <span style={{ fontSize: 12.5, color: C.ink40 }}>Tap an item to see its position</span>
+          )}
+        </div>
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, padding: "10px 4px 2px", borderTop: `1px solid ${C.hair}`, marginTop: 8 }}>
           <Key swatch={C.amp} dashed>Amp / cab</Key>
           <Key swatch={C.ink}>DI</Key>
           <Key swatch={C.mic} round>Vocal mic</Key>
+          <Key swatch={C.ink70} round>Instrument mic (perc / horn)</Key>
           <Key swatch={C.wedge}>Wedge</Key>
           <Key swatch={C.iem}>IEM</Key>
           <Key swatch={C.pa}>PA / desk</Key>
@@ -1420,7 +1706,10 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
           .sp-sheet{border:none!important;break-inside:avoid}.sp-grid{display:block!important}}
       `}</style>
 
-      <div className="sp-root" style={{ maxWidth: 1440, margin: "0 auto", padding: narrow ? 12 : 20 }}>
+      <div className="sp-root" style={fullscreen ? {
+        position: "fixed", inset: 0, zIndex: 75, background: C.page,
+        overflowY: "auto", padding: narrow ? 12 : 20, margin: 0, maxWidth: "none",
+      } : { maxWidth: 1440, margin: "0 auto", padding: narrow ? 12 : 20 }}>
         <header className="sp-noprint" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 8, background: C.deck, display: "grid", placeItems: "center" }}>
@@ -1432,23 +1721,6 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
             </div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-            {selItem && (
-              <span style={{ ...chipBase, background: "#fff", border: `1px solid ${C.hair}`, color: C.ink, display: "flex", gap: 8, alignItems: "center", cursor: "default" }}>
-                <strong style={{ fontWeight: 600 }}>{selItem.label || selItem.kind}</strong>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: C.ink70 }}>
-                  {positionCode(selItem.x, selItem.y, W, D)} · {selItem.x.toFixed(1)},{selItem.y.toFixed(1)}
-                </span>
-                {selItem.moved && (
-                  <button style={{ ...btn("transparent"), color: C.ink70, padding: 0 }} onClick={() => resetOne(selItem.key)} aria-label="Reset position"><RotateCcw size={12} /></button>
-                )}
-                {(selItem.kind === "power" || selItem.removable) && (
-                  <button style={{ ...btn("transparent"), color: "#B03A2E", padding: 0 }} aria-label="Delete"
-                    onClick={() => { selItem.kind === "power" ? hidePower(selItem.key) : removeGear(selItem.gearId); setSelected(null); }}>
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </span>
-            )}
             {onSave && !readOnly && (
               <button style={{ ...btn(C.wedge) }} onClick={saveToGig} disabled={saving}>
                 <Save size={13} color="#2A1A02" />
@@ -1460,8 +1732,20 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                 <RotateCcw size={13} /> Reset positions
               </button>
             )}
+            <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={() => setFullscreen((f) => !f)}>
+              {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />} {fullscreen ? "Exit full screen" : "Full screen"}
+            </button>
           </div>
         </header>
+
+        {fullscreen && portrait && (
+          <p className="sp-noprint" style={{
+            fontSize: 12.5, color: "#9A6410", background: "#FFF8EC", border: `1px solid ${C.wedge}`,
+            borderRadius: 8, padding: "8px 12px", marginBottom: 12,
+          }}>
+            Rotate your phone for the best view.
+          </p>
+        )}
 
         {narrow && !readOnly && (
           <div className="sp-noprint" style={{ display: "flex", gap: 4, background: "#fff", border: `1px solid ${C.hair}`, borderRadius: 10, padding: 4, marginBottom: 12 }}>
