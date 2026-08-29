@@ -16,6 +16,9 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
   const [email, setEmail] = useState(venue?.email || '');
   const [website, setWebsite] = useState(venue?.website || '');
   const [loadInNotes, setLoadInNotes] = useState(venue?.load_in_notes || '');
+  const [stageWidthM, setStageWidthM] = useState(venue?.stage_width_m ?? '');
+  const [stageDepthM, setStageDepthM] = useState(venue?.stage_depth_m ?? '');
+  const [hasStageRiser, setHasStageRiser] = useState(Boolean(venue?.has_stage_riser));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -35,6 +38,9 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
       email: email || null,
       website: website || null,
       load_in_notes: loadInNotes || null,
+      stage_width_m: stageWidthM === '' ? null : Number(stageWidthM),
+      stage_depth_m: stageDepthM === '' ? null : Number(stageDepthM),
+      has_stage_riser: hasStageRiser,
     };
 
     const { data: savedVenue, error } = isEdit
@@ -141,6 +147,24 @@ export default function VenueForm({ venue, onSaved, onCancel }) {
       <label className="field">
         <span className="field__label">Load-in notes</span>
         <textarea value={loadInNotes} onChange={(e) => setLoadInNotes(e.target.value)} rows={3} />
+      </label>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field__label">Stage width (m)</span>
+          <input type="number" min="2" max="20" step="0.5" value={stageWidthM} onChange={(e) => setStageWidthM(e.target.value)} placeholder="e.g. 8" />
+        </label>
+        <label className="field">
+          <span className="field__label">Stage depth (m)</span>
+          <input type="number" min="2" max="14" step="0.5" value={stageDepthM} onChange={(e) => setStageDepthM(e.target.value)} placeholder="e.g. 5" />
+        </label>
+      </div>
+      <p className="field__hint" style={{ marginTop: -10 }}>
+        Optional — measure once and every future gig's stage plot auto-sizes to this venue instead of guessing.
+      </p>
+      <label className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+        <input type="checkbox" checked={hasStageRiser} onChange={(e) => setHasStageRiser(e.target.checked)} />
+        <span className="field__label" style={{ marginBottom: 0 }}>Has a drum riser</span>
       </label>
 
       {error && <p className="form-error">{error}</p>}

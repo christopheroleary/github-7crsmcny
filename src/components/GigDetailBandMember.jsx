@@ -5,6 +5,7 @@ import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
 import BackingTrackPlayer from './BackingTrackPlayer.jsx';
+import GigStagePlot from './GigStagePlot.jsx';
 import PerformanceMode from './PerformanceMode.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
@@ -550,6 +551,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           isOffline={isOffline}
           onClose={() => setShowPerformanceMode(false)}
         />
+      )}
+
+      {/* Read-only -- RLS on gig_stage_plots also blocks a musician's
+          write outright, this just keeps the editing UI off their
+          screen too (see the stage_plot migration). Gated on isOffline
+          like Suppliers below it: unlike the setlist above (served from
+          useOfflineGigData's own cache), GigStagePlot does its own live
+          Supabase queries with no offline fallback yet. */}
+      {!isOffline && (
+        <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} readOnly />
       )}
 
       {/* Gig chat — only when online */}

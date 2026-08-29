@@ -11,6 +11,7 @@ import GigWhatsAppGroup from './GigWhatsAppGroup.jsx';
 import SongRequestsPanel from './SongRequestsPanel.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
 import GigSetlist from './GigSetlist.jsx';
+import GigStagePlot from './GigStagePlot.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
 import GigFeeSplit from './GigFeeSplit.jsx';
 import GigInvoice from './GigInvoice.jsx';
@@ -23,7 +24,7 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
-  const { gig, lineup, isOffline, syncing, syncedAt, error, refresh } =
+  const { gig, lineup, setlists, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
   const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
@@ -512,6 +513,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       />
 
       <GigSetlist gigId={gigId} bandId={gig.band_id} refreshSignal={manualRefreshSignal} />
+
+      <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} />
 
       <div className="form-actions">
         {!isOffline && (
