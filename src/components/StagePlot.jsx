@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import {
   Plus, Trash2, RotateCcw, Download, Printer, Copy, Save, FolderOpen,
   Check, X, ImageDown, Crosshair, ClipboardPaste,
-  Maximize2, Minimize2, ZoomIn, BringToFront,
+  Maximize2, Minimize2, ZoomIn, ZoomOut, BringToFront,
 } from "../utils/stagePlotIcons.jsx";
 
 /* ────────────────────────────────────────────────────────────────
@@ -868,10 +868,13 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
   const [importLen, setImportLen] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [zoomCenter, setZoomCenter] = useState(null);
   const importRef = useRef(null);
   const fileRef = useRef(null);
   const svgRef = useRef(null);
   const drag = useRef(null);
+  const panTargetRef = useRef(null);
+  const panRafRef = useRef(null);
   const narrow = useNarrow();
   const portrait = useIsPortrait();
 
@@ -914,9 +917,72 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     setHeld((h) => (h.x0 === bounds.x0 && h.y0 === bounds.y0 && h.x1 === bounds.x1 && h.y1 === bounds.y1 ? h : bounds));
   }, [dragKey, bounds]);
 
+  const cancelPan = useCallback(() => {
+    if (panRafRef.current) { window.clearTimeout(panRafRef.current); panRafRef.current = null; }
+    panTargetRef.current = null;
+  }, []);
+
+  useEffect(() => cancelPan, [cancelPan]);
+
   // Deliberate and reversible, not automatic-on-every-select (which would
   // be disorienting mid-drag) -- a dedicated toggle in the selection bar.
-  useEffect(() => { if (!selected) setZoomed(false); }, [selected]);
+  // Turning it off (or losing the selection) drops the pan state too, so
+  // the next zoom starts fresh from wherever the screen happens to be.
+  useEffect(() => {
+    if (!selected) { setZoomed(false); setZoomCenter(null); cancelPan(); }
+  }, [selected, cancelPan]);
+
+  const toggleZoom = () => {
+    setZoomed((z) => {
+      const next = !z;
+      if (next) {
+        // Anchored to whatever's already on screen, not the selected
+        // item -- zooming should magnify in place, never jump the view
+        // to recentre on something.
+        setZoomCenter({ x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 });
+      } else {
+        setZoomCenter(null);
+        cancelPan();
+      }
+      return next;
+    });
+  };
+
+  // How far the zoomed crop reaches from its centre, in metres -- ~1.7x
+  // magnification relative to the whole stage, moderate rather than an
+  // extreme macro jump.
+  const ZOOM_HALF = Math.max(W, D) / 3.4;
+
+  // While zoomed and dragging, ease the crop toward the item only once
+  // it's actually nearing the edge of what's currently visible -- not
+  // continuously, so the view stays still for small movements in the
+  // middle of the frame.
+  const panToward = useCallback((x, y) => {
+    panTargetRef.current = { x, y };
+    if (panRafRef.current) return; // a loop is already running toward the (now updated) target
+    // A plain timer, not requestAnimationFrame -- rAF is throttled to
+    // never fire at all in some contexts (backgrounded/non-focused tabs,
+    // some embedded/automated browser frames), which would silently kill
+    // this animation outright rather than just running less smoothly.
+    // ~60fps cadence, imperceptibly different from rAF for a step this
+    // short, and reliable everywhere.
+    const step = () => {
+      const t = panTargetRef.current;
+      if (!t) { panRafRef.current = null; return; }
+      setZoomCenter((c) => {
+        if (!c) return c;
+        const nx = c.x + (t.x - c.x) * 0.18;
+        const ny = c.y + (t.y - c.y) * 0.18;
+        if (Math.abs(nx - t.x) < 0.03 && Math.abs(ny - t.y) < 0.03) {
+          panRafRef.current = null;
+          return { x: t.x, y: t.y };
+        }
+        panRafRef.current = window.setTimeout(step, 16);
+        return { x: nx, y: ny };
+      });
+    };
+    panRafRef.current = window.setTimeout(step, 16);
+  }, []);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -925,8 +991,8 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  const view = zoomed && selItem
-    ? { x0: selItem.x - 1.1, y0: selItem.y - 1.1, x1: selItem.x + 1.1, y1: selItem.y + 1.1 }
+  const view = zoomed && zoomCenter
+    ? { x0: zoomCenter.x - ZOOM_HALF, y0: zoomCenter.y - ZOOM_HALF, x1: zoomCenter.x + ZOOM_HALF, y1: zoomCenter.y + ZOOM_HALF }
     : dragKey
     ? {
         x0: Math.min(held.x0, bounds.x0), y0: Math.min(held.y0, bounds.y0),
@@ -1103,6 +1169,15 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     const g = snap ? 0.1 : 0.01;
     const nx = clamp(Math.round((p.x - d.ox) / g) * g, -LIMIT.l, W + LIMIT.r);
     const ny = clamp(Math.round((p.y - d.oy) / g) * g, -LIMIT.u, D + LIMIT.d);
+    // Only ease the zoomed crop toward the item once it's actually
+    // nearing the visible edge, not on every move -- the screen stays
+    // put for small adjustments in the middle of the frame.
+    if (zoomed && zoomCenter) {
+      const margin = ZOOM_HALF * 0.3;
+      if (Math.abs(nx - zoomCenter.x) > ZOOM_HALF - margin || Math.abs(ny - zoomCenter.y) > ZOOM_HALF - margin) {
+        panToward(nx, ny);
+      }
+    }
     setCfg((c) => ({ ...c, overrides: { ...c.overrides, [item.key]: { x: nx, y: ny } } }));
   };
 
@@ -1372,7 +1447,7 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
               <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", gap: 6 }}>
                   <input style={{ ...inp, flex: 1, fontWeight: 600 }} value={m.name} onChange={(e) => patchMember(m.id, { name: e.target.value })} />
-                  <button style={btn("#7A2B22")} onClick={() => removeMember(m.id)} aria-label={`Remove ${m.name}`}><Trash2 size={13} /></button>
+                  <button style={btn("#7A2B22")} onClick={() => removeMember(m.id)} aria-label={`Remove ${m.name}`}><Trash2 size={17} /></button>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <select style={{ ...inp, flex: 1 }} value={m.role} onChange={(e) => patchMember(m.id, { role: e.target.value })}>
@@ -1599,8 +1674,8 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                 {selItem.clash && <span style={{ fontSize: 11, color: "#9A6410", fontWeight: 600 }}>⚠ overlapping</span>}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={() => setZoomed((z) => !z)}>
-                  <ZoomIn size={12} /> {zoomed ? "Zoom out" : "Zoom in"}
+                <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={toggleZoom} aria-label={zoomed ? "Zoom out" : "Zoom in"}>
+                  {zoomed ? <ZoomOut size={15} /> : <ZoomIn size={15} />}
                 </button>
                 {!readOnly && selItem.kind !== "power" && (
                   <button style={{ ...btn("#fff"), color: C.ink, border: `1px solid ${C.hair}` }} onClick={() => bringToFront(selItem.key)}>
@@ -1608,12 +1683,12 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
                   </button>
                 )}
                 {!readOnly && selItem.moved && (
-                  <button style={{ ...btn("transparent"), color: C.ink70, padding: 0 }} onClick={() => resetOne(selItem.key)} aria-label="Reset position"><RotateCcw size={13} /></button>
+                  <button style={{ ...btn("transparent"), color: C.ink70, padding: 6 }} onClick={() => resetOne(selItem.key)} aria-label="Reset position"><RotateCcw size={16} /></button>
                 )}
                 {!readOnly && (selItem.kind === "power" || selItem.removable) && (
-                  <button style={{ ...btn("transparent"), color: "#B03A2E", padding: 0 }} aria-label="Delete"
+                  <button style={{ ...btn("transparent"), color: "#B03A2E", padding: 6 }} aria-label="Delete"
                     onClick={() => { selItem.kind === "power" ? hidePower(selItem.key) : removeGear(selItem.gearId); setSelected(null); }}>
-                    <Trash2 size={13} />
+                    <Trash2 size={18} />
                   </button>
                 )}
               </div>

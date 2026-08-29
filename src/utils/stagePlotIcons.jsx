@@ -156,6 +156,14 @@ export const ZoomIn = createIcon(
   </>
 );
 
+export const ZoomOut = createIcon(
+  <>
+    <circle cx="10" cy="10" r="7" />
+    <path d="M7 10h6" />
+    <path d="M21 21l-5.5-5.5" />
+  </>
+);
+
 export const BringToFront = createIcon(
   <>
     <rect x="9" y="9" width="11" height="11" rx="1.5" />
