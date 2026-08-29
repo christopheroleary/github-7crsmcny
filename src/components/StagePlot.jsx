@@ -932,14 +932,47 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     if (!selected) { setZoomed(false); setZoomCenter(null); cancelPan(); }
   }, [selected, cancelPan]);
 
+  // How far the zoomed crop reaches from its centre, in metres -- ~1.7x
+  // magnification relative to the whole stage, moderate rather than an
+  // extreme macro jump.
+  const ZOOM_HALF = Math.max(W, D) / 3.4;
+  // The inner fraction of the crop an item can move around in freely,
+  // with zero panning -- only the outer band past this counts as "the
+  // edge". Kept generous so a plain drag inside the frame never nudges
+  // the view at all.
+  const SAFE_FRACTION = 0.82;
+
+  // Given a candidate crop centre and a point that should sit within it,
+  // returns the minimal centre that keeps the point inside the safe
+  // zone -- null if it already is. Shared by the toggle (so the crop the
+  // selected item started in already has room to drag in) and the
+  // in-drag follow (so the view only nudges by the overshoot, never
+  // chases the item's exact position -- chasing it 1:1 is what made the
+  // item look frozen while the floor scrolled under it).
+  const nudgeForPoint = (center, x, y) => {
+    const safeHalf = ZOOM_HALF * SAFE_FRACTION;
+    const dx = x - center.x, dy = y - center.y;
+    let tx = center.x, ty = center.y, needed = false;
+    if (Math.abs(dx) > safeHalf) { tx = x - Math.sign(dx) * safeHalf; needed = true; }
+    if (Math.abs(dy) > safeHalf) { ty = y - Math.sign(dy) * safeHalf; needed = true; }
+    return needed ? { x: tx, y: ty } : null;
+  };
+
   const toggleZoom = () => {
     setZoomed((z) => {
       const next = !z;
       if (next) {
         // Anchored to whatever's already on screen, not the selected
         // item -- zooming should magnify in place, never jump the view
-        // to recentre on something.
-        setZoomCenter({ x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 });
+        // to recentre on something. The one exception: if the selected
+        // item itself starts outside the safe zone of that stage-centred
+        // crop (common for anyone standing toward a side of the stage),
+        // nudge just enough that dragging it has real room to move
+        // before the view starts following -- otherwise it'd start
+        // panning on the very first pixel of any drag.
+        const stageCenter = { x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 };
+        const nudge = selItem ? nudgeForPoint(stageCenter, selItem.x, selItem.y) : null;
+        setZoomCenter(nudge || stageCenter);
       } else {
         setZoomCenter(null);
         cancelPan();
@@ -947,11 +980,6 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
       return next;
     });
   };
-
-  // How far the zoomed crop reaches from its centre, in metres -- ~1.7x
-  // magnification relative to the whole stage, moderate rather than an
-  // extreme macro jump.
-  const ZOOM_HALF = Math.max(W, D) / 3.4;
 
   // While zoomed and dragging, ease the crop toward the item only once
   // it's actually nearing the edge of what's currently visible -- not
@@ -971,8 +999,8 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
       if (!t) { panRafRef.current = null; return; }
       setZoomCenter((c) => {
         if (!c) return c;
-        const nx = c.x + (t.x - c.x) * 0.18;
-        const ny = c.y + (t.y - c.y) * 0.18;
+        const nx = c.x + (t.x - c.x) * 0.1;
+        const ny = c.y + (t.y - c.y) * 0.1;
         if (Math.abs(nx - t.x) < 0.03 && Math.abs(ny - t.y) < 0.03) {
           panRafRef.current = null;
           return { x: t.x, y: t.y };
@@ -1171,12 +1199,18 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
     const ny = clamp(Math.round((p.y - d.oy) / g) * g, -LIMIT.u, D + LIMIT.d);
     // Only ease the zoomed crop toward the item once it's actually
     // nearing the visible edge, not on every move -- the screen stays
-    // put for small adjustments in the middle of the frame.
+    // put for small adjustments in the middle of the frame. Critically,
+    // the pan target is NOT the item's own position -- chasing that
+    // exactly (and re-targeting it on every subsequent move while still
+    // "over") made the view track the item almost 1:1, which visually
+    // cancels out the item's on-screen movement: the item looks like
+    // it's standing still while the floor scrolls under it. Instead,
+    // nudge the crop by only the overshoot, just enough to pin the item
+    // at the edge of the safe zone -- it keeps moving normally on screen
+    // right up to that edge, and only the excess beyond it pans the view.
     if (zoomed && zoomCenter) {
-      const margin = ZOOM_HALF * 0.3;
-      if (Math.abs(nx - zoomCenter.x) > ZOOM_HALF - margin || Math.abs(ny - zoomCenter.y) > ZOOM_HALF - margin) {
-        panToward(nx, ny);
-      }
+      const target = nudgeForPoint(zoomCenter, nx, ny);
+      if (target) panToward(target.x, target.y);
     }
     setCfg((c) => ({ ...c, overrides: { ...c.overrides, [item.key]: { x: nx, y: ny } } }));
   };
