@@ -250,7 +250,7 @@ export default function Settings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Avatar url={avatarUrl} name={fullName} size="large" />
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
+            <label className="btn btn--primary btn--small" style={{ cursor: 'pointer' }}>
               {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Replace photo' : 'Upload photo'}
               <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadingAvatar || removingAvatar} style={{ display: 'none' }} />
             </label>
