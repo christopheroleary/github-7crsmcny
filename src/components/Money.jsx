@@ -1,0 +1,48 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import ProfilePaymentDetails from './ProfilePaymentDetails';
+import ConnectPayoutSetup from './ConnectPayoutSetup.jsx';
+import ProSubscription from './ProSubscription.jsx';
+import OutstandingClaims from './OutstandingClaims.jsx';
+import MyExpenses from './MyExpenses.jsx';
+import MyIncome from './MyIncome.jsx';
+import MyMileage from './MyMileage.jsx';
+import TaxRecords from './TaxRecords.jsx';
+
+// Everything money-related from the old single MyProfile.jsx page.
+// ConnectPayoutSetup and ProfilePaymentDetails both need the same
+// get_payment_details row -- fetched once here and passed to both,
+// exactly as it was on the old page (that consolidation is what this
+// split has to preserve, not undo -- see the plan this came from).
+export default function Money() {
+  const { profile } = useCurrentProfile();
+  const userId = profile?.id || null;
+  const [paymentDetails, setPaymentDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase.rpc('get_payment_details', { p_profile_id: userId }).maybeSingle()
+      .then(({ data }) => {
+        setPaymentDetails(data || null);
+        setLoading(false);
+      });
+  }, [userId]);
+
+  if (loading) return <p className="state-message">Loading…</p>;
+
+  return (
+    <>
+      <h2 className="section-header__title" style={{ margin: '0 0 16px' }}>Money</h2>
+      <ProSubscription />
+      {userId && <ConnectPayoutSetup paymentDetails={paymentDetails} />}
+      {userId && <ProfilePaymentDetails profileId={userId} paymentDetails={paymentDetails} />}
+      {userId && <OutstandingClaims profileId={userId} />}
+      {userId && <MyExpenses profileId={userId} />}
+      {userId && <MyIncome profileId={userId} />}
+      {userId && <MyMileage profileId={userId} />}
+      {userId && <TaxRecords profileId={userId} />}
+    </>
+  );
+}

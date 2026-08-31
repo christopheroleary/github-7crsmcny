@@ -21,7 +21,7 @@ export default function ConnectPayoutSetup({ paymentDetails }) {
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState(null);
 
-  // paymentDetails is fetched once by MyProfile (a single get_payment_details
+  // paymentDetails is fetched once by Money.jsx (a single get_payment_details
   // call shared with ProfilePaymentDetails, which used to each fetch it
   // independently) and passed down here instead of this component fetching
   // its own copy.

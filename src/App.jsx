@@ -8,7 +8,11 @@ import ClientsList from './components/ClientsList.jsx';
 import SuppliersList from './components/SuppliersList.jsx';
 import BandsList from './components/BandsList.jsx';
 import MusiciansList from './components/MusiciansList.jsx';
-import MyProfile from './components/MyProfile.jsx';
+import Settings from './components/Settings.jsx';
+import GetStarted from './components/GetStarted.jsx';
+import DepProfile from './components/DepProfile.jsx';
+import Money from './components/Money.jsx';
+import AppFooter from './components/AppFooter.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EnquiriesList from './components/EnquiriesList.jsx';
@@ -107,14 +111,21 @@ export default function App() {
     // Stripe's Account Link onboarding / subscription checkout both redirect
     // back here with a flag rather than a dedicated URL -- this app has no
     // router, so a query param is the only way it can tell the SPA where to
-    // land.
-    if (window.location.search.includes('stripe_connect=1')) return 'profile';
+    // land. Both personal-account flows land on Money now (My Profile was
+    // split into Settings/Get started/Dep profile/Money -- this is where
+    // Stripe Connect payout setup and the Pro subscription actually live).
+    if (window.location.search.includes('stripe_connect=1')) return 'money';
     // Band-level Connect setup (BandConnectPayoutSetup) returns here the
-    // same way, but lands on Bands instead of Profile -- a distinct flag
-    // from stripe_connect=1 so the two return trips don't collide.
+    // same way, but lands on Bands instead -- a distinct flag from
+    // stripe_connect=1 so the two return trips don't collide.
     if (window.location.search.includes('stripe_connect_band=1')) return 'bands';
-    if (window.location.search.includes('pro=1') || window.location.search.includes('pro=0')) return 'profile';
-    return localStorage.getItem('gig_view') || 'dashboard';
+    if (window.location.search.includes('pro=1') || window.location.search.includes('pro=0')) return 'money';
+    // 'profile' was My Profile's old view key, before it was split into
+    // Settings/Get started/Dep profile/Money -- anyone whose last session
+    // ended there still has it cached and would otherwise land on a view
+    // that no longer exists.
+    const stored = localStorage.getItem('gig_view');
+    return stored === 'profile' ? 'settings' : (stored || 'dashboard');
   });
   const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
   const [showFeedback, setShowFeedback] = useState(false);
@@ -267,6 +278,17 @@ export default function App() {
     );
   }
 
+  // Visible to every role, appended after each role's own working tabs --
+  // Settings/Get started/Dep profile/Money used to be one page (My
+  // Profile) hidden behind the small header icon, which is a big part of
+  // why musicians kept missing Pro/claims features living in there.
+  const personalTabs = [
+    ['settings', 'Settings'],
+    ['getstarted', 'Get started'],
+    ['depprofile', 'Dep profile'],
+    ['money', 'Money'],
+  ];
+
   const adminTabs = [
     ['dashboard', 'Dashboard'],
     ['gigs', 'Gigs'],
@@ -279,6 +301,7 @@ export default function App() {
     ['repertoire', 'Repertoire'],
     ['activity', 'Activity'],
     ['feedback', 'Feedback'],
+    ...personalTabs,
   ];
 
   const bandLeaderTabs = [
@@ -289,11 +312,13 @@ export default function App() {
     ['suppliers', 'Suppliers'],
     ['bands', 'Bands'],
     ['musicians', 'Musicians'],
+    ...personalTabs,
   ];
 
   const memberTabs = [
     ['dashboard', 'Dashboard'],
     ['gigs', 'My gigs'],
+    ...personalTabs,
   ];
 
   const tabs = isAdmin ? adminTabs : isBandLeader ? bandLeaderTabs : memberTabs;
@@ -313,10 +338,10 @@ export default function App() {
             💬<span className="feedback-btn__label">Feedback</span>
           </button>
           <button
-            className={'notif-bell__btn' + (view === 'profile' ? ' notif-bell__btn--active' : '')}
-            onClick={() => updateView('profile')}
-            title="My profile"
-            aria-label="My profile"
+            className={'notif-bell__btn' + (view === 'settings' ? ' notif-bell__btn--active' : '')}
+            onClick={() => updateView('settings')}
+            title="Settings"
+            aria-label="Settings"
           >
             {profile?.avatar_url ? (
               <span className="avatar-preview avatar-preview--tiny">
@@ -371,8 +396,12 @@ export default function App() {
         {view === 'repertoire' && isAdmin && <SongsList />}
         {view === 'activity' && isAdmin && <UserActivity />}
         {view === 'feedback' && isAdmin && <FeedbackInbox />}
-        {view === 'profile' && <MyProfile />}
+        {view === 'settings' && <Settings />}
+        {view === 'getstarted' && <GetStarted />}
+        {view === 'depprofile' && <DepProfile />}
+        {view === 'money' && <Money />}
       </main>
+      <AppFooter />
       <ConfirmHost />
       <PromptHost />
       <ToastHost />

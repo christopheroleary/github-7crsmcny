@@ -24,7 +24,7 @@ export default function ProfilePaymentDetails({ profileId, paymentDetails }) {
   // draft values while editing
   const [draft, setDraft] = useState({ ...stored });
 
-  // paymentDetails is fetched once by MyProfile (a single get_payment_details
+  // paymentDetails is fetched once by Money.jsx (a single get_payment_details
   // call shared with ConnectPayoutSetup, which used to each fetch it
   // independently) and passed down here instead of this component fetching
   // its own copy.

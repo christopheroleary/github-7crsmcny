@@ -1,7 +1,7 @@
 import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
 
 // Shared editor for the "what gear do they bring" checklist -- used both
-// for a musician's own profile (MyProfile) and for a placeholder dep
+// for a musician's own dep profile (DepProfile) and for a placeholder dep
 // managed on their behalf (DepDetailsEditor). `values` is the equipment_*
 // boolean subset of the row being edited; `notes` is a free-text field
 // since the booleans alone can't capture capacity/quality ("covers up to

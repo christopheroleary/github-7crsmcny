@@ -1,0 +1,365 @@
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import InstrumentPicker from './InstrumentPicker.jsx';
+import AddressAutocomplete from './AddressAutocomplete.jsx';
+import CalendarFeed from './CalendarFeed.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
+import Avatar from './Avatar.jsx';
+import { confirmAsync } from '../utils/confirmService.js';
+import { notify } from '../utils/toastService.js';
+import { resizeImageFile } from '../utils/resizeImage.js';
+
+const AVATAR_BUCKET = 'profile-pictures';
+const AUTOSAVE_DELAY = 700;
+
+const UI_THEMES = [
+  { id: 'default', label: 'Classic', swatch: '#c8862e' },
+  { id: 'ocean', label: 'Ocean', swatch: '#2f6690' },
+  { id: 'forest', label: 'Forest', swatch: '#4a7c59' },
+  { id: 'rose', label: 'Rose', swatch: '#b5566f' },
+];
+
+// Identity + app-level preferences only -- was previously the top half of
+// the old single MyProfile.jsx page. Everything dep-related, money-
+// related, onboarding-related, and the privacy/refresh/version footer
+// bits split out to DepProfile.jsx / Money.jsx / GetStarted.jsx /
+// AppFooter.jsx + PrivacyModal.jsx, each keeping only the state/fetches
+// it actually needs -- see the plan this came from for the full mapping.
+export default function Settings() {
+  const { refreshProfile } = useCurrentProfile();
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
+  const [uiTheme, setUiTheme] = useState('default');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [homeLat, setHomeLat] = useState(null);
+  const [homeLon, setHomeLon] = useState(null);
+  const [allInstruments, setAllInstruments] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [userId, setUserId] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (!uid) return;
+      setUserId(uid);
+      setEmail(userData.user.email || '');
+
+      const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }] = await Promise.all([
+        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, ui_theme, avatar_url').eq('id', uid).single(),
+        supabase.from('instruments').select('id, name').order('sort_order'),
+        supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
+        // phone isn't in the blanket column grant (see
+        // 20260826150000_restrict_profile_phone.sql) -- self-read still
+        // goes through the same RPC everyone else does.
+        supabase.rpc('get_profile_phones', { p_profile_ids: [uid] }),
+      ]);
+
+      if (profileError) notify("Couldn't load profile: " + profileError.message);
+      else {
+        setFullName(profile.full_name || '');
+        setPhone(phoneRows?.[0]?.phone || '');
+        setHomeAddress(profile.home_address || '');
+        setHomeLat(profile.home_latitude ?? null);
+        setHomeLon(profile.home_longitude ?? null);
+        setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
+        setUiTheme(profile.ui_theme || 'default');
+        setAvatarUrl(profile.avatar_url || '');
+      }
+      setAllInstruments(instruments || []);
+      setSelectedIds((links || []).map((l) => l.instrument_id));
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  // Every text/checkbox/theme field below saves itself as the user edits it
+  // -- no Save button. `readyRef` stops the very first render (the initial
+  // load populating these fields from the DB) from immediately re-saving
+  // the same values back; it flips true in the effect declared last below,
+  // which -- since effects in one commit run in declaration order -- always
+  // runs after every field-autosave effect on that same load-triggered
+  // commit, so the guard is still false when each of them checks it.
+  const readyRef = useRef(false);
+
+  async function persist(patch, onFail) {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+    if (error) {
+      notify("Couldn't save: " + error.message);
+      onFail?.();
+    }
+  }
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    if (!fullName.trim()) return; // never autosave a blank name mid-edit
+    const t = setTimeout(() => persist({ full_name: fullName }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullName]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    const t = setTimeout(() => persist({ phone: phone || null }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    const t = setTimeout(
+      () => persist({ home_address: homeAddress || null, home_latitude: homeLat, home_longitude: homeLon }),
+      AUTOSAVE_DELAY
+    );
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeAddress, homeLat, homeLon]);
+
+  useEffect(() => {
+    if (!loading) readyRef.current = true;
+  }, [loading]);
+
+  async function handleSharePhoneToggle(checked) {
+    setSharePhoneOnDaysheet(checked);
+    await persist({ share_phone_on_daysheet: checked }, () => setSharePhoneOnDaysheet(!checked));
+  }
+
+  async function handleThemeChange(themeId) {
+    const previous = uiTheme;
+    setUiTheme(themeId);
+    document.documentElement.setAttribute('data-theme', themeId);
+    await persist({ ui_theme: themeId }, () => {
+      setUiTheme(previous);
+      document.documentElement.setAttribute('data-theme', previous);
+    });
+  }
+
+  // Each button click adds/removes exactly one known id -- using React's
+  // functional setState form (rather than computing a full next-array from
+  // a closured `selectedIds` snapshot, as this used to) means two clicks
+  // landing in the same render tick still apply correctly in order instead
+  // of the second clobbering the first. That clobbering was a real, live
+  // bug: both deletes would actually succeed in the database, but the
+  // second click's optimistic state overwrote the first click's, leaving a
+  // just-deleted instrument still showing as selected on screen until the
+  // next reload -- which then looked exactly like removing one instrument
+  // had silently also removed another.
+  async function handleAddInstrument(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    const { error } = await supabase.from('profile_instruments').insert({ profile_id: userId, instrument_id: id });
+    if (error) {
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      notify("Couldn't save: " + error.message);
+    }
+  }
+
+  async function handleRemoveInstrument(id) {
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+    const { error } = await supabase.from('profile_instruments').delete().eq('profile_id', userId).eq('instrument_id', id);
+    if (error) {
+      setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      notify("Couldn't save: " + error.message);
+    }
+  }
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !userId) return;
+    // Fast, friendly rejection before we hand the file to createImageBitmap --
+    // a huge or maliciously crafted "decompression bomb" image (tiny on disk,
+    // enormous once decoded) can otherwise hang or crash the tab. This isn't
+    // the real security boundary (a determined attacker can call the Storage
+    // API directly, bypassing the browser entirely) -- that's enforced
+    // server-side by the profile-pictures bucket's own file size/mime type
+    // limits, set in the add_profile_avatar migration.
+    if (!file.type.startsWith('image/')) {
+      notify("That doesn't look like an image file — please choose a photo.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      notify('That image is too large (max 20MB) — please choose a smaller file.');
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      // Small and heavily compressed on purpose — this is shown at avatar/
+      // thumbnail size almost everywhere (roster rows, day sheets, the
+      // header icon), never full-screen, and storage is tight.
+      const blob = await resizeImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85, maxBytes: 60 * 1024 });
+      const path = userId + '/avatar.webp';
+      // canvas.toBlob('image/webp') silently falls back to image/png on any
+      // browser/OS that can't encode WebP (some iOS Safari versions among
+      // them) -- declaring contentType: 'image/webp' regardless of what blob
+      // actually is causes Storage to reject the mismatch outright. The path
+      // keeps its .webp name either way; browsers render off the real
+      // Content-Type header, not the URL extension, so this is safe.
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: blob.type || 'image/webp' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      // Cache-bust so replacing an existing photo shows immediately instead
+      // of the browser/CDN serving the old cached image at the same URL.
+      const publicUrl = urlData.publicUrl + '?v=' + Date.now();
+      const { error: dbError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', userId);
+      if (dbError) throw dbError;
+      setAvatarUrl(publicUrl);
+      // The header icon (and anything else reading useCurrentProfile()) has
+      // its own separate, cached copy of the profile that this write doesn't
+      // touch -- without this it'd keep showing the old photo (or no photo)
+      // until the next full reload.
+      await refreshProfile();
+    } catch (err) {
+      notify("Couldn't upload photo: " + err.message);
+    }
+    setUploadingAvatar(false);
+  }
+
+  async function handleRemoveAvatar() {
+    const ok = await confirmAsync('Remove your profile picture?');
+    if (!ok) return;
+    setRemovingAvatar(true);
+    const { error: removeError } = await supabase.storage.from(AVATAR_BUCKET).remove([userId + '/avatar.webp']);
+    if (removeError) { notify("Couldn't remove photo: " + removeError.message); setRemovingAvatar(false); return; }
+    const { error: dbError } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', userId);
+    if (dbError) { notify("Couldn't remove photo: " + dbError.message); setRemovingAvatar(false); return; }
+    setAvatarUrl('');
+    await refreshProfile();
+    setRemovingAvatar(false);
+  }
+
+  if (loading) return <p className="state-message">Loading profile…</p>;
+
+  return (
+    <div className="entity-form">
+      <h2 className="section-header__title">Settings</h2>
+
+      <div className="field">
+        <span className="field__label">Profile picture</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Avatar url={avatarUrl} name={fullName} size="large" />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="btn btn--ghost btn--small" style={{ cursor: 'pointer' }}>
+              {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Replace photo' : 'Upload photo'}
+              <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadingAvatar || removingAvatar} style={{ display: 'none' }} />
+            </label>
+            {avatarUrl && (
+              <button type="button" className="link-button link-button--danger" onClick={handleRemoveAvatar} disabled={uploadingAvatar || removingAvatar}>
+                {removingAvatar ? 'Removing…' : 'Remove'}
+              </button>
+            )}
+          </div>
+        </div>
+        <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+          Shown on the roster, gig day sheets and here in the app. Resized and compressed automatically — any reasonable photo works. Saves as soon as it's uploaded.
+        </span>
+      </div>
+
+      <label className="field">
+        <span className="field__label">Email</span>
+        <input value={email} disabled />
+        <span className="field__hint">Login email — changing it needs its own confirmation step.</span>
+      </label>
+
+      <label className="field">
+        <span className="field__label">Name</span>
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+      </label>
+
+      <label className="field">
+        <span className="field__label">
+          Home address
+          <InfoTooltip text="Used for travel cost calculations, and to rank you by distance when admin is looking for a dep." />
+        </span>
+        <AddressAutocomplete
+          value={homeAddress}
+          onChange={(text) => {
+            setHomeAddress(text);
+            setHomeLat(null);
+            setHomeLon(null);
+          }}
+          onCoordinatesChange={(lat, lon) => {
+            setHomeLat(lat);
+            setHomeLon(lon);
+          }}
+          placeholder="Start typing your home address…"
+        />
+        {homeLat != null && <span className="field__hint">Location set ✓</span>}
+        {homeLat == null && homeAddress && (
+          <span className="field__hint" style={{ color: 'var(--rust)' }}>
+            Pick a suggestion from the dropdown to set the map pin — needed for distance calculation.
+          </span>
+        )}
+      </label>
+
+      <label className="field">
+        <span className="field__label">Instruments</span>
+        <InstrumentPicker allInstruments={allInstruments} selectedIds={selectedIds} onAdd={handleAddInstrument} onRemove={handleRemoveInstrument} />
+      </label>
+
+      <div className="field">
+        <span className="field__label">Phone</span>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginTop: 8,
+            padding: '9px 12px',
+            background: sharePhoneOnDaysheet ? 'rgba(47,125,79,0.1)' : 'var(--paper-raised)',
+            border: '1px solid ' + (sharePhoneOnDaysheet ? 'rgba(47,125,79,0.4)' : 'var(--line)'),
+            borderRadius: 8,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={sharePhoneOnDaysheet}
+            onChange={(e) => handleSharePhoneToggle(e.target.checked)}
+            style={{ width: 'auto' }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>📱 Share this number with bandmates on the day sheet</span>
+          <InfoTooltip text="Shows the phone number above to other confirmed musicians on the gig day sheet, so they can reach you on the day. Off by default." />
+        </label>
+      </div>
+
+      <div className="field">
+        <span className="field__label">
+          App colour theme
+          <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
+        </span>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {UI_THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => handleThemeChange(t.id)}
+              title={t.label}
+              aria-label={t.label}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: t.swatch,
+                border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {userId && <CalendarFeed profileId={userId} />}
+    </div>
+  );
+}
