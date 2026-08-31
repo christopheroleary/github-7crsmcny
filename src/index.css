@@ -3187,6 +3187,11 @@ input:not([type]) {
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 12px 40px rgba(30, 27, 22, 0.2);
+  /* text-align is inherited -- without this, a modal opened from
+     somewhere that sets its own alignment (e.g. AppFooter.jsx's
+     centred footer) leaks that into the modal's own content, even
+     though position:fixed visually escapes it from that container. */
+  text-align: left;
 }
 .modal-panel .travel-table tbody tr:hover {
   background: var(--paper);
