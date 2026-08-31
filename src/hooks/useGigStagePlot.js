@@ -35,6 +35,17 @@ export function useGigStagePlot(gigId, buildSeed) {
       .from('gig_stage_plots')
       .upsert({ gig_id: gigId, config: nextConfig, updated_at: new Date().toISOString() }, { onConflict: 'gig_id' });
     if (saveError) throw saveError;
+    // Without this, this hook's own `config` state stays frozen at
+    // whatever was loaded on mount -- every drag/autosave since then
+    // wrote fresh positions straight to Supabase without this hook ever
+    // learning about them. Harmless on its own, but setVisibleToBand
+    // below upserts using configRef.current, so flipping that toggle was
+    // silently overwriting every real saved position with the stale
+    // load-time snapshot (the admin's own view kept showing the real
+    // positions from StagePlot's own separate in-memory state right up
+    // until they left and came back, at which point THIS now-clobbered
+    // row was reloaded and they saw the reset too).
+    setConfig(nextConfig);
   }, [gigId]);
 
   // Plain `update` would silently touch zero rows for a gig whose plot has

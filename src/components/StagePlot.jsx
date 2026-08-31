@@ -98,6 +98,7 @@ const GEAR = {
   uplight: { label: "Uplighter", w: 0.3, h: 0.3, group: "Lights" },
   mover: { label: "Moving head", w: 0.36, h: 0.36, group: "Lights" },
   hazer: { label: "Hazer", w: 0.42, h: 0.36, group: "Lights" },
+  panelLight: { label: "Panel light", w: 0.42, h: 0.34, group: "Lights" },
   talkback: {
     label: "Talkback mic", w: 0.3, h: 0.3, group: "Extras",
     sub: "Monitors / IEMs only — not in the mains",
@@ -191,6 +192,7 @@ function defaultSpot(type, n, W, D) {
     case "uplight": return { x: side < 0 ? 0.35 + tier : W - 0.35 - tier, y: 0.3 };
     case "mover": return { x: side < 0 ? 0.9 : W - 0.9, y: 0.3 };
     case "hazer": return { x: W - 0.45, y: 0.9 };
+    case "panelLight": return { x: side < 0 ? 0.6 + tier : W - 0.6 - tier, y: 0.9 };
     case "talkback": return { x: W / 2 + 1.5, y: 1.5 };
     case "laptop": return { x: W / 2 + 1.2, y: 1.4 };
     case "riserBlk": return { x: W / 2, y: 1.2 };
@@ -345,13 +347,18 @@ function buildItems(cfg) {
     });
   });
 
-  /* power: one per backline rig, per wedge, per person, per stage corner */
+  /* power: one per backline rig, per wedge, per speaker, per lighting
+     fixture, per person, per stage corner */
   if (cfg.power.on) {
     const drops = [];
     items.filter((i) => ["amp", "keys", "kit", "dj", "di"].includes(i.kind) && !i.noPower)
       .forEach((it) => drops.push({ key: `pwr.rig.${it.key}`, x: it.x - it.w / 2 - 0.3, y: it.y - it.h / 2 - 0.05, note: "Backline" }));
     items.filter((i) => i.kind === "wedge")
       .forEach((it) => drops.push({ key: `pwr.mon.${it.key}`, x: it.x + it.w / 2 + 0.28, y: it.y, note: "Monitor" }));
+    items.filter((i) => ["paTop", "paSub"].includes(i.kind) && !i.noPower)
+      .forEach((it) => drops.push({ key: `pwr.pa.${it.key}`, x: it.x - it.w / 2 - 0.3, y: it.y, note: "Speaker" }));
+    items.filter((i) => ["lightBar", "uplight", "mover", "hazer", "panelLight"].includes(i.kind) && !i.noPower)
+      .forEach((it) => drops.push({ key: `pwr.light.${it.key}`, x: it.x + it.w / 2 + 0.28, y: it.y, note: "Lighting" }));
     members.forEach((m) => {
       const seat = seats.find((s) => s.m.id === m.id);
       const x = seat ? seat.x + 0.45 : backX[m.id] != null ? backX[m.id] + 0.5 : W / 2;
@@ -604,6 +611,19 @@ function DIBox({ item }) {
   );
 }
 
+/* Same simple rectangle footprint as DIBox, above -- just filled in the
+   lighting tint so it reads as a fixture rather than an audio box. */
+function PanelLight({ item }) {
+  const w = item.w * S, h = item.h * S;
+  return (
+    <g>
+      <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={3} fill={C.light} />
+      <text y={4} textAnchor="middle" className="sp-mono" fill="#FFF">LED</text>
+      <Caption item={item} />
+    </g>
+  );
+}
+
 function MicStand({ item, tint, tagFill, tag }) {
   return (
     <g>
@@ -727,6 +747,7 @@ function Piece({ item, cfg, selected }) {
     case "lightBar": return <LightBar item={item} />;
     case "uplight": return <LightPod item={item} />;
     case "mover": return <LightPod item={item} mover />;
+    case "panelLight": return <PanelLight item={item} />;
     case "riserBlk": return <Box item={item} tint={C.ink40} />;
     case "micStand": return <MicStand item={item} />;
     case "talkback": return <MicStand item={item} tint={C.wedge} tagFill="#4A2C05" tag="TB" />;
@@ -1545,7 +1566,7 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
       <Section title="Power" right={<button style={btn(C.deckHi)} onClick={addPowerDrop}><Plus size={13} /> Drop</button>}>
         <Toggle on={cfg.power.on} onClick={() => patch({ power: { ...cfg.power, on: !cfg.power.on } })}>Show 13A drops</Toggle>
         <p style={{ ...tiny, marginTop: 8, lineHeight: 1.5 }}>
-          Seeded one per rig, per wedge, per person and per stage corner — {drops} in total.
+          Seeded one per rig, per wedge, per speaker, per lighting fixture, per person and per stage corner — {drops} in total.
           Drag them where the sockets really are; tap one and hit the bin to drop it.
         </p>
         {cfg.power.hidden.length > 0 && (
