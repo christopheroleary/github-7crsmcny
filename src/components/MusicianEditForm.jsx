@@ -15,6 +15,7 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
   const [homeLat, setHomeLat] = useState(profile.home_latitude ?? null);
   const [homeLon, setHomeLon] = useState(profile.home_longitude ?? null);
   const [role, setRole] = useState(profile.role || 'band_member');
+  const [subscriptionTier, setSubscriptionTier] = useState(profile.subscription_tier || 'free');
   const [isActive, setIsActive] = useState(profile.is_active);
   const [equipment, setEquipment] = useState(
     Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item.key, Boolean(profile[item.key])]))
@@ -70,7 +71,19 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
       ...equipment,
       equipment_notes: equipmentNotes || null,
     };
-    if (isAdmin) updates.role = role;
+    // Client-side gating is only a courtesy here -- the real enforcement is
+    // a database trigger (protect_subscription_fields) that silently
+    // reverts subscription_tier/stripe_customer_id/stripe_subscription_id
+    // back to their existing values on any write that isn't running as an
+    // admin or the Stripe webhook's service role, regardless of what a
+    // tampered client sends. A comped grant like this never touches the
+    // Stripe id columns, so it can't collide with that person's own £1/mo
+    // subscription if they start paying for real later -- the webhook only
+    // ever matches rows by stripe_subscription_id.
+    if (isAdmin) {
+      updates.role = role;
+      updates.subscription_tier = subscriptionTier;
+    }
 
     const { error: profileError } = await supabase
       .from('profiles')
@@ -167,6 +180,26 @@ export default function MusicianEditForm({ profile, onSaved, onCancel }) {
             <option value="admin">Admin</option>
           </select>
         </label>
+      )}
+
+      {isAdmin && role !== 'admin' && (
+        <label className="field field--checkbox">
+          <input
+            type="checkbox"
+            checked={subscriptionTier === 'pro'}
+            onChange={(e) => setSubscriptionTier(e.target.checked ? 'pro' : 'free')}
+          />
+          <span>Pro member (comped, no charge)</span>
+        </label>
+      )}
+      {isAdmin && role !== 'admin' && subscriptionTier === 'pro' && (
+        <p className="field__hint" style={{ marginTop: -8 }}>
+          Unlocks Pro features for them for free -- one-click claims, Making
+          Tax Digital records, and (for a band leader) quotes/contracts/
+          invoicing and Stripe payments. Doesn't touch their own £1/month
+          subscription if they ever pay for it themselves; uncheck any time
+          to revoke.
+        </p>
       )}
 
       <label className="field field--checkbox">
