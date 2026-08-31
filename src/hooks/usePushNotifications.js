@@ -3,6 +3,17 @@ import { supabase } from '../supabaseClient';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
+// Set the moment someone explicitly clicks "Turn off" below, cleared the
+// moment they explicitly (re-)subscribe. Notification.permission alone
+// can't tell "browser silently dropped the subscription" apart from
+// "chose to turn it off in-app" -- both leave getSubscription() null with
+// permission still 'granted' -- and only the first of those should ever
+// get proactively re-created or flagged to the person as broken. Per-
+// device on purpose, same lifetime as the subscription itself: wiped by
+// the same uninstall that wipes the subscription, so a reinstall starts
+// clean rather than remembering a stale opt-out from a previous install.
+const OPTED_OUT_KEY = 'seeau_push_opted_out';
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -17,14 +28,6 @@ export function usePushNotifications() {
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.ready.then(async (reg) => {
-      const existing = await reg.pushManager.getSubscription();
-      setSubscribed(!!existing);
-    });
-  }, []);
 
   const subscribe = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,9 @@ export function usePushNotifications() {
       }
 
       setSubscribed(true);
+      // Successfully (re-)subscribed -- whatever "turned off" state this
+      // device was in before no longer applies.
+      try { localStorage.removeItem(OPTED_OUT_KEY); } catch {}
     } catch (err) {
       console.error('Push subscription error:', err);
       setError(err.message);
@@ -108,12 +114,37 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
       }
       setSubscribed(false);
+      // Records this as a deliberate choice -- see OPTED_OUT_KEY above --
+      // so nothing later mistakes the resulting "granted permission, no
+      // subscription" state for a silently broken one and either
+      // recreates it unasked or nags the person to fix something they
+      // chose themselves.
+      try { localStorage.setItem(OPTED_OUT_KEY, 'true'); } catch {}
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Checks AND self-heals, not just checks -- re-affirming an existing
+  // subscription with the push service is idempotent (same
+  // applicationServerKey, no new permission prompt, no user-visible
+  // effect on a healthy subscription) but is also what catches a quietly
+  // stale/rotated endpoint before it ever shows up as "failing" server-
+  // side. Deliberately only refreshes an EXISTING subscription (`existing`
+  // truthy) -- never calls subscribe() from a null one, since that same
+  // null state is also exactly what "explicitly turned off" below looks
+  // like, and auto-recreating it from nothing would silently reverse that
+  // choice on the person's next visit.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const existing = await reg.pushManager.getSubscription();
+      setSubscribed(!!existing);
+      if (existing) subscribe();
+    });
+  }, [subscribe]);
 
   return { permission, subscribed, loading, error, subscribe, unsubscribe };
 }
