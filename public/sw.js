@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gig-manager-shell-v3';
+const CACHE_NAME = 'seeau-shell-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -76,7 +76,7 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: 'Gig Manager', body: event.data.text() };
+    payload = { title: 'Seeau', body: event.data.text() };
   }
 
   // `badge` here is the small monochrome status-bar icon Chrome/Android
@@ -87,11 +87,11 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      await self.registration.showNotification(title || 'Gig Manager', {
+      await self.registration.showNotification(title || 'Seeau', {
         body,
         icon: icon || '/icons/icon-192.png',
         badge: badge || '/icons/icon-192.png',
-        tag: tag || 'gig-manager',
+        tag: tag || 'seeau',
         data: { url: url || '/' },
         requireInteraction: requireInteraction || false,
         vibrate: [200, 100, 200],

@@ -67,7 +67,7 @@ async function fetchWithTimeout(url: string, body: string): Promise<Response> {
       signal: ctrl.signal,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'GigManagerNearbyPlaces/1.0',
+        'User-Agent': 'SeeauNearbyPlaces/1.0',
       },
     });
   } finally {

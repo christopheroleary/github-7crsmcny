@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Gig Manager",
-  "short_name": "Gigs",
+  "name": "Seeau",
+  "short_name": "Seeau",
   "description": "Your gigs, setlists and day sheets — available offline.",
   "start_url": "/",
   "scope": "/",

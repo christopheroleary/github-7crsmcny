@@ -4,12 +4,12 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { notify } from '../utils/toastService.js';
 
 // LAST UPDATED 2026-08-31. Data controller is currently the sole trader
-// "Chris O'Leary, trading as Gig Manager" -- update this (and the
+// "Chris O'Leary, trading as Seeau" -- update this (and the
 // matching line in TermsModal.jsx) the moment incorporation completes or
-// the app is renamed, since a Ltd company is a different legal entity
-// from a sole trader, not just a different name on the page.
+// the app is renamed again, since a Ltd company is a different legal
+// entity from a sole trader, not just a different name on the page.
 const LAST_UPDATED = '31 August 2026';
-const CONTROLLER = "Chris O'Leary, trading as Gig Manager";
+const CONTROLLER = "Chris O'Leary, trading as Seeau";
 
 function Section({ title, children }) {
   return (
@@ -61,7 +61,7 @@ export default function PrivacyModal({ onClose }) {
 
         <Section title="Who we are">
           <p style={{ margin: 0 }}>
-            Gig Manager is provided by {CONTROLLER} (the "data controller" for the
+            Seeau is provided by {CONTROLLER} (the "data controller" for the
             purposes of UK data protection law). This policy explains what
             personal data we collect through the app, why, and what your
             rights are over it.

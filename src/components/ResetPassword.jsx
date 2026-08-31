@@ -29,7 +29,7 @@ export default function ResetPassword({ onDone }) {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <p className="login-card__eyebrow">Gig Manager</p>
+        <p className="login-card__eyebrow">Seeau</p>
         <h1 className="login-card__title">Set a new password</h1>
 
         <label className="field">

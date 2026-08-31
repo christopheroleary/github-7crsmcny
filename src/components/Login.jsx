@@ -75,7 +75,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <p className="login-card__eyebrow">Gig Manager</p>
+        <p className="login-card__eyebrow">Seeau</p>
         <h1 className="login-card__title">{title}</h1>
 
         {mode === 'signUp' && (

@@ -1,12 +1,12 @@
 // LAST UPDATED 2026-08-31. Contracting party is currently the sole trader
-// "Chris O'Leary, trading as Gig Manager" -- update this (and the matching
+// "Chris O'Leary, trading as Seeau" -- update this (and the matching
 // line in PrivacyModal.jsx) the moment incorporation completes or the app
-// is renamed. That's a real change, not just cosmetic: a Ltd company's
-// liability is generally limited to the company, a sole trader's isn't --
-// re-check the Liability section below applies as intended once that
-// changes.
+// is renamed again. That's a real change, not just cosmetic: a Ltd
+// company's liability is generally limited to the company, a sole
+// trader's isn't -- re-check the Liability section below applies as
+// intended once that changes.
 const LAST_UPDATED = '31 August 2026';
-const PROVIDER = "Chris O'Leary, trading as Gig Manager";
+const PROVIDER = "Chris O'Leary, trading as Seeau";
 
 function Section({ title, children }) {
   return (
@@ -34,15 +34,15 @@ export default function TermsModal({ onClose }) {
 
         <Section title="1. Acceptance">
           <p style={{ margin: 0 }}>
-            By creating an account or using Gig Manager, you agree to these
+            By creating an account or using Seeau, you agree to these
             terms. If you don't agree, please don't use the app. These terms
             are between you and {PROVIDER} ("we", "us").
           </p>
         </Section>
 
-        <Section title="2. What Gig Manager is">
+        <Section title="2. What Seeau is">
           <p style={{ margin: 0 }}>
-            Gig Manager is a booking and admin tool for bands — rosters, day
+            Seeau is a booking and admin tool for bands — rosters, day
             sheets, setlists, invoicing, and payment tracking. We aren't a
             party to any booking agreement between a band and a client, and
             we aren't a payment institution: subscription billing and
@@ -139,7 +139,7 @@ export default function TermsModal({ onClose }) {
         <Section title="11. Changes to these terms">
           <p style={{ margin: 0 }}>
             If we make a material change, we'll update the date above and
-            let you know in the app. Continuing to use Gig Manager after
+            let you know in the app. Continuing to use Seeau after
             that means you accept the updated terms.
           </p>
         </Section>

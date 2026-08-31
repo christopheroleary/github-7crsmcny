@@ -82,10 +82,10 @@ export default function GigsList() {
   // Persisted like selected_gig_id below — the chosen view survives a
   // reload/PWA restart instead of always resetting to List.
   const [viewMode, setViewMode] = useState(
-    () => localStorage.getItem('gig_manager_view_mode') || 'list'
+    () => localStorage.getItem('seeau_view_mode') || 'list'
   );
   function changeViewMode(mode) {
-    localStorage.setItem('gig_manager_view_mode', mode);
+    localStorage.setItem('seeau_view_mode', mode);
     setViewMode(mode);
   }
 

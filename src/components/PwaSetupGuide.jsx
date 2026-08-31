@@ -31,7 +31,7 @@ function InstallStepContent({ device, onInstalled }) {
             if (outcome === 'accepted' && onInstalled) onInstalled();
           }}
         >
-          📲 Install Gig Manager
+          📲 Install Seeau
         </button>
       </div>
     );
@@ -65,7 +65,7 @@ function NotificationStepContent({ device }) {
       <div className="setup-step--disabled">
         <p>
           This can't work yet in this browser tab — Apple only allows notifications for the installed app, opened
-          from its Home Screen icon. Go back to step 1, then close this tab and open Gig Manager from the icon
+          from its Home Screen icon. Go back to step 1, then close this tab and open Seeau from the icon
           instead. You'll see this step unlock automatically.
         </p>
       </div>
@@ -101,7 +101,7 @@ export default function PwaSetupGuide({ onContinue, showHeader = true }) {
     <div>
       {showHeader && (
         <>
-          <p className="login-card__eyebrow">Gig Manager</p>
+          <p className="login-card__eyebrow">Seeau</p>
           <h1 className="login-card__title" style={{ fontSize: 22, marginBottom: 8 }}>Get the best experience</h1>
         </>
       )}

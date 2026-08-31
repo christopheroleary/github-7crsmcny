@@ -465,10 +465,10 @@ function DepDetailsEditor({ ph, onSaved }) {
 
   function handleInvite() {
     const signupUrl = window.location.origin + '/?invite=1&name=' + encodeURIComponent(ph.name);
-    const subject = 'Join us on Gig Manager';
+    const subject = 'Join us on Seeau';
     const body =
       'Hi ' + ph.name + ',\n\n' +
-      "We'd like to invite you to create your own account on Gig Manager so we can book you directly for future gigs.\n\n" +
+      "We'd like to invite you to create your own account on Seeau so we can book you directly for future gigs.\n\n" +
       'Sign up here: ' + signupUrl + '\n\n' +
       "Once you've signed up, let us know and we'll link your gig history to your new account.\n\nThanks!";
     window.location.href =

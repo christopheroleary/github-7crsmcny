@@ -167,7 +167,7 @@ export default function TaxRecords({ profileId }) {
 
   function handleExport() {
     const lines = [
-      '# These figures reflect what has been marked paid in Gig Manager. If you were paid a different amount, or paid outside the app, your real records may differ -- always check against your bank statement before filing.',
+      '# These figures reflect what has been marked paid in Seeau. If you were paid a different amount, or paid outside the app, your real records may differ -- always check against your bank statement before filing.',
       // "Receipt" tells an accountant at a glance which lines have a stored
       // image behind them and which are unevidenced.
       ['Date', 'Type', 'Category', 'Description', 'Amount (GBP)', 'Receipt'].join(','),

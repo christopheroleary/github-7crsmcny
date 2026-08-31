@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Gig Manager//EN',
+    'PRODID:-//Seeau//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:' + calName,
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     const dtStart = 'DTSTART;VALUE=DATE:' + dateVal;
     const dtEnd = 'DTEND;VALUE=DATE:' + dateVal;
 
-    const uid = escapeIcs(gig.id + '@gigmanager');
+    const uid = escapeIcs(gig.id + '@seeau');
     const statusTag = confirmed ? 'CONFIRMED' : 'TENTATIVE';
 
     lines.push('BEGIN:VEVENT');

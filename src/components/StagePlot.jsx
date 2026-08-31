@@ -12,7 +12,7 @@ import {
    stage-right corner. Negative x / y > depth are legal — that's the
    apron and the floor, where PA, subs and the FOH desk live.
 
-   In the gig manager: seed `useState(defaultConfig)` from the gig row
+   In Seeau: seed `useState(defaultConfig)` from the gig row
    and swap the `window.storage` calls for Supabase. The whole config
    is one JSON blob.
    ──────────────────────────────────────────────────────────────── */

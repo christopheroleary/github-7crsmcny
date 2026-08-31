@@ -87,7 +87,7 @@ export function installInstructions({ os, browser }) {
   // Chrome desktop fallback, for when the native install prompt isn't
   // available (e.g. already dismissed once this browser session).
   return {
-    summary: 'Install icon at the right of the address bar, or ⋮ menu → "Install Gig Manager…".',
+    summary: 'Install icon at the right of the address bar, or ⋮ menu → "Install Seeau…".',
     officialUrl: 'https://support.google.com/chrome/answer/9658361',
     officialLabel: 'Google Support: Use web apps',
   };

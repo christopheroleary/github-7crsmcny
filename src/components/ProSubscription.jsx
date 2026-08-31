@@ -48,7 +48,7 @@ export default function ProSubscription() {
 
   return (
     <div className="day-sheet__section">
-      <h3 className="day-sheet__section-title">Gig Manager Pro</h3>
+      <h3 className="day-sheet__section-title">Seeau Pro</h3>
 
       {isPro ? (
         <>

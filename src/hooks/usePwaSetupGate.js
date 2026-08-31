@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getDeviceInfo } from '../utils/deviceInfo.js';
 
-const DISMISS_KEY = 'gig_manager_pwa_setup_dismissed';
+const DISMISS_KEY = 'seeau_pwa_setup_dismissed';
 
 // Per-DEVICE, not per-account -- a user logging in on a new phone should
 // see this again even if they already completed it on their laptop, since

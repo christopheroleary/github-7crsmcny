@@ -1,4 +1,4 @@
-# Gig Manager — first slice
+# Seeau — first slice
 
 A minimal Vite + React app wired up to your Supabase project. This slice
 does exactly two things: lets you sign in, and shows the list of gigs

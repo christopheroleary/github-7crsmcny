@@ -172,7 +172,7 @@ function parseRssItems(xml: string): RawItem[] {
 async function fetchQuery(query: string): Promise<RawItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GigManagerNewsBot/1.0)' } });
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SeeauNewsBot/1.0)' } });
     if (!res.ok) return [];
     return parseRssItems(await res.text());
   } catch {
