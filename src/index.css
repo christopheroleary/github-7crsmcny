@@ -914,6 +914,19 @@ input {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* ---------- Money tab group divider (Money.jsx) ---------- */
+.money-group-divider {
+  margin: 28px 0 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 /* ---------- Section header ---------- */
 .section-header {
   display: flex;

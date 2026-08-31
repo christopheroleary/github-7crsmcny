@@ -34,11 +34,19 @@ export default function Money() {
 
   return (
     <>
-      <h2 className="section-header__title" style={{ margin: '0 0 16px' }}>Money</h2>
+      <div className="section-header">
+        <h2 className="section-header__title">Money</h2>
+      </div>
+
       <ProSubscription />
       {userId && <ConnectPayoutSetup paymentDetails={paymentDetails} />}
       {userId && <ProfilePaymentDetails profileId={userId} paymentDetails={paymentDetails} />}
       {userId && <OutstandingClaims profileId={userId} />}
+
+      {/* Everything above is getting paid; everything below is your own
+          Making Tax Digital record-keeping -- different enough purposes
+          that they read as two groups, not one long stack. */}
+      <div className="money-group-divider">Making Tax Digital records</div>
       {userId && <MyExpenses profileId={userId} />}
       {userId && <MyIncome profileId={userId} />}
       {userId && <MyMileage profileId={userId} />}

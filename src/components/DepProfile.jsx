@@ -9,6 +9,10 @@ import InfoTooltip from './InfoTooltip.jsx';
 import { notify } from '../utils/toastService.js';
 
 const AUTOSAVE_DELAY = 700;
+// Same green/red pair as the day-chips in MyAvailability.jsx -- kept
+// identical on purpose so "opted in" reads the same way in both places.
+const AVAILABLE_COLOUR = '#2f7d4f';
+const UNAVAILABLE_COLOUR = '#b6452c'; // matches --rust, stable across all UI themes
 
 // Everything gated behind "Available for dep work" on the old single
 // MyProfile.jsx page, now its own tab -- own profile row's own id comes
@@ -69,28 +73,45 @@ export default function DepProfile() {
 
   if (loading) return <p className="state-message">Loading…</p>;
 
+  const chipColour = availableForDepWork ? AVAILABLE_COLOUR : UNAVAILABLE_COLOUR;
+
   return (
-    <div className="entity-form">
-      <h2 className="section-header__title">Dep profile</h2>
-      <p className="field__hint" style={{ marginTop: -8, marginBottom: 16 }}>
-        Opt in to being offered dep/session work — on bands you're not even
-        a member of, not just your own.
-      </p>
+    <>
+      <div className="section-header">
+        <h2 className="section-header__title">Dep profile</h2>
+      </div>
 
-      <label className="field">
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={availableForDepWork}
-            onChange={(e) => handleDepToggle(e.target.checked)}
-            style={{ width: 'auto' }}
-          />
-          <span className="field__label" style={{ marginBottom: 0 }}>Available for dep work</span>
+      <div className="entity-form">
+        <p className="field__hint" style={{ marginTop: 0, marginBottom: 16 }}>
+          Opt in to being offered dep/session work — on bands you're not even
+          a member of, not just your own.
+        </p>
+
+        <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: 'row' }}>
+          <button
+            type="button"
+            onClick={() => handleDepToggle(!availableForDepWork)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '7px 12px',
+              borderRadius: 20,
+              border: '1px solid ' + chipColour + '55',
+              background: chipColour + '1f',
+              color: chipColour,
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            <span aria-hidden="true">{availableForDepWork ? '✓' : '✕'}</span>
+            <span>Available for dep work</span>
+          </button>
           <InfoTooltip text="Makes your profile visible to band leaders looking for deps/session musicians, even for bands you're not on. Off by default." />
-        </span>
-      </label>
+        </div>
 
-      {availableForDepWork && (
+        {availableForDepWork && (
         <div style={{ background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '2px 14px 14px', margin: '4px 0 18px' }}>
           <p className="field__hint" style={{ marginTop: 12, marginBottom: 0 }}>
             Band leaders looking for a dep see these three things together — fill them in so they can tell if you're a good fit.
@@ -112,7 +133,8 @@ export default function DepProfile() {
           <MyAvailability profileId={userId} />
           <MyRepertoire profileId={userId} />
         </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

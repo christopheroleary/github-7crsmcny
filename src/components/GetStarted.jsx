@@ -6,9 +6,13 @@ import PwaSetupGuide from './PwaSetupGuide.jsx';
 // later without feeling out of place there.
 export default function GetStarted() {
   return (
-    <div className="day-sheet__section">
-      <h2 className="section-header__title" style={{ margin: '0 0 16px' }}>Get started</h2>
-      <PwaSetupGuide showHeader={false} />
-    </div>
+    <>
+      <div className="section-header">
+        <h2 className="section-header__title">Get started</h2>
+      </div>
+      <div className="day-sheet__section">
+        <PwaSetupGuide showHeader={false} />
+      </div>
+    </>
   );
 }

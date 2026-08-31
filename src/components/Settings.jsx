@@ -239,8 +239,11 @@ export default function Settings() {
   if (loading) return <p className="state-message">Loading profile…</p>;
 
   return (
-    <div className="entity-form">
-      <h2 className="section-header__title">Settings</h2>
+    <>
+      <div className="section-header">
+        <h2 className="section-header__title">Settings</h2>
+      </div>
+      <div className="entity-form">
 
       <div className="field">
         <span className="field__label">Profile picture</span>
@@ -359,7 +362,9 @@ export default function Settings() {
         </div>
       </div>
 
+      </div>
+
       {userId && <CalendarFeed profileId={userId} />}
-    </div>
+    </>
   );
 }
