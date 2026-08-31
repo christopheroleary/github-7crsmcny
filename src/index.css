@@ -1787,31 +1787,31 @@ input:not([type]) {
    Band leader gig roster grid
    ============================================================ */
 
-/* A bounded-height scroll box (not the page) is what lets the header and
-   month rows below stick in place while hundreds of gig rows scroll past
-   -- position:sticky sticks relative to the nearest scrolling ancestor,
-   and setting only overflow-x here would (per spec) force overflow-y to
-   the same non-visible value anyway, so there's no version of this that
-   scrolls horizontally without also becoming the vertical scroll
-   container. Might as well make that deliberate and give it real height. */
+/* No overflow/scroll box here -- see the longer note on .gig-grid below.
+   The header and month rows stick relative to the page's own scroll
+   (same as .gigs-sticky-header above this in GigsList.jsx), not a
+   bounded box of their own. */
 .gig-grid-wrap {
   margin-top: 8px;
 }
 
 .gig-grid {
-  max-height: 70vh;
-  overflow-y: auto;
-  /* Was overflow: auto (both axes) -- the table's <col> widths used to be
-     literal pixel values that could add up to more than the container's
-     actual width at some screen sizes, and table-layout:fixed does NOT
-     shrink columns to compensate when that happens (it just makes the
-     whole table wider than intended), so this scrolled sideways instead
-     of ever visibly overflowing. Column widths are now percentages
-     computed to always sum to exactly 100% (see colWidthPercents in
-     BandLeaderGigGrid.jsx), so there's structurally nothing left to
-     scroll horizontally -- hidden here as a hard backstop regardless. */
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  /* No overflow here at all, on any axis -- deliberately. It used to be
+     max-height + overflow-y:auto (its own independent scrollbar,
+     competing with the page's own scroll) and, even after removing
+     that, overflow-x:hidden alone as a horizontal-overflow backstop --
+     which turned out to have its own real problem: per the CSS overflow
+     spec, mixing "visible" (the unset overflow-y) with any non-visible
+     value forces the visible axis to compute as "auto" too, so
+     overflow-x:hidden alone silently made this a scroll container again
+     regardless, breaking thead's sticky positioning below (it stuck to
+     THIS box instead of the page -- confirmed live, not theoretical).
+     The horizontal-overflow backstop is genuinely redundant now anyway:
+     <col> widths are percentages computed to always sum to exactly 100%
+     (see colWidthPercents in BandLeaderGigGrid.jsx), so there's
+     structurally nothing left to overflow sideways. Removing it here is
+     what lets thead's sticky reference the page's scroll like
+     .gigs-sticky-header above it, not this box. */
   border: 1px solid var(--line);
   border-radius: 10px;
 }
@@ -1853,7 +1853,15 @@ input:not([type]) {
 
 .gig-grid thead th {
   position: sticky;
-  top: 0;
+  /* Sits just below .gigs-sticky-header (title + List/Calendar/Grid
+     toggle), which is ALSO sticky and sits above this in the page --
+     stacking two stickies needs the second one's `top` to clear the
+     first one's actual height, or they'd overlap. --gigs-sticky-header-
+     height is kept in sync with the real, live height by a
+     ResizeObserver in GigsList.jsx -- a hardcoded px value here drifted
+     wrong the moment the header wrapped differently on a narrower
+     screen, so don't go back to one. */
+  top: var(--gigs-sticky-header-height, 100px);
   background: var(--paper-raised);
   color: var(--text-muted);
   font-weight: 600;

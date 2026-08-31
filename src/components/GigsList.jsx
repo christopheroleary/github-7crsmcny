@@ -101,6 +101,26 @@ export default function GigsList() {
   // turning it on again scrolls again.
   const todayRowRef = useRef(null);
   const scrolledForHistoricRef = useRef(false);
+  // Grid view's own table header is sticky too (see .gig-grid thead th),
+  // stacking directly below this sticky title/toggle block rather than
+  // overlapping it -- which needs to know this block's actual height. A
+  // hardcoded px value would drift wrong the moment its content wraps
+  // differently (narrower screen, more tabs added later, etc. -- this
+  // was tried and confirmed broken at a narrower width before switching
+  // to measuring it for real). ResizeObserver keeps a CSS var in sync
+  // with whatever the real height actually is, on any screen, always.
+  const stickyHeaderRef = useRef(null);
+  useEffect(() => {
+    const el = stickyHeaderRef.current;
+    if (!el) return;
+    const setVar = () => {
+      document.documentElement.style.setProperty('--gigs-sticky-header-height', el.getBoundingClientRect().height + 'px');
+    };
+    setVar();
+    const observer = new ResizeObserver(setVar);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode]);
   const [showAddForm, setShowAddForm] = useState(false);
   // Set when "add a gig" is triggered from a specific calendar date (an
   // empty day, or the "Add gig" option in a day's popover) rather than the
@@ -294,7 +314,7 @@ export default function GigsList() {
           proves it works fine here (BandLeaderGigGrid's table header uses
           the same technique). Scoped to this page only -- the global
           header/tab-nav above it are untouched. */}
-      <div className="gigs-sticky-header">
+      <div className="gigs-sticky-header" ref={stickyHeaderRef}>
       <div className="section-header">
         <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
         {isAdmin && (
