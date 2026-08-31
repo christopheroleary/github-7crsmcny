@@ -7,7 +7,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')!)['secret'];
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_EMAIL = (Deno.env.get('VAPID_EMAIL') || 'admin@seeau.app').replace(/^mailto:/i, '');
+const VAPID_EMAIL = (Deno.env.get('VAPID_EMAIL') || 'chrisjohnoleary@gmail.com').replace(/^mailto:/i, '');
 
 webpush.setVapidDetails('mailto:' + VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
