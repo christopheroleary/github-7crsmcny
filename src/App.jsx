@@ -13,6 +13,7 @@ import GetStarted from './components/GetStarted.jsx';
 import DepProfile from './components/DepProfile.jsx';
 import Money from './components/Money.jsx';
 import AppFooter from './components/AppFooter.jsx';
+import PushHealthBanner from './components/PushHealthBanner.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EnquiriesList from './components/EnquiriesList.jsx';
@@ -31,6 +32,11 @@ import FeedbackInbox from './components/FeedbackInbox.jsx';
 import SongsList from './components/SongsList.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
 import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
+import {
+  DashboardIcon, GigsIcon, EnquiriesIcon, VenuesIcon, ClientsIcon, SuppliersIcon,
+  BandsIcon, MusiciansIcon, RepertoireIcon, ActivityIcon, FeedbackIcon,
+  SettingsIcon, GetStartedIcon, DepProfileIcon, MoneyIcon,
+} from './utils/tabIcons.jsx';
 
 function UserIcon() {
   return (
@@ -283,41 +289,41 @@ export default function App() {
   // Profile) hidden behind the small header icon, which is a big part of
   // why musicians kept missing Pro/claims features living in there.
   const personalTabs = [
-    ['settings', 'Settings'],
-    ['getstarted', 'Get started'],
-    ['depprofile', 'Dep profile'],
-    ['money', 'Money'],
+    ['settings', 'Settings', SettingsIcon],
+    ['getstarted', 'Get started', GetStartedIcon],
+    ['depprofile', 'Dep profile', DepProfileIcon],
+    ['money', 'Money', MoneyIcon],
   ];
 
   const adminTabs = [
-    ['dashboard', 'Dashboard'],
-    ['gigs', 'Gigs'],
-    ['enquiries', 'Enquiries'],
-    ['venues', 'Venues'],
-    ['clients', 'Clients'],
-    ['suppliers', 'Suppliers'],
-    ['bands', 'Bands'],
-    ['musicians', 'Musicians'],
-    ['repertoire', 'Repertoire'],
-    ['activity', 'Activity'],
-    ['feedback', 'Feedback'],
+    ['dashboard', 'Dashboard', DashboardIcon],
+    ['gigs', 'Gigs', GigsIcon],
+    ['enquiries', 'Enquiries', EnquiriesIcon],
+    ['venues', 'Venues', VenuesIcon],
+    ['clients', 'Clients', ClientsIcon],
+    ['suppliers', 'Suppliers', SuppliersIcon],
+    ['bands', 'Bands', BandsIcon],
+    ['musicians', 'Musicians', MusiciansIcon],
+    ['repertoire', 'Repertoire', RepertoireIcon],
+    ['activity', 'Activity', ActivityIcon],
+    ['feedback', 'Feedback', FeedbackIcon],
     ...personalTabs,
   ];
 
   const bandLeaderTabs = [
-    ['dashboard', 'Dashboard'],
-    ['gigs', 'Gigs'],
-    ['venues', 'Venues'],
-    ['clients', 'Clients'],
-    ['suppliers', 'Suppliers'],
-    ['bands', 'Bands'],
-    ['musicians', 'Musicians'],
+    ['dashboard', 'Dashboard', DashboardIcon],
+    ['gigs', 'Gigs', GigsIcon],
+    ['venues', 'Venues', VenuesIcon],
+    ['clients', 'Clients', ClientsIcon],
+    ['suppliers', 'Suppliers', SuppliersIcon],
+    ['bands', 'Bands', BandsIcon],
+    ['musicians', 'Musicians', MusiciansIcon],
     ...personalTabs,
   ];
 
   const memberTabs = [
-    ['dashboard', 'Dashboard'],
-    ['gigs', 'My gigs'],
+    ['dashboard', 'Dashboard', DashboardIcon],
+    ['gigs', 'My gigs', GigsIcon],
     ...personalTabs,
   ];
 
@@ -326,7 +332,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-header__title">Gig Manager</span>
+        <span className="app-header__title">Seeau</span>
         <div className="app-header__right">
         <NotificationBell onNavigate={handleNavigate} />
           <button
@@ -335,7 +341,7 @@ export default function App() {
             title="Send feedback — bugs, ideas, anything not working as expected"
             aria-label="Send feedback"
           >
-            💬<span className="feedback-btn__label">Feedback</span>
+            <FeedbackIcon /><span className="feedback-btn__label">Feedback</span>
           </button>
           <button
             className={'notif-bell__btn' + (view === 'settings' ? ' notif-bell__btn--active' : '')}
@@ -351,16 +357,15 @@ export default function App() {
               <UserIcon />
             )}
           </button>
-          <button className="btn btn--ghost" onClick={() => supabase.auth.signOut()}>
-            Sign out
-          </button>
         </div>
       </header>
 
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} page={view} />}
 
+      <PushHealthBanner />
+
       <nav className="tab-nav">
-        {tabs.map(([key, label]) => (
+        {tabs.map(([key, label, Icon]) => (
           <button
             key={key}
             className={view === key ? 'tab tab--active' : 'tab'}
@@ -379,7 +384,8 @@ export default function App() {
               updateView(key);
             }}
           >
-            {label}
+            <Icon />
+            <span className="tab__label">{label}</span>
           </button>
         ))}
       </nav>

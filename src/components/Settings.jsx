@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useCurrentProfile, applyUiTheme } from '../context/ProfileContext.jsx';
 import InstrumentPicker from './InstrumentPicker.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import CalendarFeed from './CalendarFeed.jsx';
@@ -134,10 +134,10 @@ export default function Settings() {
   async function handleThemeChange(themeId) {
     const previous = uiTheme;
     setUiTheme(themeId);
-    document.documentElement.setAttribute('data-theme', themeId);
+    applyUiTheme(themeId);
     await persist({ ui_theme: themeId }, () => {
       setUiTheme(previous);
-      document.documentElement.setAttribute('data-theme', previous);
+      applyUiTheme(previous);
     });
   }
 
@@ -335,33 +335,38 @@ export default function Settings() {
         </label>
       </div>
 
-      <div className="field">
-        <span className="field__label">
-          App colour theme
-          <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
-        </span>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {UI_THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => handleThemeChange(t.id)}
-              title={t.label}
-              aria-label={t.label}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                background: t.swatch,
-                border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
-                cursor: 'pointer',
-                padding: 0,
-              }}
-            />
-          ))}
-        </div>
       </div>
 
+      {/* Its own box, like CalendarFeed below -- not just another row in the
+          identity/contact fields above it, since it's an app-wide display
+          preference rather than something about the person. */}
+      <div className="entity-form">
+        <div className="field">
+          <span className="field__label">
+            App colour theme
+            <InfoTooltip text="Changes the app's own colours (nav, buttons) — not your invoices/quotes/contracts, which use each band's own document theme instead (set on the band, under Bands)." />
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {UI_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => handleThemeChange(t.id)}
+                title={t.label}
+                aria-label={t.label}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: t.swatch,
+                  border: uiTheme === t.id ? '3px solid var(--ink)' : '1px solid var(--line)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {userId && <CalendarFeed profileId={userId} />}

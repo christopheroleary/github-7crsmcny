@@ -7,15 +7,30 @@ import { getDeviceInfo } from '../utils/deviceInfo.js';
 // --doc-secondary, which is per-band document branding and lives
 // entirely in inline styles on the invoice/quote/contract preview
 // elements, never touching this attribute.
-function applyUiTheme(theme) {
+//
+// Also keeps <meta name="theme-color"> in sync -- on Android, Chrome
+// paints the PWA's status bar/toolbar from this tag *live* while the app
+// is running (unlike manifest.json's theme_color, which is really only
+// the splash-screen/app-switcher colour and, being one static file shared
+// by every user, could never reflect a personal pick anyway). Without
+// this, that bar stayed the default amber forever regardless of theme --
+// exactly what it was hardcoded to in index.html. Reading --amber back
+// off the root via getComputedStyle (rather than a second hardcoded
+// theme->colour map here) means this can't quietly drift out of sync with
+// the actual theme CSS below.
+export function applyUiTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme || 'default');
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--amber').trim();
+  if (accent) {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', accent);
+  }
 }
 
 const ProfileContext = createContext(null);
 
 // Cache the resolved profile so reopening the app with no signal doesn't
 // hang forever waiting on a network request — see loadProfile() below.
-const PROFILE_CACHE_KEY = 'gig_manager_profile_cache';
+const PROFILE_CACHE_KEY = 'seeau_profile_cache';
 
 function readCachedProfile() {
   try {
@@ -36,7 +51,7 @@ function writeCachedProfile(profile, ledBandIds) {
 // per user without logging every render or tab focus -- once confirmed
 // signed in over the network, at most once per half hour per browser.
 const SESSION_LOG_THROTTLE_MS = 30 * 60 * 1000;
-const SESSION_LOG_KEY = 'gig_manager_last_session_log_at';
+const SESSION_LOG_KEY = 'seeau_last_session_log_at';
 
 function maybeLogSession() {
   let last = 0;

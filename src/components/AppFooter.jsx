@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '../supabaseClient';
 import PrivacyModal from './PrivacyModal.jsx';
 import TermsModal from './TermsModal.jsx';
 import { forceRefreshApp } from '../utils/serviceWorker.js';
@@ -32,6 +33,8 @@ export default function AppFooter() {
         <button type="button" className="link-button" onClick={() => setOpenModal('terms')}>Terms</button>
         <span aria-hidden="true">·</span>
         <button type="button" className="link-button" onClick={handleRefresh}>Refresh app</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" className="link-button" onClick={() => supabase.auth.signOut()}>Sign out</button>
       </div>
       <p className="app-footer__version">
         Version {APP_VERSION}{buildTimeLabel ? ' · built ' + buildTimeLabel : ''}

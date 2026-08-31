@@ -886,16 +886,38 @@ input {
   border-bottom: 1px solid var(--line);
 }
 
+/* Icon-over-label, not icon-beside-label -- a small icon reads at a glance
+   above a caption-sized name, and stacking is what actually buys back
+   horizontal room: each tab's width is now set by whichever of the icon or
+   the (much smaller) label is wider, not by 14px text. See tabIcons.jsx for
+   the icon set -- one per tab, same stroke style as the header's UserIcon. */
 .tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   background: none;
   border: none;
-  padding: 8px 8px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 7px 9px 6px;
+  min-width: 52px;
   color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   flex-shrink: 0; /* Prevents the text inside the tab from squishing */
+}
+
+.tab svg {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+
+.tab__label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .tab--active {
@@ -2917,6 +2939,11 @@ input:not([type]) {
 }
 .feedback-btn:hover {
   background: color-mix(in srgb, var(--amber) 24%, transparent);
+}
+.feedback-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 .feedback-btn__label {
   display: none;
