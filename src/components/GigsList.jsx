@@ -284,6 +284,17 @@ export default function GigsList() {
   // ── List view ────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Sticky, not a second scrollable box -- title/toggle/filters/search
+          pin to the top of the (single, natural) page scroll as you scroll
+          past them, rather than living inside their own overflow:auto
+          container. A nested scrollbox risks exactly the kind of touch/
+          scroll conflicts this app has already hit and fixed once before
+          (see the pull-to-refresh removal); sticky uses the browser's own
+          single scroll container instead, and this codebase already
+          proves it works fine here (BandLeaderGigGrid's table header uses
+          the same technique). Scoped to this page only -- the global
+          header/tab-nav above it are untouched. */}
+      <div className="gigs-sticky-header">
       <div className="section-header">
         <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
         {isAdmin && (
@@ -420,6 +431,17 @@ export default function GigsList() {
         </div>
       )}
 
+      {viewMode === 'list' && gigs.length > 0 && (
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search gigs by venue, band, client, date…"
+          resultCount={searchedGigs.length}
+          totalCount={gigs.length}
+        />
+      )}
+      </div>
+
       {viewMode === 'calendar' && (
         <GigCalendar
           gigs={rawGigs}
@@ -437,16 +459,6 @@ export default function GigsList() {
 
       {viewMode === 'list' && (
       <>
-      {gigs.length > 0 && (
-        <SearchBox
-          value={query}
-          onChange={setQuery}
-          placeholder="Search gigs by venue, band, client, date…"
-          resultCount={searchedGigs.length}
-          totalCount={gigs.length}
-        />
-      )}
-
       {/* ── States ───────────────────────────────────────────────────────────── */}
       {syncing && gigs.length === 0 ? (
         <p className="state-message">Loading gigs…</p>

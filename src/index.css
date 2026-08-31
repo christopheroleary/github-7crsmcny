@@ -597,6 +597,21 @@ input {
   color: var(--rust);
 }
 
+/* ---------- Gigs list: sticky title/toggle/filters/search (GigsList.jsx) ----------
+   Sticks to the top of the page's own scroll as you scroll past it -- not
+   a second scrollable box, just the browser's normal single scroll with
+   this block pinned. Needs an opaque background so gig cards scrolling
+   underneath don't show through/overlap it once it's stuck. */
+.gigs-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--paper);
+  padding-top: 16px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
 /* ---------- Gig "ticket stub" cards ---------- */
 
 .gig-list {
