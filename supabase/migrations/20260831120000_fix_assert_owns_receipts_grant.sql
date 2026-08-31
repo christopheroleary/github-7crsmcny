@@ -1,0 +1,30 @@
+-- Fixes a real regression from 20260827100000_harden_function_execute_grants.sql:
+-- every musician's claim submission was failing with "permission denied for
+-- function assert_owns_receipts".
+--
+-- That migration revoked EXECUTE from PUBLIC on assert_owns_receipts on the
+-- reasoning that it's "internal-only... called via perform from inside
+-- another function's body", and that such calls "run under the owner's
+-- privileges regardless of EXECUTE grants to client-facing roles". That's
+-- true for trigger functions (which the rest of that migration correctly
+-- left with no re-grant) -- it is NOT true here. create_musician_claim and
+-- update_musician_claim are both plain SECURITY INVOKER (no `security
+-- definer` on either) -- they execute as the calling musician's own
+-- `authenticated` role for their entire body, including the nested
+-- `perform public.assert_owns_receipts(p_items)` call. Postgres checks
+-- EXECUTE on every function call against whoever is the acting role at that
+-- call site, regardless of whether the call came directly from a client RPC
+-- or from inside another function -- SECURITY DEFINER on the *callee* only
+-- changes what role its own body runs as once entered, it doesn't grant the
+-- caller a free pass to enter it in the first place.
+--
+-- Confirmed live before this fix: authenticated_can_execute = false on
+-- assert_owns_receipts, true on both create_musician_claim and
+-- update_musician_claim -- exactly matching the error surfacing from the
+-- inner call.
+--
+-- Fix: restore EXECUTE to authenticated specifically (the same role the two
+-- calling RPCs are already granted to) -- not anon, not PUBLIC, so the
+-- original hardening migration's actual intent (no accidental anon/public
+-- exposure) stays intact.
+grant execute on function public.assert_owns_receipts(jsonb) to authenticated;
