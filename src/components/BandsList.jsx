@@ -21,20 +21,39 @@ export default function BandsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
   const [expandedLeadersId, setExpandedLeadersId] = useState(null);
   // One-shot deep link (e.g. from GigFeeSplit's "set the split percentages"
-  // link) -- consumed immediately rather than persisted, so navigating away
-  // and back to Bands later doesn't keep reopening the same edit form.
+  // link, or GigRoster's "Manage this band's members" hint) -- consumed
+  // immediately rather than persisted, so navigating away and back to
+  // Bands later doesn't keep reopening the same edit form/members panel.
+  // Both read once on mount from the same pair of one-shot localStorage
+  // keys the navigate-to-band relay writes (App.jsx) -- covers landing on
+  // this tab fresh. The band-selected listener below covers the case where
+  // Bands was already the visible tab, so switching to it again doesn't
+  // remount this component and these initializers never re-run.
   const [editingId, setEditingId] = useState(() => {
     const id = localStorage.getItem('selected_band_id');
-    if (id) localStorage.removeItem('selected_band_id');
-    return id || null;
+    const section = localStorage.getItem('selected_band_section');
+    return id && section !== 'members' ? id : null;
+  });
+  const [expandedId, setExpandedId] = useState(() => {
+    const id = localStorage.getItem('selected_band_id');
+    const section = localStorage.getItem('selected_band_section');
+    if (id) { localStorage.removeItem('selected_band_id'); localStorage.removeItem('selected_band_section'); }
+    return id && section === 'members' ? id : null;
   });
 
   useEffect(() => {
     function handleBandSelected(e) {
-      setEditingId(e.detail?.band_id || null);
+      const bandId = e.detail?.band_id || null;
+      // A 'members' deep link (e.g. GigRoster's "Manage this band's members"
+      // hint) wants the standing-roster panel open, not the edit-details
+      // form GigFeeSplit's link expects.
+      if (e.detail?.section === 'members') {
+        setExpandedId(bandId);
+      } else {
+        setEditingId(bandId);
+      }
     }
     window.addEventListener('band-selected', handleBandSelected);
     return () => window.removeEventListener('band-selected', handleBandSelected);

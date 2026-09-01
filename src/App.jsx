@@ -28,6 +28,7 @@ import ToastHost from './components/ToastHost.jsx';
 import PromptHost from './components/PromptHost.jsx';
 import PwaSetupGuide from './components/PwaSetupGuide.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import JoinBandInvite from './components/JoinBandInvite.jsx';
 import FeedbackInbox from './components/FeedbackInbox.jsx';
 import SongsList from './components/SongsList.jsx';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
@@ -108,6 +109,7 @@ export default function App() {
   // session would fall straight through to the normal signed-in app instead
   // of prompting for a new password.
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [pendingJoinToken, setPendingJoinToken] = useState(null);
   const { profile, isAdmin, isBandLeader, loading: profileLoading, refreshProfile } = useCurrentProfile();
   // localStorage, not sessionStorage: a PWA fully exited (e.g. backgrounded
   // at a venue with no signal, then killed by the OS) loses sessionStorage
@@ -230,6 +232,27 @@ export default function App() {
     }
   }, []);
 
+  // ?join_band=<token> -- a band-invite link (BandMembers' "Invite an
+  // existing musician"). Only meaningful for an already-registered account,
+  // so this just stashes the token and lets the normal sign-in flow run its
+  // course if there's no session yet; the effect below picks it up once
+  // there is one.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('join_band');
+    if (token) {
+      sessionStorage.setItem('pending_join_band_token', token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session || profileLoading) return;
+    const token = sessionStorage.getItem('pending_join_band_token');
+    if (!token) return;
+    sessionStorage.removeItem('pending_join_band_token');
+    setPendingJoinToken(token);
+  }, [session, profileLoading]);
+
   useEffect(() => {
     // Also wait on profileLoading: handleNavigate closes over `tabs`, which
     // only exists on renders that get past the loading/login early-returns
@@ -259,10 +282,16 @@ export default function App() {
     function handleNavigateToBand(e) {
       const bandId = e.detail?.band_id;
       if (!bandId) return;
+      // `section: 'members'` (e.g. GigRoster's "Manage this band's members"
+      // hint) opens straight to the standing-roster panel instead of the
+      // edit-details form GigFeeSplit's link expects -- same event, same
+      // one-shot localStorage+event relay, just carrying one extra field
+      // through for BandsList to branch on.
       localStorage.setItem('selected_band_id', bandId);
+      localStorage.setItem('selected_band_section', e.detail?.section || '');
       updateView('bands');
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('band-selected', { detail: { band_id: bandId } }));
+        window.dispatchEvent(new CustomEvent('band-selected', { detail: { band_id: bandId, section: e.detail?.section } }));
       }, 50);
     }
     window.addEventListener('navigate-to-band', handleNavigateToBand);
@@ -408,6 +437,9 @@ export default function App() {
         {view === 'money' && <Money />}
       </main>
       <AppFooter />
+      {pendingJoinToken && (
+        <JoinBandInvite token={pendingJoinToken} onDone={() => setPendingJoinToken(null)} />
+      )}
       <ConfirmHost />
       <PromptHost />
       <ToastHost />

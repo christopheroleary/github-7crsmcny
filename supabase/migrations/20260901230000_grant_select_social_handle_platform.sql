@@ -1,0 +1,14 @@
+-- social_handle/social_platform (20260901040000, 20260901050000) were added
+-- to profiles after restrict_sensitive_profile_columns (20260826130000)
+-- already narrowed authenticated's SELECT to a fixed allowlist -- adding a
+-- column doesn't retroactively add it to an existing grant, so neither
+-- ever got a SELECT grant at all. Settings.jsx's own profile load asks for
+-- both in the same query as everything else, so the whole query failed
+-- ("permission denied for table profiles"), blanking the page -- caught
+-- live by Chris hitting it on his own admin account.
+--
+-- Unlike phone/bank_*/calendar_token, neither of these is sensitive -- a
+-- social handle is something someone deliberately makes public to be
+-- tagged in gig-day posts -- so there's no reason to route them through a
+-- self/admin-only RPC the way those are. A plain SELECT grant is correct.
+grant select (social_handle, social_platform) on public.profiles to authenticated;

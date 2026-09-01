@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { buildInviteMailto } from '../utils/depInvite.js';
 
 export default function BandMembers({ bandId, isAdmin }) {
   const { profile: me } = useCurrentProfile();
@@ -16,6 +17,10 @@ export default function BandMembers({ bandId, isAdmin }) {
   const [newMusicianId, setNewMusicianId] = useState('');
   const [newInstrumentId, setNewInstrumentId] = useState('');
   const [newDepName, setNewDepName] = useState('');
+  const [inviteLabel, setInviteLabel] = useState('');
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -28,6 +33,7 @@ export default function BandMembers({ bandId, isAdmin }) {
       { data: links },
       { data: placeholders },
       { data: phInsts },
+      { data: invites },
     ] = await Promise.all([
       supabase
         .from('band_members')
@@ -38,11 +44,21 @@ export default function BandMembers({ bandId, isAdmin }) {
       supabase.from('profile_instruments').select('profile_id, instrument_id, instruments(name)'),
       supabase.from('placeholder_musicians').select('id, name').is('merged_into', null).order('name'),
       supabase.from('placeholder_musician_instruments').select('placeholder_id, instrument_id, instruments(name)'),
+      // Pending (unaccepted, unexpired) invite links -- so a leader can see
+      // what's outstanding and cancel one that's no longer wanted, rather
+      // than a token being generated once and never visible again.
+      supabase
+        .from('band_join_invites')
+        .select('id, recipient_label, created_at, expires_at')
+        .eq('band_id', bandId)
+        .is('used_at', null)
+        .order('created_at', { ascending: false }),
     ]);
 
     setMembers(memberRows || []);
     setMusicians(profiles || []);
     setInstruments(insts || []);
+    setPendingInvites((invites || []).filter((i) => new Date(i.expires_at) > new Date()));
 
     // Map profile instruments
     const map = {};
@@ -149,6 +165,43 @@ export default function BandMembers({ bandId, isAdmin }) {
     load();
   }
 
+  async function handleCreateInvite(e) {
+    e.preventDefault();
+    setError(null);
+    setCreatingInvite(true);
+    setGeneratedLink('');
+    const { data, error } = await supabase
+      .from('band_join_invites')
+      .insert({ band_id: bandId, created_by: me?.id, recipient_label: inviteLabel.trim() || null })
+      .select('id')
+      .single();
+    setCreatingInvite(false);
+    if (error) { setError(error.message); return; }
+    setGeneratedLink(window.location.origin + '/?join_band=' + data.id);
+    setInviteLabel('');
+    load();
+  }
+
+  async function handleCopyInviteLink() {
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      notify('Invite link copied.');
+    } catch {
+      // Clipboard access can fail (permissions, non-HTTPS, older browsers)
+      // -- the link is still selectable/visible in the field either way.
+      notify("Couldn't copy automatically -- select and copy the link instead.");
+    }
+  }
+
+  async function handleCancelInvite(invite) {
+    const label = invite.recipient_label ? ' "' + invite.recipient_label + '"' : '';
+    const ok = await confirmAsync('Cancel this invite link' + label + '? It will stop working immediately.');
+    if (!ok) return;
+    const { error } = await supabase.from('band_join_invites').delete().eq('id', invite.id);
+    if (error) { notify("Couldn't cancel: " + error.message); return; }
+    load();
+  }
+
   async function handleRemove(member) {
     const name = member.profiles?.full_name || member.placeholder_musicians?.name || 'this member';
     const ok = await confirmAsync('Remove ' + name + ' from this band?');
@@ -193,6 +246,15 @@ export default function BandMembers({ bandId, isAdmin }) {
                   )}
                 </div>
                 <div className="simple-list__actions">
+                  {isAdmin && isDepRow && (
+                    <button
+                      className="link-button"
+                      onClick={() => { window.location.href = buildInviteMailto(displayName); }}
+                      title="Send them a link to create their own account -- their spot in this band carries across automatically once they sign up."
+                    >
+                      ✉ Invite to sign up
+                    </button>
+                  )}
                   {isAdmin && (
                     <button className="link-button link-button--danger" onClick={() => handleRemove(m)}>
                       Remove
@@ -222,9 +284,72 @@ export default function BandMembers({ bandId, isAdmin }) {
             >
               Dep / session
             </button>
+            <button
+              type="button"
+              className={addMode === 'invite' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+              onClick={() => { setAddMode('invite'); setGeneratedLink(''); }}
+            >
+              Invite an existing musician
+            </button>
           </div>
 
-          {addMode === 'musician' ? (
+          {addMode === 'invite' ? (
+            <div>
+              <p className="field__hint" style={{ marginTop: 0 }}>
+                For a musician who already has their own account but isn't visible in the "Registered musician" list
+                above -- that list only shows people already tied to one of your bands or gigs, or who've opted into
+                the dep pool. Generate a one-off link and send it to them yourself (text, WhatsApp, email, however
+                you'd normally reach them). It works once, for whoever opens it, and expires in 14 days.
+              </p>
+              <form onSubmit={handleCreateInvite} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input
+                  placeholder="Who's this for? (optional, just for your own reference)"
+                  value={inviteLabel}
+                  onChange={(e) => setInviteLabel(e.target.value)}
+                />
+                {error && <p className="form-error">{error}</p>}
+                <button type="submit" className="btn btn--primary btn--small" disabled={creatingInvite}>
+                  {creatingInvite ? 'Generating…' : '+ Generate invite link'}
+                </button>
+              </form>
+
+              {generatedLink && (
+                <div className="inline-subform" style={{ marginTop: 10 }}>
+                  <p className="field__hint" style={{ marginTop: 0 }}>
+                    Copy this link and send it to them directly -- it isn't sent for you.
+                  </p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input readOnly value={generatedLink} onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
+                    <button type="button" className="btn btn--ghost btn--small" onClick={handleCopyInviteLink}>
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {pendingInvites.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <p className="field__hint" style={{ marginTop: 0, fontWeight: 700, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.04em' }}>
+                    Pending invites
+                  </p>
+                  <ul className="simple-list">
+                    {pendingInvites.map((invite) => (
+                      <li className="simple-list__item" key={invite.id}>
+                        <div className="simple-list__row">
+                          <span className="simple-list__title">{invite.recipient_label || 'Unlabelled invite'}</span>
+                          <div className="simple-list__actions">
+                            <button className="link-button link-button--danger" onClick={() => handleCancelInvite(invite)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : addMode === 'musician' ? (
             <form onSubmit={handleAddMusician} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <select
                 value={newMusicianId}

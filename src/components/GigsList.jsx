@@ -8,8 +8,42 @@ import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatShortDate, formatTicketStub, todayStr } from '../utils/formatDate.js';
 import GigCalendar from './GigCalendar.jsx';
 import BandLeaderGigGrid from './BandLeaderGigGrid.jsx';
+import ProductTour from './ProductTour.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+
+// Prototype tour: "add gig" -> quick-add a band/venue inline -> save.
+// Each target is a data-tour attribute on the real button, not a class
+// (classes are shared/reused all over the app, an attribute is a name
+// nothing else will collide with). advanceOn: 'click' means a real click
+// on the real element both does the real thing AND moves the tour on,
+// rather than needing a separate "Next" on top of it.
+const GIG_TOUR_STEPS = [
+  {
+    target: '[data-tour="add-gig-btn"]',
+    title: 'Start with a new gig',
+    body: 'Click "+ Add gig" to open the booking form — everything else starts from here.',
+    advanceOn: 'click',
+  },
+  {
+    target: '[data-tour="quick-add-band"]',
+    title: "No band on file yet?",
+    body: 'Click "+ Quick add band" to create one right here, without leaving this form.',
+    advanceOn: 'click',
+  },
+  {
+    target: '[data-tour="quick-add-venue"]',
+    title: 'Same for the venue',
+    body: 'Same idea for a new venue — "+ Quick add venue" adds it on the fly.',
+    advanceOn: 'click',
+  },
+  {
+    target: '[data-tour="save-gig"]',
+    title: 'Save it',
+    body: "Once the essentials are filled in, save the gig. You can always come back and add more detail later.",
+    advanceOn: 'click',
+  },
+];
 
 const today = todayStr;
 
@@ -122,6 +156,7 @@ export default function GigsList() {
     return () => observer.disconnect();
   }, [viewMode]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
   // Set when "add a gig" is triggered from a specific calendar date (an
   // empty day, or the "Add gig" option in a day's popover) rather than the
   // page-level "+ Add gig" button -- prefills GigForm's date field via the
@@ -318,12 +353,24 @@ export default function GigsList() {
       <div className="section-header">
         <h2 className="section-header__title">{isAdmin ? 'Gigs' : 'My gigs'}</h2>
         {isAdmin && (
-          <button
-            className="btn btn--primary btn--small"
-            onClick={() => (showAddForm ? closeAddForm() : startAddGig(null))}
-          >
-            {showAddForm ? 'Close' : '+ Add gig'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* Prototype -- see GIG_TOUR_STEPS above. Closes any open add-
+                form first so the tour starts from a known, empty state. */}
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => { closeAddForm(); setTourActive(true); }}
+            >
+              🧭 Take a tour
+            </button>
+            <button
+              className="btn btn--primary btn--small"
+              data-tour="add-gig-btn"
+              onClick={() => (showAddForm ? closeAddForm() : startAddGig(null))}
+            >
+              {showAddForm ? 'Close' : '+ Add gig'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -441,16 +488,6 @@ export default function GigsList() {
         </div>
       )}
 
-      {isAdmin && showAddForm && (
-        <div ref={addFormRef}>
-          <GigForm
-            gig={addGigDate ? { _isConvert: true, gig_date: addGigDate } : undefined}
-            onSaved={() => { closeAddForm(); bumpGigs(); }}
-            onCancel={closeAddForm}
-          />
-        </div>
-      )}
-
       {viewMode === 'list' && gigs.length > 0 && (
         <SearchBox
           value={query}
@@ -461,6 +498,26 @@ export default function GigsList() {
         />
       )}
       </div>
+
+      {/* Deliberately OUTSIDE .gigs-sticky-header above -- that container is
+          position:sticky, which has no scroll mechanism of its own. A full
+          multi-section GigForm rendered inside it could make the sticky
+          block taller than the viewport, and since a stuck sticky element
+          can't reveal the rest of its own height by scrolling normally,
+          that read as the page's scroll "locking up" the moment Add gig was
+          opened from List view (Grid view's shorter sticky header -- no
+          filter buttons/search box -- happened to still fit, which is why
+          only List view showed it). The form stays in the same visual spot
+          either way; it just doesn't inflate the sticky container anymore. */}
+      {isAdmin && showAddForm && (
+        <div ref={addFormRef}>
+          <GigForm
+            gig={addGigDate ? { _isConvert: true, gig_date: addGigDate } : undefined}
+            onSaved={() => { closeAddForm(); bumpGigs(); }}
+            onCancel={closeAddForm}
+          />
+        </div>
+      )}
 
       {viewMode === 'calendar' && (
         <GigCalendar
@@ -619,6 +676,9 @@ export default function GigsList() {
         </>
       )}
       </>
+      )}
+      {isAdmin && (
+        <ProductTour steps={GIG_TOUR_STEPS} active={tourActive} onFinish={() => setTourActive(false)} />
       )}
     </div>
   );

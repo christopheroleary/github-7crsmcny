@@ -17,6 +17,7 @@ import { notify } from '../utils/toastService.js';
 import EquipmentFields from './EquipmentFields.jsx';
 import EquipmentTags from './EquipmentTags.jsx';
 import { EQUIPMENT_ITEMS } from '../utils/equipment.js';
+import { buildInviteMailto } from '../utils/depInvite.js';
 
 export default function MusiciansList() {
   const { profile: me, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
@@ -464,17 +465,7 @@ function DepDetailsEditor({ ph, onSaved }) {
   }
 
   function handleInvite() {
-    const signupUrl = window.location.origin + '/?invite=1&name=' + encodeURIComponent(ph.name);
-    const subject = 'Join us on Seeau';
-    const body =
-      'Hi ' + ph.name + ',\n\n' +
-      "We'd like to invite you to create your own account on Seeau so we can book you directly for future gigs.\n\n" +
-      'Sign up here: ' + signupUrl + '\n\n' +
-      "Once you've signed up, let us know and we'll link your gig history to your new account.\n\nThanks!";
-    window.location.href =
-      'mailto:' + encodeURIComponent(email) +
-      '?subject=' + encodeURIComponent(subject) +
-      '&body=' + encodeURIComponent(body);
+    window.location.href = buildInviteMailto(ph.name, email);
   }
 
   return (

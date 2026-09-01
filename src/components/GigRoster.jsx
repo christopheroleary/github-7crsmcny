@@ -8,6 +8,72 @@ import CollapsibleSection from './CollapsibleSection.jsx';
 import DepFinderWizard from './DepFinderWizard.jsx';
 import Avatar from './Avatar.jsx';
 import { Trash2 } from '../utils/stagePlotIcons.jsx';
+import ProductTour from './ProductTour.jsx';
+
+// Prototype tour, second leg of GigsList.jsx's GIG_TOUR_STEPS -- separate
+// and self-triggered here rather than chained automatically after saving a
+// new gig, since that would mean carrying tour state across a navigation
+// to a gig whose id doesn't exist until the save actually completes. Real
+// to build, just a bigger step than this prototype needed to prove out the
+// interaction pattern itself.
+//
+// Two separate tours, not one branching tour -- "add someone with an
+// account" and "add a dep who doesn't have one yet" are genuinely
+// different journeys (this dropdown lists every active profile on the
+// whole app, not just people this leader has actually worked with, so a
+// brand new leader's realistic first move is usually the dep path, not
+// this one), and forcing them into a single tour that tries to detect
+// which applies would need to guess intent rather than let the person
+// just say which one they need.
+const ROSTER_TOUR_STEPS = [
+  {
+    target: '[data-tour="pick-musician"]',
+    title: 'Pick a musician',
+    body: "Choose anyone with an account who isn't already on this gig's roster. Nobody relevant in the list? Try the \"Add a dep\" tour instead — no account needed for that one.",
+    advanceOn: 'change',
+  },
+  {
+    target: '[data-tour="add-to-roster"]',
+    spotlightTarget: '[data-tour="finish-add-musician"]',
+    title: 'Finish adding them',
+    body: "Pick an instrument — or if they're not playing one, toggle DJ or Roadie instead — then click \"Add to roster\". They'll get notified and can confirm from their side.",
+    advanceOn: 'click',
+  },
+];
+
+// Doesn't need anyone to have an account already -- the realistic path
+// for someone just getting started, or booking a one-off dep who'll
+// never sign up at all.
+const DEP_TOUR_STEPS = [
+  {
+    target: '[data-tour="add-dep-btn"]',
+    title: 'No account for them (yet)?',
+    body: 'Add them as a dep instead — just a name is enough to get them on the roster.',
+    advanceOn: 'click',
+  },
+  {
+    target: '[data-tour="new-dep-tab"]',
+    title: 'Switch to "New dep"',
+    body: 'This opens on "Existing dep" by default, which only lists people you\'ve added here before. Switch tabs for someone new.',
+    advanceOn: 'click',
+  },
+  {
+    target: '[data-tour="dep-name-input"]',
+    title: 'Type their name',
+    body: 'Just their full name is enough for now — click Next when you\'re done.',
+  },
+  {
+    target: '[data-tour="add-new-dep-btn"]',
+    spotlightTarget: '[data-tour="finish-add-dep"]',
+    title: 'Finish adding them',
+    body: 'Pick an instrument — or toggle DJ or Roadie if they\'re not playing one — then click "Add new dep".',
+    advanceOn: 'click',
+  },
+  {
+    title: 'Turn them into a full account later',
+    body: 'Once they\'re added, you can invite them to create their own account any time from Musicians → their profile → "Invite to sign up" — no need to do that now.',
+  },
+];
 
 const CONFIRM_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // matches unconfirmed-roster-reminder's cutoff
 
@@ -110,6 +176,8 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
 
   // Dep-finder wizard
   const [wizardInstrumentId, setWizardInstrumentId] = useState(null);
+  const [tourActive, setTourActive] = useState(false);
+  const [depTourActive, setDepTourActive] = useState(false);
 
   // Real musician add
   const [newMusicianId, setNewMusicianId] = useState('');
@@ -147,6 +215,18 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
       })
       .catch(() => {}); // offline/network failure -- leaves band preset/DJ/roadie badges at their defaults
   }, [gigId]);
+
+  // Discoverability fix, not a new feature -- band_members/BandMembers.jsx
+  // (Bands -> a band -> "View members") already exists and is exactly the
+  // "who's permanently in my band" concept a new leader is looking for, but
+  // nothing on this per-gig screen ever points at it. Reuses the same
+  // navigate-to-band relay GigFeeSplit's "Set percentages for this band"
+  // link already established, with a 'members' section so BandsList opens
+  // the standing-roster panel instead of the edit-details form.
+  function goToBandMembers() {
+    if (!gigBandId) return;
+    window.dispatchEvent(new CustomEvent('navigate-to-band', { detail: { band_id: gigBandId, section: 'members' } }));
+  }
 
   async function handleApplyPreset() {
     if (!gigBandId) return;
@@ -695,8 +775,25 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
               <InfoTooltip text="Adds all standard band members in one click." />
             </div>
           )}
+          {gigBandId && (
+            <p className="field__hint">
+              Nobody relevant in the picker below? Add them as a standing member of this band once, and they'll show up here (and in "Apply band preset") on every future gig.{' '}
+              <button type="button" className="link-button" onClick={goToBandMembers}>Manage this band's members →</button>
+            </p>
+          )}
+          {/* Prototype -- see ROSTER_TOUR_STEPS/DEP_TOUR_STEPS above. */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setTourActive(true)}>
+              🧭 Take a tour: add a musician
+            </button>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setDepTourActive(true)}>
+              🧭 Take a tour: add a dep
+            </button>
+          </div>
         </div>
       )}
+      <ProductTour steps={ROSTER_TOUR_STEPS} active={tourActive} onFinish={() => setTourActive(false)} />
+      <ProductTour steps={DEP_TOUR_STEPS} active={depTourActive} onFinish={() => setDepTourActive(false)} />
 
       <ul className="simple-list">
         {lineup.length === 0 && <li className="state-message">Nobody booked yet.</li>}
@@ -860,6 +957,7 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
               Add registered musician
             </span>
             <select
+              data-tour="pick-musician"
               value={newMusicianId}
               onChange={(e) => {
                 const id = e.target.value;
@@ -878,33 +976,44 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
                 .filter((m) => !rosteredProfileIds.includes(m.id))
                 .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
             </select>
-            <select
-              value={newInstrumentId}
-              onChange={(e) => { setNewInstrumentId(e.target.value); setNewVocalRole(''); }}
-              disabled={!newMusicianId}
-            >
-              <option value="">{newMusicianId ? 'No instrument (DJ / roadie only)' : 'Pick a musician first'}</option>
-              {availableForMusician.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            {newMusicianId && pickedMusicianInstruments.length === 0 && (
-              <p className="field__hint">No instruments on profile — showing all.</p>
-            )}
-            {!hidesVocalPrompt(availableForMusician, newInstrumentId, newIsDj, newIsRoadie) && (
+            {/* One combined tour target for "finish adding them" -- the
+                submit button alone is disabled until an instrument or a
+                DJ/Roadie toggle is set, so spotlighting just the button
+                looked broken (highlighted, but not yet clickable, with
+                nothing explaining why). Kept as a real flex container
+                (not display:contents) so it still measures a real
+                bounding box for the spotlight -- same flex/gap the parent
+                form already gave these children directly, replicated
+                here so wrapping them doesn't change the visible layout. */}
+            <div data-tour="finish-add-musician" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <select
-                value={newVocalRole}
-                onChange={(e) => setNewVocalRole(e.target.value)}
+                value={newInstrumentId}
+                onChange={(e) => { setNewInstrumentId(e.target.value); setNewVocalRole(''); }}
                 disabled={!newMusicianId}
               >
-                {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <option value="">{newMusicianId ? 'No instrument (DJ / roadie only)' : 'Pick a musician first'}</option>
+                {availableForMusician.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
-            )}
-            <div className="role-toggle-group">
-              <RoleToggle label="DJ" active={newIsDj} colour={DJ_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsDj((v) => !v)} />
-              <RoleToggle label="Roadie" active={newIsRoadie} colour={ROADIE_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsRoadie((v) => !v)} />
+              {newMusicianId && pickedMusicianInstruments.length === 0 && (
+                <p className="field__hint">No instruments on profile — showing all.</p>
+              )}
+              {!hidesVocalPrompt(availableForMusician, newInstrumentId, newIsDj, newIsRoadie) && (
+                <select
+                  value={newVocalRole}
+                  onChange={(e) => setNewVocalRole(e.target.value)}
+                  disabled={!newMusicianId}
+                >
+                  {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              )}
+              <div className="role-toggle-group">
+                <RoleToggle label="DJ" active={newIsDj} colour={DJ_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsDj((v) => !v)} />
+                <RoleToggle label="Roadie" active={newIsRoadie} colour={ROADIE_COLOUR} disabled={!newMusicianId} onClick={() => setNewIsRoadie((v) => !v)} />
+              </div>
+              <button type="submit" className="btn btn--primary btn--small" data-tour="add-to-roster" disabled={adding || !newMusicianId || (!newInstrumentId && !newIsDj && !newIsRoadie)}>
+                {adding ? 'Adding…' : '+ Add to roster'}
+              </button>
             </div>
-            <button type="submit" className="btn btn--primary btn--small" disabled={adding || !newMusicianId || (!newInstrumentId && !newIsDj && !newIsRoadie)}>
-              {adding ? 'Adding…' : '+ Add to roster'}
-            </button>
           </form>
 
           {/* Add dep */}
@@ -912,6 +1021,7 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
             <button
               type="button"
               className="btn btn--ghost btn--small"
+              data-tour="add-dep-btn"
               onClick={() => { setShowPlaceholder(true); setPlaceholderMode('existing'); }}
             >
               + Add dep / session musician
@@ -933,6 +1043,7 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
                 <button
                   type="button"
                   className={placeholderMode === 'new' ? 'btn btn--primary btn--small' : 'btn btn--ghost btn--small'}
+                  data-tour="new-dep-tab"
                   onClick={() => { setPlaceholderMode('new'); setNewDepName(''); setNewDepInstrumentId(''); setNewDepVocalRole(''); setNewDepIsDj(false); setNewDepIsRoadie(false); }}
                 >
                   New dep
@@ -1012,40 +1123,47 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
               ) : (
                 <form onSubmit={handleAddNewDep} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input
+                    data-tour="dep-name-input"
                     placeholder="Full name (e.g. Dave Smith)"
                     value={newDepName}
                     onChange={(e) => setNewDepName(e.target.value)}
                     required
                   />
-                  <select
-                    value={newDepInstrumentId}
-                    onChange={(e) => { setNewDepInstrumentId(e.target.value); setNewDepVocalRole(''); }}
-                  >
-                    <option value="">No instrument (DJ / roadie only)</option>
-                    {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                  {!hidesVocalPrompt(instruments, newDepInstrumentId, newDepIsDj, newDepIsRoadie) && (
+                  {/* Same reasoning as data-tour="finish-add-musician" above --
+                      one combined spotlight target covering everything needed
+                      to unlock the submit button, not just the button itself. */}
+                  <div data-tour="finish-add-dep" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <select
-                      value={newDepVocalRole}
-                      onChange={(e) => setNewDepVocalRole(e.target.value)}
+                      value={newDepInstrumentId}
+                      onChange={(e) => { setNewDepInstrumentId(e.target.value); setNewDepVocalRole(''); }}
                     >
-                      {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      <option value="">No instrument (DJ / roadie only)</option>
+                      {instruments.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                     </select>
-                  )}
-                  <div className="role-toggle-group">
-                    <RoleToggle label="DJ" active={newDepIsDj} colour={DJ_COLOUR} onClick={() => setNewDepIsDj((v) => !v)} />
-                    <RoleToggle label="Roadie" active={newDepIsRoadie} colour={ROADIE_COLOUR} onClick={() => setNewDepIsRoadie((v) => !v)} />
-                  </div>
-                  <p className="field__hint">Their instrument (if any) will be saved so you can reuse them on future gigs.</p>
-                  <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-                    <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
-                    <button
-                      type="submit"
-                      className="btn btn--primary btn--small"
-                      disabled={addingPlaceholder || !newDepName.trim() || (!newDepInstrumentId && !newDepIsDj && !newDepIsRoadie)}
-                    >
-                      {addingPlaceholder ? 'Adding…' : '+ Add new dep'}
-                    </button>
+                    {!hidesVocalPrompt(instruments, newDepInstrumentId, newDepIsDj, newDepIsRoadie) && (
+                      <select
+                        value={newDepVocalRole}
+                        onChange={(e) => setNewDepVocalRole(e.target.value)}
+                      >
+                        {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    )}
+                    <div className="role-toggle-group">
+                      <RoleToggle label="DJ" active={newDepIsDj} colour={DJ_COLOUR} onClick={() => setNewDepIsDj((v) => !v)} />
+                      <RoleToggle label="Roadie" active={newDepIsRoadie} colour={ROADIE_COLOUR} onClick={() => setNewDepIsRoadie((v) => !v)} />
+                    </div>
+                    <p className="field__hint">Their instrument (if any) will be saved so you can reuse them on future gigs.</p>
+                    <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+                      <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowPlaceholder(false)}>Cancel</button>
+                      <button
+                        type="submit"
+                        className="btn btn--primary btn--small"
+                        data-tour="add-new-dep-btn"
+                        disabled={addingPlaceholder || !newDepName.trim() || (!newDepInstrumentId && !newDepIsDj && !newDepIsRoadie)}
+                      >
+                        {addingPlaceholder ? 'Adding…' : '+ Add new dep'}
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}

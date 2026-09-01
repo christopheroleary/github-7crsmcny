@@ -373,7 +373,7 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
               <option value="">No band set</option>
               {bands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            <button type="button" className="link-button" onClick={() => setShowNewBand(true)}>+ Quick add band</button>
+            <button type="button" className="link-button" data-tour="quick-add-band" onClick={() => setShowNewBand(true)}>+ Quick add band</button>
           </>
         ) : (
           <div className="inline-subform">
@@ -392,7 +392,7 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
               <option value="">No venue yet</option>
               {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
-            <button type="button" className="link-button" onClick={() => setShowNewVenue(true)}>+ Quick add venue</button>
+            <button type="button" className="link-button" data-tour="quick-add-venue" onClick={() => setShowNewVenue(true)}>+ Quick add venue</button>
           </>
         ) : (
           <div className="inline-subform">
@@ -736,7 +736,7 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
       {error && <p className="form-error">{error}</p>}
       <div className="form-actions">
         <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn btn--primary" disabled={submitting}>
+        <button type="submit" className="btn btn--primary" data-tour="save-gig" disabled={submitting}>
           {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Save gig'}
         </button>
       </div>

@@ -8,7 +8,7 @@ import { notify } from '../utils/toastService.js';
 // matching line in TermsModal.jsx) the moment incorporation completes or
 // the app is renamed again, since a Ltd company is a different legal
 // entity from a sole trader, not just a different name on the page.
-const LAST_UPDATED = '31 August 2026';
+const LAST_UPDATED = '1 September 2026';
 const CONTROLLER = "Chris O'Leary, trading as Seeau";
 
 function Section({ title, children }) {
@@ -71,8 +71,8 @@ export default function PrivacyModal({ onClose }) {
         <Section title="What we collect">
           <p style={{ margin: '0 0 8px' }}>Depending on how you use the app, this can include:</p>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li><strong>Account details</strong> — name, email, phone number, profile photo, home address, instruments played, and your app preferences.</li>
-            <li><strong>Gig and booking information</strong> — which gigs and bands you're on, availability, repertoire, and equipment you can bring.</li>
+            <li><strong>Account details</strong> — name, email, phone number, profile photo, home address, instruments played, your social media handle if you add one, and your app preferences.</li>
+            <li><strong>Gig and booking information</strong> — which gigs and bands you're on, availability, repertoire, equipment you can bring, and photos taken at a gig if you or a bandmate choose to upload one.</li>
             <li><strong>Payment information</strong> — bank account details for receiving payment, Stripe account and subscription status, and records of expense/mileage/income claims (including any receipt photos you choose to upload).</li>
             <li><strong>Device and usage information</strong> — your device type, browser, screen size, IP address, and when you last used the app, kept for troubleshooting (see "Device and usage data" below — you can opt out of this).</li>
             <li><strong>Messages and communications</strong> — in-app gig chat messages, feedback you send us, and push-notification settings, where you choose to use those features.</li>
@@ -100,7 +100,7 @@ export default function PrivacyModal({ onClose }) {
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li><strong>Supabase</strong> — hosts our database and handles sign-in.</li>
             <li><strong>Stripe</strong> — processes Pro subscription payments and Connect payouts to musicians. Stripe never shares your full card details with us.</li>
-            <li><strong>Anthropic (Claude)</strong> — reads the shop, date and amount off a receipt photo, only when you choose to scan one rather than type an expense in by hand. It isn't used to train their AI.</li>
+            <li><strong>Anthropic (Claude)</strong> — reads the shop, date and amount off a receipt photo, only when you choose to scan one rather than type an expense in by hand. It's also used, only when a band leader chooses to draft a social media caption from gig photos, to write that caption from the photos themselves plus the venue name, day of the gig, and the social handles of your band and any confirmed musicians who've added one — never your fee, client details, or anything else about the gig. Nothing here is used to train their AI.</li>
           </ul>
           <p style={{ margin: '8px 0 0' }}>
             We only ever disclose personal data elsewhere if the law requires
@@ -136,7 +136,9 @@ export default function PrivacyModal({ onClose }) {
             Receipt photos are kept for around six years, in line with
             HMRC's record-keeping requirements — even if you delete the
             expense they're attached to, since that's what the retention
-            period is for. Most other account and gig data is kept for as
+            period is for. Gig photos are kept for 90 days after upload and
+            then deleted automatically, whether or not they were used to
+            draft a caption. Most other account and gig data is kept for as
             long as your account is active, and removed within a reasonable
             period after it's closed, except where we're legally required
             to keep financial records for longer.
@@ -146,11 +148,14 @@ export default function PrivacyModal({ onClose }) {
         <Section title="Your rights">
           <p style={{ margin: 0 }}>
             You can ask to see the personal data we hold about you, have
-            inaccurate data corrected, ask us to delete it, or object to how
-            it's used, at any time — get in touch via the Feedback button in
-            the app. You can also complain to the UK Information
-            Commissioner's Office (ico.org.uk) if you think we've got
-            something wrong.
+            inaccurate data corrected, object to how it's used, or close your
+            account and have your personal data deleted, at any time — get in
+            touch via the Feedback button in the app to ask for any of this.
+            We'll action a deletion request within 30 days, except for
+            financial records we're legally required to keep for longer (see
+            "How long we keep it" above). If you're not happy with how we've
+            handled your data, you can also complain to the UK Information
+            Commissioner's Office.
           </p>
         </Section>
 
