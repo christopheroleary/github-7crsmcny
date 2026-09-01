@@ -20,6 +20,11 @@ const UI_THEMES = [
   { id: 'rose', label: 'Rose', swatch: '#b5566f' },
 ];
 
+// Same fixed list BandForm.jsx offers for a band's own social links --
+// kept identical between the two so "Instagram" etc. always means the
+// same thing wherever it's picked.
+const SOCIAL_PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter/X', 'Spotify', 'Threads'];
+
 // Identity + app-level preferences only -- was previously the top half of
 // the old single MyProfile.jsx page. Everything dep-related, money-
 // related, onboarding-related, and the privacy/refresh/version footer
@@ -34,6 +39,7 @@ export default function Settings() {
   const [phone, setPhone] = useState('');
   const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
   const [socialHandle, setSocialHandle] = useState('');
+  const [socialPlatform, setSocialPlatform] = useState('Instagram');
   const [uiTheme, setUiTheme] = useState('default');
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
@@ -54,7 +60,7 @@ export default function Settings() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }] = await Promise.all([
-        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, ui_theme, avatar_url, social_handle').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, ui_theme, avatar_url, social_handle, social_platform').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
         // phone isn't in the blanket column grant (see
@@ -74,6 +80,7 @@ export default function Settings() {
         setUiTheme(profile.ui_theme || 'default');
         setAvatarUrl(profile.avatar_url || '');
         setSocialHandle(profile.social_handle || '');
+        setSocialPlatform(profile.social_platform || 'Instagram');
       }
       setAllInstruments(instruments || []);
       setSelectedIds((links || []).map((l) => l.instrument_id));
@@ -119,10 +126,16 @@ export default function Settings() {
     // Stored without a leading @ -- added back wherever it's displayed/used
     // (Settings' own hint text, GigPhotos' AI caption prompt), same as a
     // phone number is stored digits-only and formatted at render time.
-    const t = setTimeout(() => persist({ social_handle: socialHandle.replace(/^@+/, '').trim() || null }), AUTOSAVE_DELAY);
+    // Saved together with social_platform (one autosave, not two) since
+    // they're really one field pair -- a handle with no platform context
+    // is meaningless.
+    const t = setTimeout(() => persist({
+      social_handle: socialHandle.replace(/^@+/, '').trim() || null,
+      social_platform: socialPlatform.trim() || null,
+    }), AUTOSAVE_DELAY);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socialHandle]);
+  }, [socialHandle, socialPlatform]);
 
   useEffect(() => {
     if (!readyRef.current || !userId) return;
@@ -347,17 +360,45 @@ export default function Settings() {
         </label>
       </div>
 
-      <label className="field">
+      <div className="field">
         <span className="field__label">
           Social media handle
-          <InfoTooltip text="Used to @ tag you when a band leader drafts a gig-day social post from Gig photos — e.g. Instagram. Leave blank if you'd rather not be tagged." />
+          <InfoTooltip text="Used to @ tag you when a band leader drafts a gig-day social post from Gig photos. Leave the handle blank if you'd rather not be tagged." />
         </span>
-        <input
-          value={socialHandle}
-          onChange={(e) => setSocialHandle(e.target.value)}
-          placeholder="yourhandle (no @ needed)"
-        />
-      </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={SOCIAL_PLATFORMS.includes(socialPlatform) ? socialPlatform : (socialPlatform ? 'Other' : '')}
+            onChange={(e) => setSocialPlatform(e.target.value === 'Other' ? ' ' : e.target.value)}
+            style={{ flex: '0 1 140px' }}
+          >
+            <option value="" disabled>Platform…</option>
+            {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+            <option value="Other">Other…</option>
+          </select>
+          {/* Custom-platform fallback -- socialPlatform is set to a single
+              space (not '') the moment "Other…" is picked above, purely so
+              this stays visible: an actually-empty value means "nothing
+              chosen yet", not "Other with a blank name", and the select's
+              own derived value above needs that same distinction to keep
+              showing "Other…" instead of snapping back to the placeholder.
+              Trimmed away on autosave either way, so a lingering space can
+              never actually get saved. */}
+          {!SOCIAL_PLATFORMS.includes(socialPlatform) && socialPlatform !== '' && (
+            <input
+              value={socialPlatform.trim()}
+              onChange={(e) => setSocialPlatform(e.target.value || ' ')}
+              placeholder="Platform name"
+              style={{ flex: '0 1 120px' }}
+            />
+          )}
+          <input
+            value={socialHandle}
+            onChange={(e) => setSocialHandle(e.target.value)}
+            placeholder="yourhandle (no @ needed)"
+            style={{ flex: '1 1 auto' }}
+          />
+        </div>
+      </div>
 
       </div>
 

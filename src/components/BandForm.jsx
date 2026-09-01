@@ -9,6 +9,11 @@ import BandConnectPayoutSetup from './BandConnectPayoutSetup.jsx';
 
 const LOGO_BUCKET = 'band-logos';
 
+// Same fixed list Settings.jsx offers for a musician's own handle -- kept
+// identical between the two so "Instagram" etc. always means the same
+// thing wherever it's picked.
+const SOCIAL_PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter/X', 'Spotify', 'Threads'];
+
 export default function BandForm({ band, onSaved, onCancel }) {
   const isEdit = Boolean(band);
   const [name, setName] = useState(band?.name || '');
@@ -245,15 +250,39 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
       <div className="field">
         <span className="field__label">Social links</span>
+        {/* Was an <input list> + <datalist> combo -- native datalist
+            suggestion popups are positioned entirely by the browser, not
+            CSS, and on some browsers/embedded contexts (confirmed live:
+            rendered pinned to the far left of the screen instead of under
+            the field) that positioning is simply broken with no CSS fix
+            available. A real <select> is a fully native, always-correctly-
+            positioned control instead -- "Other…" reveals a plain text
+            input for anything not in the fixed list, same fallback the
+            datalist's free typing used to offer. */}
         {socialLinks.map((link, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-            <input
-              value={link.label}
-              onChange={(e) => updateSocialLink(i, 'label', e.target.value)}
-              placeholder="Instagram"
-              list="social-platform-suggestions"
-              style={{ flex: '0 1 140px' }}
-            />
+            <select
+              value={SOCIAL_PLATFORMS.includes(link.label) ? link.label : (link.label ? 'Other' : '')}
+              onChange={(e) => updateSocialLink(i, 'label', e.target.value === 'Other' ? ' ' : e.target.value)}
+              style={{ flex: '0 1 130px' }}
+            >
+              <option value="" disabled>Platform…</option>
+              {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              <option value="Other">Other…</option>
+            </select>
+            {/* link.label is set to a single space (not '') the moment
+                "Other…" is picked above, purely so this stays visible and
+                the select above keeps showing "Other…" instead of
+                snapping back to its placeholder -- trimmed away on save
+                (see handleSubmit's socialLinks.filter) either way. */}
+            {!SOCIAL_PLATFORMS.includes(link.label) && link.label !== '' && (
+              <input
+                value={link.label.trim()}
+                onChange={(e) => updateSocialLink(i, 'label', e.target.value || ' ')}
+                placeholder="Platform name"
+                style={{ flex: '0 1 110px' }}
+              />
+            )}
             <input
               type="url"
               value={link.url}
@@ -272,14 +301,6 @@ export default function BandForm({ band, onSaved, onCancel }) {
             </button>
           </div>
         ))}
-        <datalist id="social-platform-suggestions">
-          <option value="Instagram" />
-          <option value="Facebook" />
-          <option value="TikTok" />
-          <option value="YouTube" />
-          <option value="Twitter/X" />
-          <option value="Spotify" />
-        </datalist>
         <button type="button" className="btn btn--ghost btn--small" onClick={addSocialLink}>+ Add social link</button>
         <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>Shown on invoices, quotes and contracts alongside the website above.</span>
       </div>
