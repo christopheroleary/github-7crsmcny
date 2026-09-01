@@ -15,12 +15,23 @@ function publicUrl(storagePath) {
 
 // Photos from the gig, shared with the band leader/admin so they can pull
 // together a social media post. Same permission-inside-the-component
-// pattern as GigMessages -- canView/canUpload/canManage all computed from
-// props + useCurrentProfile, server-side RLS is the real boundary either
-// way. No readOnly prop needed (unlike GigSuppliers): uploading is a
-// genuine musician-facing capability here, not leader-only, so both
-// GigDetail.jsx and GigDetailBandMember.jsx render this identically.
-export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSignal }) {
+// pattern as GigMessages -- canView/canUpload all computed from props +
+// useCurrentProfile, server-side RLS is the real boundary either way.
+//
+// `readOnly` (like GigSuppliers') is what actually gates management --
+// NOT just isAdmin/isLeaderOfThisBand on their own. useCurrentProfile()
+// reflects the real signed-in identity, which stays admin/leader even
+// when GigDetail.jsx's "View as musician" is simulating someone else's
+// view (confirmed live: the caption/hide controls were showing up in
+// that preview, and the same underlying reason -- a leader of a
+// DIFFERENT band merely performing on this gig -- would trigger it too).
+// GigDetailBandMember.jsx is BY DEFINITION "the view for someone who
+// doesn't manage this specific gig" (GigDetail.jsx's own self-guard only
+// ever falls through to it for exactly that reason), so it passes
+// readOnly unconditionally, same as it already does for GigSuppliers.
+// Upload access is untouched by this -- that's still a genuine musician-
+// facing capability based on roster membership, not leader status.
+export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSignal, readOnly = false }) {
   const { profile, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +49,7 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
   const isLeaderOfThisBand = Boolean(isBandLeader && bandId && ledBandIds.includes(bandId));
   const canView = Boolean(profile) && (isAdmin || isLeaderOfThisBand || Boolean(myLineupRow));
   const canUpload = Boolean(profile) && (isAdmin || isLeaderOfThisBand || Boolean(myLineupRow?.confirmed));
-  const canManage = isAdmin || isLeaderOfThisBand;
+  const canManage = !readOnly && (isAdmin || isLeaderOfThisBand);
   const gigHasHappened = gig?.gig_date ? gig.gig_date <= todayStr() : false;
 
   const visiblePhotos = canManage ? photos : photos.filter((p) => !p.hidden_at);
@@ -221,7 +232,12 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
         <div className="gig-photos__grid">
           {visiblePhotos.map((photo) => {
             const isMine = photo.uploaded_by === profile?.id;
-            const canDeleteThis = isMine || isAdmin;
+            // Same readOnly guard as canManage above -- an admin deleting
+            // someone else's photo is real, but showing that control while
+            // "View as musician" is simulating someone who couldn't do it
+            // themselves is exactly the misleading preview this is meant
+            // to avoid.
+            const canDeleteThis = isMine || (!readOnly && isAdmin);
             return (
               <div key={photo.id} className={'gig-photos__thumb' + (photo.hidden_at ? ' gig-photos__thumb--hidden' : '')}>
                 <img src={publicUrl(photo.storage_path)} alt="" loading="lazy" onClick={() => setLightboxPhoto(photo)} />

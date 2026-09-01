@@ -587,12 +587,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
         <GigSuppliers gigId={gigId} gig={gig} readOnly refreshSignal={manualRefreshSignal} />
       )}
 
-      {/* Gig photos -- only when online. Not readOnly here: uploading is a
-          genuine musician-facing capability, unlike suppliers, so this call
-          site is identical to GigDetail.jsx's -- all permission branching
-          happens inside GigPhotos itself via lineup/useCurrentProfile(). */}
+      {/* Gig photos -- only when online. readOnly here (unlike the props
+          otherwise being identical to GigDetail.jsx's call site) -- upload
+          access itself still works the same for everyone (that's decided
+          inside GigPhotos from roster membership, not this prop), but the
+          caption-drafting/hide-a-photo management controls are leader/
+          admin-only and must never show here, including under an admin's
+          "View as musician" preview -- see GigPhotos.jsx's own comment on
+          why isAdmin/isBandLeader alone aren't enough to gate that. */}
       {!isOffline && (
-        <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
+        <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} readOnly />
       )}
 
       {/* Payment claim — only when online */}
