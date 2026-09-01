@@ -10,6 +10,7 @@ import PerformanceMode from './PerformanceMode.jsx';
 import GigMessages from './GigMessages.jsx';
 import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
+import GigPhotos from './GigPhotos.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyPlaces from './NearbyPlaces.jsx';
 import Avatar from './Avatar.jsx';
@@ -584,6 +585,14 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           admin-facing gig view regardless of who's actually signed in. */}
       {!isOffline && (
         <GigSuppliers gigId={gigId} gig={gig} readOnly refreshSignal={manualRefreshSignal} />
+      )}
+
+      {/* Gig photos -- only when online. Not readOnly here: uploading is a
+          genuine musician-facing capability, unlike suppliers, so this call
+          site is identical to GigDetail.jsx's -- all permission branching
+          happens inside GigPhotos itself via lineup/useCurrentProfile(). */}
+      {!isOffline && (
+        <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
       )}
 
       {/* Payment claim — only when online */}

@@ -921,7 +921,14 @@ input {
 }
 
 .tab--active {
-  color: var(--ink);
+  /* Icon and label both pick this up via currentColor/inherited color --
+     was var(--ink) (near-black), same as every other piece of dark text
+     on the page, so the active tab barely read as "selected" beyond the
+     underline. --amber is the app's own colour-theme accent (Settings ->
+     App colour theme), already what the underline below uses -- so this
+     now matches whichever theme is picked, live, rather than introducing
+     a second hardcoded colour that could drift out of sync with it. */
+  color: var(--amber);
   border-bottom-color: var(--amber);
 }
 
@@ -2614,6 +2621,96 @@ input:not([type]) {
 .gig-chat__counter--low {
   color: var(--rust);
   font-weight: 700;
+}
+
+/* ---------- Gig photos (GigPhotos.jsx) ---------- */
+.gig-photos__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.gig-photos__thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+}
+.gig-photos__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+}
+.gig-photos__thumb--hidden img {
+  opacity: 0.35;
+}
+.gig-photos__thumb--hidden::after {
+  content: 'Hidden';
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gig-photos__delete,
+.gig-photos__hide {
+  position: absolute;
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+.gig-photos__delete {
+  right: 4px;
+}
+.gig-photos__hide {
+  right: 30px;
+  font-size: 11px;
+}
+
+.gig-photos__select {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  padding: 3px;
+  display: flex;
+}
+.gig-photos__select input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.gig-photos__lightbox {
+  max-width: 90vw;
+}
+@media (min-width: 640px) {
+  .gig-photos__lightbox {
+    max-width: 560px;
+  }
 }
 
 .day-sheet__times {

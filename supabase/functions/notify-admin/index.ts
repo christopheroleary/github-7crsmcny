@@ -267,6 +267,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // One row here = one upload SESSION (however many photos it
+    // contained), not one row per photo -- see gig_photo_batches'
+    // comment in its migration for why. This is what keeps a 10-photo
+    // upload from spamming 10 separate notifications.
+    if (table === 'gig_photo_batches' && type === 'INSERT') {
+      const [{ data: profile }, { data: gig }] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', record.uploaded_by).single(),
+        supabase.from('gigs').select('gig_date, band_id, venues(name)').eq('id', record.gig_id).single(),
+      ]);
+
+      const musicianName = profile?.full_name || 'A musician';
+      const venueName = (gig as any)?.venues?.name || 'a gig';
+      const count = record.photo_count;
+      const plural = count === 1 ? '' : 's';
+
+      await pushToAdmins({
+        title: `${count} new photo${plural} from ${venueName}`,
+        body: `${musicianName} uploaded ${count} photo${plural} from ${venueName}` +
+          (formatGigDate(gig?.gig_date) ? ` (${formatGigDate(gig.gig_date)})` : '') + ' — great for a post.',
+        tag: 'gig-photo-batch-' + record.id,
+        url: '/gigs',
+        gig_id: record.gig_id,
+        section: 'photos',
+      }, gig?.band_id, record.uploaded_by);
+    }
+
     if (table === 'enquiries' && type === 'INSERT') {
       const eventBits = [record.event_type, record.event_date].filter(Boolean).join(' · ');
       const budget = record.estimated_budget ? '£' + record.estimated_budget : '';

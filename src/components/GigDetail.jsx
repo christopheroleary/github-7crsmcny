@@ -10,6 +10,7 @@ import ArcadeSection from './arcade/ArcadeSection.jsx';
 import GigWhatsAppGroup from './GigWhatsAppGroup.jsx';
 import SongRequestsPanel from './SongRequestsPanel.jsx';
 import GigSuppliers from './GigSuppliers.jsx';
+import GigPhotos from './GigPhotos.jsx';
 import GigSetlist from './GigSetlist.jsx';
 import GigStagePlot from './GigStagePlot.jsx';
 import TravelCalculator from './TravelCalculator.jsx';
@@ -457,6 +458,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <ArcadeSection gigId={gigId} />
 
       <GigSuppliers gigId={gigId} gig={gig} refreshSignal={manualRefreshSignal} />
+
+      <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
 
       <GigWhatsAppGroup gig={gig} />
 
