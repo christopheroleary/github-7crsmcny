@@ -75,7 +75,7 @@ const COL_WEIGHTS = {
   band: 12,
   town: 16,
   arr: 9,
-  fin: 9,
+  req: 7,
   drummer: 9,
   bass: 9,
   guitar1: 9,
@@ -91,7 +91,7 @@ const COL_WEIGHTS = {
 // remaining columns' percentages correctly summing to 100 on their own
 // rather than leaving a gap the width of band's share.
 function colWidthPercents(showBandColumn) {
-  const keys = ['date', ...(showBandColumn ? ['band'] : []), 'town', 'arr', 'fin', 'drummer', 'bass', 'guitar1', 'guitar2Keys', 'singer', 'dj', 'roadie'];
+  const keys = ['date', ...(showBandColumn ? ['band'] : []), 'town', 'arr', 'req', 'drummer', 'bass', 'guitar1', 'guitar2Keys', 'singer', 'dj', 'roadie'];
   const totalWeight = keys.reduce((sum, k) => sum + COL_WEIGHTS[k], 0);
   return keys.map((key) => ({ key, widthPercent: (COL_WEIGHTS[key] / totalWeight) * 100 }));
 }
@@ -128,7 +128,6 @@ function buildRows(gigs, lineupRows, reqRows) {
       town: cellText(parseTownFromAddress(g.venues?.address)),
       bandName: cellText(displayBandName(g.bands?.name)),
       arrival: g.load_in_time || g.start_time,
-      finish: g.end_time,
       people: { drummer: [], bass: [], guitarKeys: [], singer: [], dj: [], roadie: [] },
       required: { drummer: 0, bass: 0, guitarKeys: 0, singer: 0, dj: g.needs_dj ? 1 : 0, roadie: g.needs_roadie ? 1 : 0 },
     };
@@ -138,20 +137,35 @@ function buildRows(gigs, lineupRows, reqRows) {
     const gig = gigMap[row.gig_id];
     if (!gig) continue;
     const name = row.profiles?.full_name || row.placeholder_musicians?.name || '';
-    const entry = {
-      initials: initialsFor(name),
-      isCaptain: !!row.is_captain,
-      sortKey: name,
-      // Sorts a Drums-column percussionist below the actual drummer(s)
-      // rather than interleaved alphabetically -- 0 for every other
-      // instrument, so this has no effect on any other column's ordering.
-      instrumentRank: row.instruments?.name === 'Percussion' ? 1 : 0,
-    };
+    // Stable per-person identity -- a profile or a dep/placeholder, never
+    // both -- used below to spot the same human filling more than one role
+    // on the same gig (e.g. guitar AND roadie) so the second (and any
+    // further) appearance can be bracketed instead of just repeating their
+    // initials as if they were a different person.
+    const personKey = row.profile_id || row.placeholder_id;
+    // A fresh object per role rather than one shared reference -- someone
+    // covering two roles gets two independent entries (same personKey,
+    // same initials), so "is this their first appearance on the row" can
+    // be marked per-role below without one role's flag leaking into another.
+    function makeEntry() {
+      return {
+        key: personKey,
+        initials: initialsFor(name),
+        isCaptain: !!row.is_captain,
+        confirmed: !!row.confirmed,
+        sortKey: name,
+        instrumentName: row.instruments?.name || null,
+        // Sorts a Drums-column percussionist below the actual drummer(s)
+        // rather than interleaved alphabetically -- 0 for every other
+        // instrument, so this has no effect on any other column's ordering.
+        instrumentRank: row.instruments?.name === 'Percussion' ? 1 : 0,
+      };
+    }
 
     const instrumentGroup = groupFor(row.instruments?.name);
-    if (instrumentGroup) gig.people[instrumentGroup].push(entry);
-    if (row.is_dj) gig.people.dj.push(entry);
-    if (row.is_roadie) gig.people.roadie.push(entry);
+    if (instrumentGroup) gig.people[instrumentGroup].push(makeEntry());
+    if (row.is_dj) gig.people.dj.push(makeEntry());
+    if (row.is_roadie) gig.people.roadie.push(makeEntry());
   }
 
   for (const row of reqRows || []) {
@@ -165,10 +179,45 @@ function buildRows(gigs, lineupRows, reqRows) {
     for (const key of Object.keys(gig.people)) {
       gig.people[key].sort((a, b) => (a.instrumentRank - b.instrumentRank) || a.sortKey.localeCompare(b.sortKey));
     }
-    gig.people.guitar1 = gig.people.guitarKeys.slice(0, 1);
-    gig.people.guitar2Keys = gig.people.guitarKeys.slice(1);
+
+    // Gtr should be an actual guitarist, not just whoever in the combined
+    // guitar/keys/sax group sorts first alphabetically -- a keys player
+    // named e.g. "Mike" outranking a guitarist named "Neil" was landing
+    // the keys player in Gtr and bumping the guitarist into Gt2/Key. Pull
+    // the first real guitarist (Electric or Acoustic) to the front, if
+    // there is one, before slicing off the Gtr/Gt2/Key split; falls back
+    // to the previous alphabetical-first behaviour when nobody in the
+    // group is actually a guitarist (all keys/sax).
+    const guitarists = gig.people.guitarKeys;
+    const guitarIdx = guitarists.findIndex((e) => e.instrumentName === 'Electric Guitar' || e.instrumentName === 'Acoustic Guitar');
+    if (guitarIdx > 0) {
+      const [g] = guitarists.splice(guitarIdx, 1);
+      guitarists.unshift(g);
+    }
+    gig.people.guitar1 = guitarists.slice(0, 1);
+    gig.people.guitar2Keys = guitarists.slice(1);
     gig.required.guitar1 = Math.min(1, gig.required.guitarKeys);
     gig.required.guitar2Keys = Math.max(0, gig.required.guitarKeys - 1);
+
+    // How many people the gig calls for in total, regardless of whether
+    // one person ends up covering more than one of those slots -- a
+    // planning figure (e.g. "client asked for a 5-piece"), not a live
+    // filled-count (each column's own initials/"?" already shows that).
+    gig.requiredTotal = gig.required.drummer + gig.required.bass + gig.required.guitarKeys
+      + gig.required.singer + gig.required.dj + gig.required.roadie;
+
+    // Second (and further) appearance of the same person across the row,
+    // in left-to-right column order, gets bracketed -- matches ROW_ORDER
+    // in the render below.
+    const seen = new Set();
+    for (const groupKey of ['drummer', 'bass', 'guitar1', 'guitar2Keys', 'singer', 'dj', 'roadie']) {
+      for (const entry of gig.people[groupKey]) {
+        if (entry.key != null) {
+          entry.isRepeat = seen.has(entry.key);
+          seen.add(entry.key);
+        }
+      }
+    }
   }
 
   // ── Group consecutive rows sharing date + band for the merged date cell ─
@@ -296,7 +345,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     const [{ data: lineupRows, error: lineupError }, { data: reqRows, error: reqError }] = await Promise.all([
       supabase
         .from('gig_lineup')
-        .select('gig_id, is_captain, is_dj, is_roadie, profiles(full_name), placeholder_musicians(name), instruments(name)')
+        .select('gig_id, profile_id, placeholder_id, confirmed, is_captain, is_dj, is_roadie, profiles(full_name), placeholder_musicians(name), instruments(name)')
         .in('gig_id', gigIds),
       supabase
         .from('gig_requirements')
@@ -365,7 +414,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
               {showBandColumn && <th>Band</th>}
               <th>Town</th>
               <th title="Arrival">Arr</th>
-              <th title="Finish">Fin</th>
+              <th title="Band members required">Req</th>
               {GROUPS_LEFT.map((g) => (
                 <th key={g.key} title={g.title}>{g.label}</th>
               ))}
@@ -402,7 +451,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
         </table>
       </div>
       <p className="gig-grid__legend">
-        Drm Drummer (percussion below) &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2, Keys, Sax or other &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie
+        Drm Drummer (percussion below) &nbsp;·&nbsp; Bas Bass &nbsp;·&nbsp; Gtr Guitar 1 &nbsp;·&nbsp; Gt2/Key Guitar 2, Keys, Sax or other &nbsp;·&nbsp; Vox Singer &nbsp;·&nbsp; DJ DJ &nbsp;·&nbsp; Rd Roadie &nbsp;·&nbsp; Req band members required &nbsp;·&nbsp; (initials) also covering another role &nbsp;·&nbsp; <span className="gig-grid__line--pending" style={{ padding: '0 4px' }}>yellow</span> not yet confirmed
       </p>
     </div>
   );
@@ -430,7 +479,7 @@ function GigGroupRows({ group, showMonthRow, monthLabel, showBandColumn, totalCo
           {showBandColumn && <td>{gig.bandName}</td>}
           <td>{gig.town}</td>
           <td>{formatTime(gig.arrival)}</td>
-          <td>{formatTime(gig.finish)}</td>
+          <td>{gig.requiredTotal || '—'}</td>
           {GROUPS_LEFT.map((g) => (
             <RoleCell key={g.key} people={gig.people[g.key]} required={gig.required[g.key]} />
           ))}
@@ -455,9 +504,16 @@ function RoleCell({ people, required }) {
       {Array.from({ length: lineCount }, (_, i) => {
         const person = people[i];
         if (person) {
+          const className = 'gig-grid__line'
+            + (person.isCaptain ? ' gig-grid__line--captain' : '')
+            + (person.confirmed ? '' : ' gig-grid__line--pending');
+          // A repeat appearance (same person already shown in an earlier
+          // column on this row, covering a second role e.g. guitar + DJ)
+          // is bracketed rather than repeating their initials plainly, so
+          // it doesn't read as a second, different person.
           return (
-            <div key={i} className={'gig-grid__line' + (person.isCaptain ? ' gig-grid__line--captain' : '')}>
-              {person.initials}
+            <div key={i} className={className} title={person.confirmed ? undefined : 'Not yet confirmed'}>
+              {person.isRepeat ? '(' + person.initials + ')' : person.initials}
             </div>
           );
         }

@@ -124,6 +124,18 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   }, [gigId, canManageThisGig]);
 
   const [editing, setEditing] = useState(false);
+  // Set only by the "Fix required instruments" link on a roster warning
+  // (GigRoster.jsx) -- tells GigForm to scroll straight to the requirements
+  // field instead of opening at the top like a normal "Edit gig" click.
+  const [scrollToRequirements, setScrollToRequirements] = useState(false);
+  function openEdit() {
+    setScrollToRequirements(false);
+    setEditing(true);
+  }
+  function openEditRequirements() {
+    setScrollToRequirements(true);
+    setEditing(true);
+  }
   // Bumped when a quote converts to an invoice, forcing GigInvoice to
   // remount and pick up the newly-created invoice it wouldn't otherwise
   // know exists (they're sibling components, each loading on mount only).
@@ -220,6 +232,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     return (
       <GigForm
         gig={gig}
+        scrollToRequirements={scrollToRequirements}
         onSaved={() => { setEditing(false); refresh(); }}
         onCancel={() => setEditing(false)}
       />
@@ -334,7 +347,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
       {!isOffline && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', margin: '10px 0 12px' }}>
-          <button className="btn btn--primary btn--small" style={{ width: 'auto' }} onClick={() => setEditing(true)}>✏️ Edit gig</button>
+          <button className="btn btn--primary btn--small" style={{ width: 'auto' }} onClick={openEdit}>✏️ Edit gig</button>
 
           <div className="viewas-picker" ref={viewAsPickerRef}>
             <button
@@ -460,7 +473,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       )}
       </div>
 
-      <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} />
+      <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
 
       <CollapsibleSection
         id="gig-section-chat-group"
@@ -572,7 +585,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <div className="form-actions">
         {!isOffline && (
           <>
-            <button className="btn btn--ghost btn--small" onClick={() => setEditing(true)}>✏️ Edit gig</button>
+            <button className="btn btn--ghost btn--small" onClick={openEdit}>✏️ Edit gig</button>
             <button className="btn btn--ghost-danger btn--small" style={{ gap: 6 }} onClick={handleDelete}>
               <Trash2 size={14} />
               Delete gig

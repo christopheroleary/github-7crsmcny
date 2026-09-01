@@ -58,7 +58,7 @@ const DRESS_CODE_PRESETS = [
   "Client's own dress code",
 ];
 
-export default function GigForm({ gig, onSaved, onCancel }) {
+export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements = false }) {
   const { profile: me } = useCurrentProfile();
   const isEdit = Boolean(gig) && !gig._isConvert;
   const [bands, setBands] = useState([]);
@@ -176,6 +176,21 @@ export default function GigForm({ gig, onSaved, onCancel }) {
       });
     return () => { cancelled = true; };
   }, [gigDate, gig?.id]);
+
+  // Jump straight to "Instruments needed" instead of landing at the top --
+  // set only when opened from the roster's "Fix required instruments" link
+  // (an unexpected-instrument warning). Retried once since the requirements
+  // fetch above resolves after this component's first paint.
+  useEffect(() => {
+    if (!scrollToRequirements) return;
+    function tryScroll() {
+      document.getElementById('gig-form-requirements')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const t1 = setTimeout(tryScroll, 50);
+    const t2 = setTimeout(tryScroll, 400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addRequirementRow() { setRequirements([...requirements, { id: null, instrument_id: '', quantity: 1 }]); }
   function updateRequirementRow(i, field, value) { setRequirements(requirements.map((r, idx) => idx === i ? { ...r, [field]: value } : r)); }
@@ -582,7 +597,7 @@ export default function GigForm({ gig, onSaved, onCancel }) {
         </label>
       </div>
 
-      <div className="field">
+      <div className="field" id="gig-form-requirements">
         <span className="field__label">
           Instruments needed
           <InfoTooltip text="Shows as vacancies on the roster page. DJ and roadie are toggled below, not counted here." />

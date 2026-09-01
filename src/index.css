@@ -1173,6 +1173,21 @@ input:not([type]) {
   flex-direction: column;
   gap: 2px;
 }
+/* Booked on an instrument the gig doesn't actually call for (GigRoster.jsx)
+   -- deliberately NOT theme-tinted, same reasoning as .gig-card--needs-
+   confirmation: needs to read the same regardless of UI theme. */
+.simple-list__item--warning {
+  border-color: var(--rust);
+  background: rgba(182, 69, 44, 0.06);
+}
+/* Not yet confirmed (GigRoster.jsx) -- only applied when --warning isn't
+   already covering the card, so a card that's both stays red rather than
+   the two fighting over the border colour. Deliberately NOT theme-tinted,
+   same reasoning as .gig-card--needs-confirmation. */
+.simple-list__item--pending {
+  border-color: #ca8a04;
+  background: rgba(250, 204, 21, 0.12);
+}
 .simple-list__title {
   display: block;
   font-weight: 600;
@@ -1491,6 +1506,25 @@ input:not([type]) {
   display: flex;
   gap: 12px;
   flex-shrink: 0;
+}
+/* Confirm/Remove row, GigRoster.jsx -- always the last thing in the card,
+   regardless of how much content (vocal select, role toggles, warnings)
+   renders above it, so the buttons land in the same place on every card. */
+.simple-list__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+/* Icon-only Remove -- was a text link taking a full word of width on every
+   card; the same bin icon used for Delete gig/quote/contract/invoice. */
+.simple-list__remove-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
 }
 .link-button--danger {
   color: var(--rust);
@@ -1979,6 +2013,14 @@ input:not([type]) {
 
 .gig-grid__line--captain {
   box-shadow: inset 0 0 0 2px #22c55e;
+  border-radius: 3px;
+}
+
+/* Not yet confirmed -- deliberately NOT theme-tinted (unlike most colours
+   in this file), same reasoning as .gig-card--needs-confirmation: needs to
+   read the same regardless of which of the 4 UI themes is active. */
+.gig-grid__line--pending {
+  background: rgba(250, 204, 21, 0.35);
   border-radius: 3px;
 }
 

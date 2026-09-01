@@ -7,6 +7,7 @@ import InfoTooltip from './InfoTooltip.jsx';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import DepFinderWizard from './DepFinderWizard.jsx';
 import Avatar from './Avatar.jsx';
+import { Trash2 } from '../utils/stagePlotIcons.jsx';
 
 const CONFIRM_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // matches unconfirmed-roster-reminder's cutoff
 
@@ -43,23 +44,18 @@ function isVocalInstrument(list, instrumentId) {
   return /vocal/i.test(list.find((i) => i.id === instrumentId)?.name || '');
 }
 
+// A DJ/roadie slot with no instrument attached genuinely has nothing for a
+// vocal role to hang off -- but someone who ALSO plays an instrument can
+// absolutely be miked up for vocals while doing DJ/roadie duty too, so
+// is_dj/is_roadie alone no longer hides the prompt once there's a real
+// instrument on the entry.
 function hidesVocalPrompt(list, instrumentId, isDj, isRoadie) {
-  return isDj || isRoadie || isVocalInstrument(list, instrumentId);
+  if (instrumentId) return isVocalInstrument(list, instrumentId);
+  return isDj || isRoadie;
 }
 
 const DJ_COLOUR = 'var(--amber-dark)';
 const ROADIE_COLOUR = 'var(--teal)';
-
-function RoleBadge({ label, colour }) {
-  return (
-    <span
-      className="status-tag"
-      style={{ marginLeft: 6, background: colour + '22', color: colour, border: '1px solid ' + colour + '44' }}
-    >
-      {label}
-    </span>
-  );
-}
 
 function RoleToggle({ label, active, colour, onClick, disabled }) {
   return (
@@ -76,20 +72,6 @@ function RoleToggle({ label, active, colour, onClick, disabled }) {
   );
 }
 
-function VocalBadge({ role }) {
-  if (!role || role === 'none') return null;
-  const label = role === 'lead' ? 'Lead vocals' : 'Backing vocals';
-  const colour = role === 'lead' ? 'var(--amber)' : 'var(--teal)';
-  return (
-    <span
-      className="status-tag"
-      style={{ marginLeft: 6, background: colour + '22', color: colour, border: '1px solid ' + colour + '44' }}
-    >
-      {label}
-    </span>
-  );
-}
-
 function CaptainBadge() {
   return (
     <span
@@ -102,7 +84,7 @@ function CaptainBadge() {
   );
 }
 
-export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
+export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEditRequirements }) {
   const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
@@ -583,6 +565,15 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
     if (l.instrument_id && !l.confirmed) unconfirmedCounts[l.instrument_id] = (unconfirmedCounts[l.instrument_id] || 0) + 1;
   });
 
+  // Someone booked on an instrument the gig doesn't actually call for --
+  // the headcount can look right (N musicians for N slots) while the
+  // instrument mix is wrong (e.g. booked on Acoustic Guitar when the gig
+  // needs a Percussion player). The fix is editing the gig's required
+  // instruments, not reassigning the musician, so this only flags it and
+  // links to that edit rather than offering to change their instrument
+  // here.
+  const requiredInstrumentIds = new Set(requirements.map((r) => r.instrument_id));
+
   const pickedMusicianInstruments = newMusicianId ? musicianInstruments[newMusicianId] || [] : [];
   const availableForMusician = pickedMusicianInstruments.length > 0 ? pickedMusicianInstruments : instruments;
 
@@ -713,27 +704,65 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
           const isPlaceholder = !entry.profile_id;
           const isMe = entry.profile_id === me?.id;
           const displayName = entry.profiles?.full_name || entry.placeholder_musicians?.name || 'Unknown';
+          const isUnexpectedInstrument = Boolean(entry.instrument_id) && !requiredInstrumentIds.has(entry.instrument_id);
+          // Red (an actual mismatch to fix) takes priority over yellow
+          // (just hasn't confirmed yet, which resolves itself) when a card
+          // happens to be both.
+          const cardModifier = isUnexpectedInstrument ? ' simple-list__item--warning' : !entry.confirmed ? ' simple-list__item--pending' : '';
           return (
-            <li className="simple-list__item" key={entry.id}>
+            <li
+              className={'simple-list__item' + cardModifier}
+              key={entry.id}
+            >
               <div className="simple-list__row">
                 <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
-                  {!isPlaceholder && <Avatar url={entry.profiles?.avatar_url} name={displayName} />}
+                  {isPlaceholder ? (
+                    <span
+                      className="avatar-preview avatar-preview--small"
+                      style={{ flexShrink: 0, background: 'rgba(107,99,87,0.12)' }}
+                      title="Dep / session musician"
+                    >
+                      <span className="avatar-preview__placeholder" style={{ fontSize: 10, color: 'var(--text-muted)' }}>DEP</span>
+                    </span>
+                  ) : (
+                    <Avatar url={entry.profiles?.avatar_url} name={displayName} />
+                  )}
                 <div>
+                  {/* Sits on its own line above the name rather than inline
+                      with it -- inline, its width competed with the name/
+                      chip/instrument text for room and could force the
+                      instrument text onto its own wrapped line even when it
+                      didn't need to. */}
+                  {entry.is_captain && <div style={{ marginBottom: 2, marginLeft: -6 }}><CaptainBadge /></div>}
                   <span className="simple-list__title">
                     {displayName}
-                    {isPlaceholder && (
-                      <span className="status-tag" style={{ marginLeft: 8, background: 'rgba(107,99,87,0.12)', color: 'var(--text-muted)' }}>
-                        dep
+                    <span
+                      className={entry.confirmed ? 'status-tag status-tag--confirmed' : 'status-tag status-tag--inquiry'}
+                      style={{ marginLeft: 8 }}
+                    >
+                      {entry.confirmed ? 'Confirmed' : 'Pending'}
+                    </span>
+                    <span style={{ marginLeft: 8, fontWeight: 700 }}>
+                      {[entry.instruments?.name, entry.is_dj && 'DJ', entry.is_roadie && 'Roadie'].filter(Boolean).join(' + ') || '—'}
+                    </span>
+                  </span>
+                  {entry.confirmed && entry.confirmed_fee_pence != null && entry.fee_pence < entry.confirmed_fee_pence && (
+                    <p className="field__hint" style={{ marginTop: 4 }}>
+                      <span className="status-tag status-tag--cancelled" title={'Confirmed at £' + (entry.confirmed_fee_pence / 100).toFixed(2)}>
+                        ⚠ Fee cut £{((entry.confirmed_fee_pence - entry.fee_pence) / 100).toFixed(2)}
                       </span>
-                    )}
-                    <VocalBadge role={entry.vocal_role} />
-                    {entry.is_captain && <CaptainBadge />}
-                    {entry.is_dj && <RoleBadge label="DJ" colour={DJ_COLOUR} />}
-                    {entry.is_roadie && <RoleBadge label="Roadie" colour={ROADIE_COLOUR} />}
-                  </span>
-                  <span className="simple-list__subtitle">
-                    {[entry.instruments?.name, entry.is_dj && 'DJ', entry.is_roadie && 'Roadie'].filter(Boolean).join(' + ') || '—'}
-                  </span>
+                    </p>
+                  )}
+                  {isUnexpectedInstrument && (
+                    <p className="field__hint" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="status-tag status-tag--cancelled">⚠ Not a required instrument</span>
+                      {isAdmin && onEditRequirements && (
+                        <button type="button" className="link-button" onClick={onEditRequirements}>
+                          ✏️ Fix required instruments
+                        </button>
+                      )}
+                    </p>
+                  )}
                   {isAdmin && !hidesVocalPrompt(instruments, entry.instrument_id, entry.is_dj, entry.is_roadie) && (
                     <select
                       value={entry.vocal_role || ''}
@@ -744,50 +773,10 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
                       {VOCAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   )}
-                  {isAdmin && (
-                    <div className="role-toggle-group" style={{ marginTop: 6 }}>
-                      <RoleToggle
-                        label="DJ"
-                        active={entry.is_dj}
-                        colour={DJ_COLOUR}
-                        onClick={() => handleToggleDj(entry)}
-                        disabled={busyEntryId === entry.id}
-                      />
-                      <RoleToggle
-                        label="Roadie"
-                        active={entry.is_roadie}
-                        colour={ROADIE_COLOUR}
-                        onClick={() => handleToggleRoadie(entry)}
-                        disabled={busyEntryId === entry.id}
-                      />
-                      <RoleToggle
-                        label="Captain"
-                        active={entry.is_captain}
-                        colour="var(--rust)"
-                        onClick={() => handleToggleCaptain(entry)}
-                        disabled={busyEntryId === entry.id}
-                      />
-                    </div>
-                  )}
                 </div>
-                </div>
-                <div className="simple-list__actions">
-                  <span className={entry.confirmed ? 'status-tag status-tag--confirmed' : 'status-tag status-tag--inquiry'}>
-                    {entry.confirmed ? 'Confirmed' : 'Pending'}
-                  </span>
-                  {entry.confirmed && entry.confirmed_fee_pence != null && entry.fee_pence < entry.confirmed_fee_pence && (
-                    <span className="status-tag status-tag--cancelled" title={'Confirmed at £' + (entry.confirmed_fee_pence / 100).toFixed(2)}>
-                      ⚠ Fee cut £{((entry.confirmed_fee_pence - entry.fee_pence) / 100).toFixed(2)}
-                    </span>
-                  )}
-                  {!entry.confirmed && (isMe || isAdmin) && (
-                    <button className="link-button" onClick={() => handleConfirm(entry)} disabled={busyEntryId === entry.id}>Confirm</button>
-                  )}
-                  {isAdmin && (
-                    <button className="link-button link-button--danger" onClick={() => handleRemove(entry)} disabled={busyEntryId === entry.id}>Remove</button>
-                  )}
                 </div>
               </div>
+
               {isAdmin && !isPlaceholder && !entry.confirmed && entry.created_at && (() => {
                 const countdown = formatCountdown(entry.created_at, now);
                 return (
@@ -819,6 +808,43 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
                   </div>
                 );
               })()}
+              {/* Confirm/Remove always render here, at the bottom of the
+                  card, regardless of how much content (vocal select, role
+                  toggles, warnings, the added/overdue line) renders above --
+                  previously these sat in a flex row that wrapped onto its
+                  own line only once the content above got wide/tall enough,
+                  so the same buttons landed at the top of a short card and
+                  the bottom of a tall one depending on content, not by
+                  design. */}
+              {(isAdmin || (isMe && !entry.confirmed)) && (
+                <div className="simple-list__footer">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => handleToggleCaptain(entry)}
+                      disabled={busyEntryId === entry.id}
+                    >
+                      {entry.is_captain ? 'Remove captain' : 'Captain?'}
+                    </button>
+                  )}
+                  {!entry.confirmed && (isMe || isAdmin) && (
+                    <button className="link-button" onClick={() => handleConfirm(entry)} disabled={busyEntryId === entry.id}>Confirm</button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="link-button link-button--danger simple-list__remove-btn"
+                      onClick={() => handleRemove(entry)}
+                      disabled={busyEntryId === entry.id}
+                      aria-label="Remove"
+                      title="Remove"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}
