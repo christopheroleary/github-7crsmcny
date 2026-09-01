@@ -30,16 +30,82 @@ const DAILY_CAPTION_LIMIT_PER_GIG = 5;
 // checkboxes, so this is normally never actually hit, just a backstop.
 const MAX_PHOTOS = 5;
 
+// Instagram/X/TikTok profile URLs translate cleanly to an @handle; a
+// plain website, Facebook page, or YouTube link doesn't share that
+// convention, so those are skipped even if the band has one on file.
+const HANDLE_PLATFORMS = ['instagram', 'twitter', 'x.com', 'tiktok'];
+
+function extractHandleFromUrl(url: string): string | null {
+  try {
+    const withScheme = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    const first = new URL(withScheme).pathname.replace(/^\/+|\/+$/g, '').split('/')[0];
+    return first || null;
+  } catch {
+    return null;
+  }
+}
+
+// bands.social_links is a free-form [{label, url}] list (same field
+// QuotePrintModal/InvoicePrintModal/PublicBandPage already read) -- there's
+// no dedicated "handle" field, so this picks the first entry that looks
+// like an @-mentionable platform rather than assuming a fixed shape.
+function findBandHandle(socialLinks: unknown): string | null {
+  if (!Array.isArray(socialLinks)) return null;
+  for (const platform of HANDLE_PLATFORMS) {
+    const link = socialLinks.find((l: any) =>
+      (l?.label || '').toLowerCase().includes(platform.replace('.com', ''))
+      || (l?.url || '').toLowerCase().includes(platform)
+    );
+    const handle = link?.url ? extractHandleFromUrl(link.url) : null;
+    if (handle) return handle;
+  }
+  return null;
+}
+
+// Turns "Stoleford Farm" into "StolefordFarm" -- computed here rather than
+// left to the model so the venue hashtag is always exactly right, never a
+// paraphrase or a misspelling.
+function toHashtagWord(str: string): string {
+  return (str || '')
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join('');
+}
+
+function weekdayOf(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  try {
+    return new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' }).format(new Date(dateStr + 'T00:00:00Z'));
+  } catch {
+    return '';
+  }
+}
+
+// Strips any @handle the model produced that isn't one we actually gave
+// it -- a real safety net, not just a prompt instruction, since a
+// hallucinated or wrong handle ending up in a real public post (tagging
+// a stranger, or the wrong band) is a genuine embarrassment risk, not
+// just a quality issue. Collapses the resulting double-spaces/stray
+// punctuation spacing left behind by a removed mention.
+function stripUnknownMentions(caption: string, allowedHandlesLower: Set<string>): string {
+  return caption
+    .replace(/@([A-Za-z0-9_.]+)/g, (full, handle) => (allowedHandlesLower.has(handle.toLowerCase()) ? full : ''))
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.!?])/g, '$1')
+    .trim();
+}
+
 const CAPTION_SCHEMA = {
   type: 'object',
   properties: {
     caption: {
       type: 'string',
-      description: 'A short, upbeat social-media caption for these gig photos -- 1-3 sentences, no hashtags inline (those go in the hashtags field).',
+      description: 'A short, upbeat, human-sounding social-media caption for these gig photos, naturally including any real @ mentions provided in the context -- 1-3 sentences.',
     },
     hashtags: {
       type: 'array',
-      description: '5-8 relevant hashtags, without the # symbol (e.g. "livemusic" not "#livemusic").',
+      description: '5-8 relevant genre/mood/live-music discovery hashtags, without the # symbol (e.g. "livemusic" not "#livemusic"). Do NOT include the venue name or day of the week here -- those are added separately.',
       items: { type: 'string' },
     },
     best_time_suggestion: {
@@ -50,12 +116,17 @@ const CAPTION_SCHEMA = {
   required: ['caption', 'hashtags', 'best_time_suggestion'],
 };
 
-const PROMPT = `You are helping a UK function/covers band draft a social media post from photos taken at a gig they just played.
+function buildPrompt(contextBlock: string): string {
+  return `You are helping a UK function/covers band draft a social media post from photos taken at a gig they just played.
+
+${contextBlock}
 
 Write into the draft_gig_caption tool:
-- A short, genuine, upbeat caption capturing the energy of the night -- not generic marketing-speak, and not over the top.
-- 5-8 relevant hashtags (no # symbol, just the word).
-- One or two sentences of GENERAL posting-time guidance for a local band's social content (e.g. "evenings and weekends tend to see more engagement for local event content"). This must be phrased as general best-practice advice only -- you have NO access to this band's actual follower/engagement data, so never imply you've analysed their specific audience.`;
+- A caption that sounds like a real person texting their bandmates and fans, not a marketing team. NEVER use an em dash (—). Avoid hyphens too, unless a word genuinely needs one (a real compound word) -- don't use a hyphen or dash as punctuation to join two clauses; use a full stop, a comma, or "and" instead. Short, punchy sentences. Genuine excitement, real buzz -- make people wish they'd been there. No corporate marketing tone, no cliches like "unforgettable night" unless it actually earns it.
+- Naturally weave in the real @ handles given above, if any -- e.g. crediting the band's own account, or a quick shoutout to the musicians tagged. Every handle given above must appear in the caption exactly as given, with the @ symbol, verbatim. If NO handles were given above, do not include any @ mention at all -- never invent, guess, or reuse a handle from anywhere else, under any circumstances.
+- 5-8 hashtags per the schema description (genre/mood/discovery only -- not the venue or the day, those are added separately).
+- One or two sentences of GENERAL posting-time guidance for a local band's social content. You have NO access to this band's actual follower/engagement data, so never imply you've analysed their specific audience -- phrase it as general best practice only.`;
+}
 
 // Chunked rather than String.fromCharCode(...bytes) in one go -- spreading
 // a 100KB+ array into an argument list overflows the call stack. Same
@@ -105,7 +176,11 @@ Deno.serve(async (req) => {
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) return json({ error: 'Not signed in' }, 401);
 
-    const { data: gig } = await admin.from('gigs').select('band_id, gig_date, venues(name)').eq('id', gigId).single();
+    const { data: gig } = await admin
+      .from('gigs')
+      .select('band_id, gig_date, venues(name), bands(social_links)')
+      .eq('id', gigId)
+      .single();
     if (!gig) return json({ error: 'Gig not found' }, 404);
 
     const { data: callerProfile } = await admin.from('profiles').select('role, full_name').eq('id', caller.id).single();
@@ -164,6 +239,42 @@ Deno.serve(async (req) => {
       .in('id', requestedPhotoIds.slice(0, MAX_PHOTOS));
     if (!photos || photos.length === 0) return json({ error: 'No matching photos found for this gig.' }, 404);
 
+    // ── Real, verified data for hashtags/@ mentions -- never left to the
+    // model to guess. Confirmed roster only, and only musicians who've
+    // actually put a handle in Settings -- someone with no handle on file
+    // is simply never mentioned, never guessed at.
+    const venueName = (gig as any)?.venues?.name || '';
+    const weekday = weekdayOf((gig as any)?.gig_date);
+    const bandHandle = findBandHandle((gig as any)?.bands?.social_links);
+
+    const { data: rosterRows } = await admin
+      .from('gig_lineup')
+      .select('profile_id, profiles(full_name, social_handle)')
+      .eq('gig_id', gigId)
+      .eq('confirmed', true)
+      .not('profile_id', 'is', null);
+
+    const taggableMusicians = (rosterRows || [])
+      .map((r: any) => ({ name: r.profiles?.full_name || 'A musician', handle: r.profiles?.social_handle }))
+      .filter((m: any) => m.handle);
+
+    const allowedHandlesLower = new Set<string>([
+      ...(bandHandle ? [bandHandle.toLowerCase()] : []),
+      ...taggableMusicians.map((m) => m.handle.toLowerCase()),
+    ]);
+
+    const contextLines = [
+      venueName ? `Venue: ${venueName}` : null,
+      weekday ? `Day of the gig: ${weekday}` : null,
+      bandHandle
+        ? `The band's own social handle -- tag it as @${bandHandle} where it fits naturally.`
+        : `The band has no social handle on file -- do not invent one.`,
+      taggableMusicians.length > 0
+        ? `Musicians who can be tagged (use these EXACT handles, nothing else): ` +
+          taggableMusicians.map((m) => `${m.name} = @${m.handle}`).join(', ')
+        : `No musician on this gig's roster has a social handle on file -- do not tag anyone by name/handle.`,
+    ].filter(Boolean).join('\n');
+
     const imageBlocks = [];
     for (const photo of photos) {
       const { data: file, error: downloadError } = await admin.storage.from('gig-photos').download(photo.storage_path);
@@ -194,7 +305,7 @@ Deno.serve(async (req) => {
         tool_choice: { type: 'tool', name: 'draft_gig_caption' },
         messages: [{
           role: 'user',
-          content: [...imageBlocks, { type: 'text', text: PROMPT }],
+          content: [...imageBlocks, { type: 'text', text: buildPrompt(contextLines) }],
         }],
       }),
     });
@@ -209,14 +320,24 @@ Deno.serve(async (req) => {
     if (!toolUse?.input) throw new Error('Caption service returned no structured result');
     const x = toolUse.input;
 
+    const safeCaption = stripUnknownMentions(String(x.caption || ''), allowedHandlesLower);
+
+    // Venue/day hashtags are computed here, not asked of the model --
+    // guarantees they're always spelled exactly right, merged with
+    // whatever genre/mood tags the model suggested.
+    const weekdayTag = toHashtagWord(weekday);
+    const venueTag = toHashtagWord(venueName);
+    const aiHashtags = Array.isArray(x.hashtags) ? x.hashtags : [];
+    const finalHashtags = Array.from(new Set([weekdayTag, venueTag, ...aiHashtags].filter(Boolean)));
+
     const { data: inserted, error: insertError } = await admin
       .from('gig_photo_captions')
       .insert({
         gig_id: gigId,
         requested_by: caller.id,
         photo_ids: photos.map((p) => p.id),
-        caption: x.caption,
-        hashtags: Array.isArray(x.hashtags) ? x.hashtags : [],
+        caption: safeCaption,
+        hashtags: finalHashtags,
         best_time_suggestion: x.best_time_suggestion ?? null,
         raw_response: x,
       })

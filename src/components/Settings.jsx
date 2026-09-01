@@ -33,6 +33,7 @@ export default function Settings() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [sharePhoneOnDaysheet, setSharePhoneOnDaysheet] = useState(false);
+  const [socialHandle, setSocialHandle] = useState('');
   const [uiTheme, setUiTheme] = useState('default');
   const [homeAddress, setHomeAddress] = useState('');
   const [homeLat, setHomeLat] = useState(null);
@@ -53,7 +54,7 @@ export default function Settings() {
       setEmail(userData.user.email || '');
 
       const [{ data: profile, error: profileError }, { data: instruments }, { data: links }, { data: phoneRows }] = await Promise.all([
-        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, ui_theme, avatar_url').eq('id', uid).single(),
+        supabase.from('profiles').select('full_name, home_address, home_latitude, home_longitude, share_phone_on_daysheet, ui_theme, avatar_url, social_handle').eq('id', uid).single(),
         supabase.from('instruments').select('id, name').order('sort_order'),
         supabase.from('profile_instruments').select('instrument_id').eq('profile_id', uid),
         // phone isn't in the blanket column grant (see
@@ -72,6 +73,7 @@ export default function Settings() {
         setSharePhoneOnDaysheet(Boolean(profile.share_phone_on_daysheet));
         setUiTheme(profile.ui_theme || 'default');
         setAvatarUrl(profile.avatar_url || '');
+        setSocialHandle(profile.social_handle || '');
       }
       setAllInstruments(instruments || []);
       setSelectedIds((links || []).map((l) => l.instrument_id));
@@ -111,6 +113,16 @@ export default function Settings() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone]);
+
+  useEffect(() => {
+    if (!readyRef.current || !userId) return;
+    // Stored without a leading @ -- added back wherever it's displayed/used
+    // (Settings' own hint text, GigPhotos' AI caption prompt), same as a
+    // phone number is stored digits-only and formatted at render time.
+    const t = setTimeout(() => persist({ social_handle: socialHandle.replace(/^@+/, '').trim() || null }), AUTOSAVE_DELAY);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socialHandle]);
 
   useEffect(() => {
     if (!readyRef.current || !userId) return;
@@ -334,6 +346,18 @@ export default function Settings() {
           <InfoTooltip text="Shows the phone number above to other confirmed musicians on the gig day sheet, so they can reach you on the day. Off by default." />
         </label>
       </div>
+
+      <label className="field">
+        <span className="field__label">
+          Social media handle
+          <InfoTooltip text="Used to @ tag you when a band leader drafts a gig-day social post from Gig photos — e.g. Instagram. Leave blank if you'd rather not be tagged." />
+        </span>
+        <input
+          value={socialHandle}
+          onChange={(e) => setSocialHandle(e.target.value)}
+          placeholder="yourhandle (no @ needed)"
+        />
+      </label>
 
       </div>
 
