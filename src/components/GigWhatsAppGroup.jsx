@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import InfoTooltip from './InfoTooltip.jsx';
 import { formatFullDate, formatShortDate } from '../utils/formatDate.js';
 import { notify } from '../utils/toastService.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
@@ -177,103 +178,95 @@ export default function GigWhatsAppGroup({ gig }) {
 
   return (
     <div className="roster-section">
-      <h3 className="roster-section__title">WhatsApp group</h3>
+      <h3 className="roster-section__title">
+        WhatsApp group
+        <InfoTooltip text="WhatsApp doesn't let apps create groups automatically, so create it yourself and use these to fill it in — works the same on desktop (WhatsApp Web/Desktop) as on a phone." />
+      </h3>
 
-      <details>
-        <summary className="field__hint" style={{ cursor: 'pointer', userSelect: 'none' }}>
-          Set up group for this gig
-        </summary>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10, maxWidth: 420 }}>
-          <p className="field__hint" style={{ margin: 0 }}>
-            WhatsApp doesn't let apps create groups automatically, so create it yourself and use
-            these to fill it in — works the same on desktop (WhatsApp Web/Desktop) as on a phone.
-          </p>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ flex: 1 }}>1. Group title</span>
-            <CopyButton text={groupTitle} label="Copy" />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ flex: 1 }}>2. Welcome message (paste after creating the group)</span>
-            <CopyButton text={summaryMessage} label="Copy" />
-          </div>
-
-          <div>
-            <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
-              3. In WhatsApp: Group Info → Invite via Link → Copy Link — then paste it here
-            </span>
-            {!editingLink ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>✓ Invite link saved</span>
-                <button type="button" className="link-button" onClick={() => setEditingLink(true)}>
-                  Change
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveLink} style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="url"
-                  placeholder="https://chat.whatsapp.com/…"
-                  value={inviteLink}
-                  onChange={(e) => setInviteLink(e.target.value)}
-                  style={{ flex: 1 }}
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  className="btn btn--primary btn--small"
-                  disabled={saving}
-                  style={{ width: 'auto', flexShrink: 0 }}
-                >
-                  {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div>
-            <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
-              4. Send invites — WhatsApp only lets one chat open per tap, so this queues them one at a time
-            </span>
-            {loading ? (
-              <p className="state-message">Loading lineup…</p>
-            ) : !inviteLink ? (
-              <p className="field__hint">Save the invite link above first.</p>
-            ) : withPhone.length === 0 ? (
-              <p className="field__hint">No one on the roster has a phone number on file yet.</p>
-            ) : (
-              <>
-                {nextPerson ? (
-                  <a
-                    className="btn btn--primary btn--small"
-                    href={waHref(nextPerson)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => markSent(nextPerson)}
-                  >
-                    Send next invite ({withPhone.filter((p) => p.sentAt).length + 1} of {withPhone.length}) — {nextPerson.name}
-                  </a>
-                ) : (
-                  <p className="field__hint">✓ All invites sent.</p>
-                )}
-                <ul className="field__hint" style={{ marginTop: 8, paddingLeft: 18, lineHeight: 1.7 }}>
-                  {recipients.map((p) => {
-                    const wa = toWhatsAppNumber(p.phone);
-                    const status = !wa
-                      ? 'no phone'
-                      : p.sentAt
-                        ? 'sent ' + formatShortDate(p.sentAt.slice(0, 10))
-                        : 'pending';
-                    return <li key={p.key}>{p.name} — {status}</li>;
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10, maxWidth: 420 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1 }}>1. Group title</span>
+          <CopyButton text={groupTitle} label="Copy" />
         </div>
-      </details>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1 }}>2. Welcome message (paste after creating the group)</span>
+          <CopyButton text={summaryMessage} label="Copy" />
+        </div>
+
+        <div>
+          <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
+            3. In WhatsApp: Group Info → Invite via Link → Copy Link — then paste it here
+          </span>
+          {!editingLink ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>✓ Invite link saved</span>
+              <button type="button" className="link-button" onClick={() => setEditingLink(true)}>
+                Change
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveLink} style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="url"
+                placeholder="https://chat.whatsapp.com/…"
+                value={inviteLink}
+                onChange={(e) => setInviteLink(e.target.value)}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="btn btn--primary btn--small"
+                disabled={saving}
+                style={{ width: 'auto', flexShrink: 0 }}
+              >
+                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <div>
+          <span className="field__hint" style={{ display: 'block', marginBottom: 4 }}>
+            4. Send invites — WhatsApp only lets one chat open per tap, so this queues them one at a time
+          </span>
+          {loading ? (
+            <p className="state-message">Loading lineup…</p>
+          ) : !inviteLink ? (
+            <p className="field__hint">Save the invite link above first.</p>
+          ) : withPhone.length === 0 ? (
+            <p className="field__hint">No one on the roster has a phone number on file yet.</p>
+          ) : (
+            <>
+              {nextPerson ? (
+                <a
+                  className="btn btn--primary btn--small"
+                  href={waHref(nextPerson)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => markSent(nextPerson)}
+                >
+                  Send next invite ({withPhone.filter((p) => p.sentAt).length + 1} of {withPhone.length}) — {nextPerson.name}
+                </a>
+              ) : (
+                <p className="field__hint">✓ All invites sent.</p>
+              )}
+              <ul className="field__hint" style={{ marginTop: 8, paddingLeft: 18, lineHeight: 1.7 }}>
+                {recipients.map((p) => {
+                  const wa = toWhatsAppNumber(p.phone);
+                  const status = !wa
+                    ? 'no phone'
+                    : p.sentAt
+                      ? 'sent ' + formatShortDate(p.sentAt.slice(0, 10))
+                      : 'pending';
+                  return <li key={p.key}>{p.name} — {status}</li>;
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

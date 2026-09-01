@@ -328,6 +328,21 @@ input {
   opacity: 0.9;
 }
 
+/* Outlined red variant -- for a destructive action that shouldn't compete
+   visually with the page's actual primary actions (e.g. "Delete gig"
+   sitting quietly at the bottom, rather than looking like a call to action
+   the way solid .btn--danger does). */
+.btn--ghost-danger {
+  background: transparent;
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.btn--ghost-danger:hover {
+  background: var(--rust);
+  color: var(--paper-raised);
+}
+
 .confirm-panel {
   max-width: 380px;
 }
@@ -2489,6 +2504,58 @@ input:not([type]) {
   margin: 0 0 12px;
 }
 
+/* CollapsibleSection.jsx -- the fold-to-title wrapper shared across
+   GigDetail.jsx. .collapsible-summary sits alongside .day-sheet__section-title
+   on the same <summary> element, so it inherits that class's spacing/type
+   and just adds the chevron + flex layout on top. */
+.collapsible-summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* Bleeds out to the box's own edges (matching .day-sheet__section's 16px
+     padding / 12px radius) so a hover tint fills the whole folded card --
+     reading as one clickable area, not a static info box -- rather than
+     just the text row. .day-sheet__section-title's own margin-bottom: 12px
+     is cancelled here (folded, there's no body to leave a gap before) and
+     reapplied below once actually open. */
+  margin: -16px -16px 0 -16px;
+  padding: 16px 16px 0 16px;
+  border-radius: 12px 12px 0 0;
+  transition: background-color 0.1s ease;
+}
+details:not([open]) > .collapsible-summary {
+  padding-bottom: 16px;
+  border-radius: 12px;
+}
+details[open] > .collapsible-summary {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+.collapsible-summary:hover,
+.collapsible-summary:focus-visible {
+  background: var(--paper);
+}
+.collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+.collapsible-summary::before {
+  content: '▸';
+  display: inline-block;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+details[open] > .collapsible-summary::before {
+  transform: rotate(90deg);
+}
+/* .day-sheet__section-title already carries margin-bottom: 12px for the
+   gap above a section's body -- no extra margin-top needed here. */
+.collapsible-body {
+  margin-top: 0;
+}
+
 /* ============================================================
    Gig chat — deliberately styled after iMessage specifically
    (per request), using its own blue/grey rather than the app's
@@ -3251,6 +3318,50 @@ input:not([type]) {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
+  margin: 0;
+}
+
+/* "View as musician" picker -- GigDetail.jsx. Same floating-panel-off-a-
+   relative-wrapper pattern as .notif-bell/.notif-panel, just anchored to
+   its own trigger button (mid-page, can be scrolled anywhere) rather than
+   fixed to the header. */
+.viewas-picker {
+  position: relative;
+}
+.viewas-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(30,27,22,0.16);
+  z-index: 50;
+  padding: 6px;
+}
+.viewas-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.viewas-menu__item:hover {
+  background: var(--paper);
+}
+.viewas-menu__empty {
+  padding: 8px 10px;
   margin: 0;
 }
 

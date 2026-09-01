@@ -9,6 +9,8 @@ import NumberInput from './NumberInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
+import InfoTooltip from './InfoTooltip.jsx';
+import { Trash2 } from '../utils/stagePlotIcons.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -190,7 +192,10 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
   if (!invoice) {
     return (
       <div className="roster-section">
-        <h3 className="roster-section__title">Invoice</h3>
+        <h3 className="roster-section__title">
+          Invoice
+          <InfoTooltip text="The bill sent to the client — track payments against it, and share a payment link they can pay online from." />
+        </h3>
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No invoice yet for this gig.</p>
         {!gig?.band_id && (
           <p className="field__hint" style={{ marginTop: 6 }}>
@@ -200,7 +205,7 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
         {error && <p className="form-error">{error}</p>}
         {isPro ? (
           <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating…' : 'Create invoice'}
+            {creating ? 'Creating…' : '+ Create invoice'}
           </button>
         ) : (
           <p className="field__hint" style={{ marginTop: 12 }}>Invoicing is a Pro feature — upgrade in My Profile to create one.</p>
@@ -219,7 +224,10 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
   return (
     <div className="roster-section">
       <div className="section-header">
-        <h3 className="roster-section__title">Invoice</h3>
+        <h3 className="roster-section__title">
+          Invoice
+          <InfoTooltip text="The bill sent to the client — track payments against it, and share a payment link they can pay online from." />
+        </h3>
         <span className={`status-tag status-tag--${invoice.status}`}>{invoice.status}</span>
       </div>
 
@@ -358,7 +366,7 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
             <div className="form-actions">
               {invoice.status !== 'paid' && (
                 <>
-                  <button className="btn btn--ghost" onClick={async () => {
+                  <button className="btn btn--ghost-danger" style={{ gap: 6 }} onClick={async () => {
                     const ok = await confirmAsync('Delete this invoice? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('invoices').delete().eq('id', invoice.id);
@@ -366,6 +374,7 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
                     setInvoice(null);
                     setItems([]);
                   }}>
+                    <Trash2 size={14} />
                     Delete invoice
                   </button>
                   <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>

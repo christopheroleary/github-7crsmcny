@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
@@ -128,10 +129,10 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
 
   return (
     <div className="day-sheet__section gig-chat" id="gig-section-chat">
-      <h3 className="day-sheet__section-title">Gig chat</h3>
-      <p className="field__hint" style={{ marginTop: -6, marginBottom: 10 }}>
-        Everyone else on this gig's roster gets a notification when you send one of these.
-      </p>
+      <h3 className="roster-section__title">
+        Gig chat
+        <InfoTooltip text="Everyone else on this gig's roster gets a notification when you send one of these." />
+      </h3>
 
       <div className="gig-chat__messages" ref={listRef}>
         {loading && <p className="field__hint">Loading messages…</p>}

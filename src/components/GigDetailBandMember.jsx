@@ -13,6 +13,7 @@ import GigSuppliers from './GigSuppliers.jsx';
 import GigPhotos from './GigPhotos.jsx';
 import MusicianClaim from './MusicianClaim.jsx';
 import NearbyPlaces from './NearbyPlaces.jsx';
+import VenueMap from './VenueMap.jsx';
 import Avatar from './Avatar.jsx';
 import { notify } from '../utils/toastService.js';
 import { toWhatsAppNumber } from '../utils/phone.js';
@@ -357,14 +358,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           </p>
         )}
         {hasPin && !isOffline && (
-          <iframe
-            title="Venue map"
-            width="100%"
-            height="200"
-            style={{ border: 0, borderRadius: 10, marginTop: 10 }}
-            loading="lazy"
-            src={mapSrc}
-          />
+          <VenueMap title="Venue map" src={mapSrc} height={200} />
         )}
         {hasPin && isOffline && (
           <p className="field__hint" style={{ marginTop: 8 }}>

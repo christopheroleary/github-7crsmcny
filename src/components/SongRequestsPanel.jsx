@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import qrcode from '../utils/qrcode.js';
 import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
 import { notify } from '../utils/toastService.js';
@@ -161,10 +162,11 @@ export default function SongRequestsPanel({ gig }) {
 
   return (
     <div className="roster-section">
-      <h3 className="roster-section__title">Song requests {pendingCount > 0 && <span className="field__hint">({pendingCount} new)</span>}</h3>
-      <p className="field__hint" style={{ marginBottom: 4 }}>
-        A QR code guests scan at the gig to request a song from tonight's setlist — no app, no login.
-      </p>
+      <h3 className="roster-section__title">
+        Song requests
+        <InfoTooltip text="A QR code guests scan at the gig to request a song from tonight's setlist — no app, no login." />
+        {pendingCount > 0 && <span className="field__hint">({pendingCount} new)</span>}
+      </h3>
       {win && (
         <p className="field__hint" style={{ marginBottom: 12 }}>
           Live from <strong>{formatShortDate(win.opens)}</strong> to <strong>{formatShortDate(win.closes)}</strong> — opens the day

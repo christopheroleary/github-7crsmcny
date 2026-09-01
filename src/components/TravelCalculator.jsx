@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
+import InfoTooltip from './InfoTooltip.jsx';
 
 export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence, rosterVersion, refreshSignal }) {
   const [lineup, setLineup] = useState([]);
@@ -119,7 +120,10 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
 
   return (
     <div className="roster-section">
-      <h3 className="roster-section__title">Travel costs</h3>
+      <h3 className="roster-section__title">
+        Travel costs
+        <InfoTooltip text="Driving distance from each musician's home to the venue, at the gig's mileage rate — mark someone as lift-sharing to zero their own cost." />
+      </h3>
 
       {error && <p className="form-error">{error}</p>}
 

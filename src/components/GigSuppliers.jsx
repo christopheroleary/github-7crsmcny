@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import SupplierForm from './SupplierForm.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
@@ -14,7 +16,7 @@ import { buildSupplierFollowUpEmail, buildSupplierMailtoHref } from '../utils/su
 // never quite happens. `gig` is the already-loaded gig object (needs
 // .venues.name, .gig_date, .bands.name for the email template) -- both
 // GigDetail and GigDetailBandMember already have this on hand.
-export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSignal }) {
+export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSignal, defaultOpen = false }) {
   const { isAdmin, isBandLeader } = useCurrentProfile();
   const canManage = !readOnly && (isAdmin || isBandLeader);
 
@@ -133,13 +135,14 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
   if (attached.length === 0 && !canManage) return null;
 
   return (
-    <div className="day-sheet__section" id="gig-section-suppliers">
-      <h3 className="day-sheet__section-title">Suppliers</h3>
-      <p className="field__hint" style={{ marginBottom: 12 }}>
-        Photographer, florist, DJ and other vendors working this gig — tag them here so everyone knows who to
-        credit in photos, and so a follow-up thank-you is one click away.
-      </p>
-
+    <CollapsibleSection
+      id="gig-section-suppliers"
+      title="Suppliers"
+      defaultOpen={defaultOpen}
+      titleExtra={
+        <InfoTooltip text="Photographer, florist, DJ and other vendors working this gig — tag them here so everyone knows who to credit in photos, and so a follow-up thank-you is one click away." />
+      }
+    >
       {attached.length === 0 ? (
         <p className="field__hint">No suppliers tagged yet.</p>
       ) : (
@@ -246,6 +249,6 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
           )}
         </div>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }

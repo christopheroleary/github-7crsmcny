@@ -1,4 +1,6 @@
 import { useMemo, useCallback } from 'react';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import StagePlot from './StagePlot.jsx';
 import { buildStagePlotSeed } from '../utils/stagePlotAdapter.js';
 import { useGigStagePlot } from '../hooks/useGigStagePlot.js';
@@ -14,7 +16,7 @@ import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
  * belt-and-suspenders alongside the RLS policies that are what actually
  * block a musician's write (see the stage_plot migration).
  */
-export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly }) {
+export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly, defaultOpen = false }) {
   const { songIds: backingTrackSongIds } = useBandBackingTrackSongIds(bandId);
 
   // Real automation, not a manual flag: true if this gig's attached
@@ -68,8 +70,12 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
   if (readOnly && !visibleToBand) return null;
 
   return (
-    <div className="roster-section">
-      <h3 className="roster-section__title">Stage plot</h3>
+    <CollapsibleSection
+      id="gig-section-stage-plot"
+      title="Stage plot"
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="An auto-generated stage layout from the roster — drag anything to adjust it, then choose whether musicians can see it too." />}
+    >
       {!readOnly && (
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer' }}>
           <input
@@ -86,6 +92,6 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
         onConfigChange={readOnly ? undefined : save}
         readOnly={readOnly}
       />
-    </div>
+    </CollapsibleSection>
   );
 }

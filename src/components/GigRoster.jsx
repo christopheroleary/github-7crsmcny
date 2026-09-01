@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import InfoTooltip from './InfoTooltip.jsx';
+import CollapsibleSection from './CollapsibleSection.jsx';
 import DepFinderWizard from './DepFinderWizard.jsx';
 import Avatar from './Avatar.jsx';
 
@@ -571,6 +573,16 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
     if (l.instrument_id) filledCounts[l.instrument_id] = (filledCounts[l.instrument_id] || 0) + 1;
   });
 
+  // A slot can show as numerically "filled" while the person in it hasn't
+  // actually confirmed yet -- easy to miss since the vacancy list otherwise
+  // only tracks headcount, not confirmation status. Surfaced per-instrument
+  // (and for the DJ/roadie slots below) so a leader doesn't mistake
+  // "filled" for "sorted".
+  const unconfirmedCounts = {};
+  lineup.forEach((l) => {
+    if (l.instrument_id && !l.confirmed) unconfirmedCounts[l.instrument_id] = (unconfirmedCounts[l.instrument_id] || 0) + 1;
+  });
+
   const pickedMusicianInstruments = newMusicianId ? musicianInstruments[newMusicianId] || [] : [];
   const availableForMusician = pickedMusicianInstruments.length > 0 ? pickedMusicianInstruments : instruments;
 
@@ -592,33 +604,28 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
   const sortedLineup = [...lineup].sort((a, b) => rosterSortKey(a) - rosterSortKey(b));
 
   return (
-    <div className="roster-section">
-      <h3 className="roster-section__title">Roster &amp; vacancies</h3>
-
-      {isAdmin && isPro && (
-        <button
-          type="button"
-          className="btn btn--ghost btn--small"
-          style={{ marginBottom: 12 }}
-          onClick={() => setWizardInstrumentId(instruments[0]?.id || '')}
-        >
-          🔍 Find a dep
-        </button>
-      )}
-      {isAdmin && !isPro && (
-        <p className="field__hint" style={{ marginBottom: 12 }}>The dep finder wizard is a Pro feature — upgrade in My Profile.</p>
-      )}
-
+    <CollapsibleSection
+      id="gig-section-roster"
+      title="Roster & vacancies"
+      defaultOpen
+      titleExtra={<InfoTooltip text="Who's booked and who's still needed — confirm musicians, apply a saved band preset, or find a dep for an open slot." />}
+    >
       {(requirements.length > 0 || gigNeeds.needs_dj || gigNeeds.needs_roadie) && (
         <ul className="vacancy-list">
           {requirements.map((r, i) => {
             const filled = filledCounts[r.instrument_id] || 0;
+            const unconfirmed = unconfirmedCounts[r.instrument_id] || 0;
             const vacant = Math.max(0, r.quantity - filled);
             return (
               <li key={i} className={vacant > 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
                 <span>{r.instruments?.name}</span>
                 <span>
                   {filled}/{r.quantity} filled{vacant > 0 ? ' — need ' + vacant + ' more' : ''}
+                  {unconfirmed > 0 && (
+                    <span className="status-tag status-tag--inquiry" style={{ marginLeft: 8 }}>
+                      {unconfirmed === filled ? 'Pending' : unconfirmed + ' pending'}
+                    </span>
+                  )}
                   {isAdmin && isPro && vacant > 0 && (
                     <button
                       type="button"
@@ -626,7 +633,7 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
                       style={{ marginLeft: 8 }}
                       onClick={() => setWizardInstrumentId(r.instrument_id)}
                     >
-                      Find a dep
+                      Dep Wizard
                     </button>
                   )}
                 </span>
@@ -635,23 +642,69 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
           })}
           {gigNeeds.needs_dj && (() => {
             const filled = lineup.filter((l) => l.is_dj).length;
+            const unconfirmed = lineup.filter((l) => l.is_dj && !l.confirmed).length;
             return (
               <li className={filled === 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
                 <span>DJ</span>
-                <span>{filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}</span>
+                <span>
+                  {filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}
+                  {unconfirmed > 0 && (
+                    <span className="status-tag status-tag--inquiry" style={{ marginLeft: 8 }}>Pending</span>
+                  )}
+                </span>
               </li>
             );
           })()}
           {gigNeeds.needs_roadie && (() => {
             const filled = lineup.filter((l) => l.is_roadie).length;
+            const unconfirmed = lineup.filter((l) => l.is_roadie && !l.confirmed).length;
             return (
               <li className={filled === 0 ? 'vacancy-list__item vacancy-list__item--open' : 'vacancy-list__item'}>
                 <span>Roadie</span>
-                <span>{filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}</span>
+                <span>
+                  {filled}/1 filled{filled === 0 ? ' — need 1 more' : ''}
+                  {unconfirmed > 0 && (
+                    <span className="status-tag status-tag--inquiry" style={{ marginLeft: 8 }}>Pending</span>
+                  )}
+                </span>
               </li>
             );
           })()}
         </ul>
+      )}
+
+      {isAdmin && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {isPro ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  onClick={() => setWizardInstrumentId(instruments[0]?.id || '')}
+                >
+                  🧙 Dep Wizard
+                </button>
+                <InfoTooltip text="Ranks every musician who plays a given instrument by whether they're free that day and how far they'd have to drive — so you're not cross-checking availability from memory." />
+              </>
+            ) : (
+              <p className="field__hint">The dep finder wizard is a Pro feature — upgrade in My Profile.</p>
+            )}
+          </div>
+          {gigBandId && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={handleApplyPreset}
+                disabled={applyingPreset}
+              >
+                {applyingPreset ? 'Applying…' : '⚡ Apply band preset'}
+              </button>
+              <InfoTooltip text="Adds all standard band members in one click." />
+            </div>
+          )}
+        </div>
       )}
 
       <ul className="simple-list">
@@ -775,20 +828,6 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
         <div style={{ marginTop: 16 }}>
           {error && <p className="form-error" style={{ marginBottom: 8 }}>{error}</p>}
 
-          {gigBandId && (
-            <div style={{ marginBottom: 12 }}>
-              <button
-                type="button"
-                className="btn btn--ghost btn--small"
-                onClick={handleApplyPreset}
-                disabled={applyingPreset}
-              >
-                {applyingPreset ? 'Applying…' : '⚡ Apply band preset'}
-              </button>
-              <span className="field__hint" style={{ marginLeft: 8 }}>Adds all standard band members in one click</span>
-            </div>
-          )}
-
           {/* Add registered musician */}
           <form className="inline-subform" onSubmit={handleAdd} style={{ marginBottom: 12 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -844,7 +883,11 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
 
           {/* Add dep */}
           {!showPlaceholder ? (
-            <button className="link-button" onClick={() => { setShowPlaceholder(true); setPlaceholderMode('existing'); }}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => { setShowPlaceholder(true); setPlaceholderMode('existing'); }}
+            >
               + Add dep / session musician
             </button>
           ) : (
@@ -994,6 +1037,6 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal }) {
           onAdded={loadLineup}
         />
       )}
-    </div>
+    </CollapsibleSection>
   );
 }

@@ -4,6 +4,8 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { promptAsync } from '../utils/promptService.js';
 import { notify } from '../utils/toastService.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 
 function sortedItems(claim) {
   return [...(claim.musician_claim_items || [])].sort((a, b) => a.sort_order - b.sort_order);
@@ -28,7 +30,7 @@ const STATUS_COLORS = {
 // compare against what a musician claimed), never written, so there's no
 // need to fetch them independently -- GigDetail already has them loaded
 // via useOfflineGigData and passes them straight through.
-export default function MusicianClaimsAdmin({ gigId, lineup: lineupProp = [] }) {
+export default function MusicianClaimsAdmin({ gigId, lineup: lineupProp = [], defaultOpen = false }) {
   const { isPro } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,17 +137,25 @@ export default function MusicianClaimsAdmin({ gigId, lineup: lineupProp = [] }) 
 
   if (loading) return null;
   if (claims.length === 0) return (
-    <div className="roster-section">
-      <h3 className="roster-section__title">Musician claims</h3>
+    <CollapsibleSection
+      id="gig-section-claims"
+      title="Musician claims"
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected)." />}
+    >
       <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No payment claims submitted yet.</p>
-    </div>
+    </CollapsibleSection>
   );
 
   const total = claims.filter((c) => c.status !== 'rejected').reduce((sum, c) => sum + claimTotalPence(c), 0);
 
   return (
-    <div className="roster-section">
-      <h3 className="roster-section__title">Musician claims</h3>
+    <CollapsibleSection
+      id="gig-section-claims"
+      title="Musician claims"
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected)." />}
+    >
       <ul className="simple-list">
         {claims.map((claim) => (
           <li className="simple-list__item" key={claim.id}>
@@ -210,6 +220,6 @@ export default function MusicianClaimsAdmin({ gigId, lineup: lineupProp = [] }) 
       <p style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 8, color: 'var(--text-muted)' }}>
         Total claimed: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(total)}</strong>
       </p>
-    </div>
+    </CollapsibleSection>
   );
 }

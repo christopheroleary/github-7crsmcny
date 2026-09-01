@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useCurrentProfile } from '../../context/ProfileContext.jsx';
+import InfoTooltip from '../InfoTooltip.jsx';
 import { useArcade, DAILY_LIVES } from '../../hooks/useArcade.js';
 import { notify } from '../../utils/toastService.js';
 import { isLikelyOfflineError } from '../../utils/networkError.js';
@@ -82,13 +83,13 @@ export default function ArcadeSection({ gigId }) {
 
   return (
     <div className="day-sheet__section" id="gig-section-arcade">
-      <h3 className="day-sheet__section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span>🎮 Break-time games</span>
+      <h3 className="roster-section__title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          🎮 Break-time games
+          <InfoTooltip text={`${DAILY_LIVES} goes a day, shared across every game. Compete against whoever else is on this gig's roster tonight.`} />
+        </span>
         {!loading && <LiveDots livesLeft={livesLeft} />}
       </h3>
-      <p className="field__hint" style={{ marginTop: -6, marginBottom: 10 }}>
-        {DAILY_LIVES} goes a day, shared across every game. Compete against whoever else is on this gig's roster tonight.
-      </p>
 
       {!activeGame ? (
         <>

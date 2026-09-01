@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
 import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
@@ -13,7 +15,7 @@ import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function GigSetlist({ gigId, bandId, refreshSignal }) {
+export default function GigSetlist({ gigId, bandId, refreshSignal, defaultOpen = false }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
   const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
@@ -222,9 +224,12 @@ export default function GigSetlist({ gigId, bandId, refreshSignal }) {
   const availableToAttach = bandSetlists.filter((sl) => !attachedIds.includes(sl.id));
 
   return (
-    <div className="roster-section">
-      <h3 className="roster-section__title">Setlist</h3>
-
+    <CollapsibleSection
+      id="gig-section-setlist"
+      title="Setlist"
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="The set(s) attached to this gig from your band's library — attach an existing one, create a new one, or import a pasted list." />}
+    >
       {attachedSetlists.length === 0 ? (
         <p className="state-message">No sets attached to this gig yet.</p>
       ) : (
@@ -298,7 +303,7 @@ export default function GigSetlist({ gigId, bandId, refreshSignal }) {
           )}
         </div>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }
 

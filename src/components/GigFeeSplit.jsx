@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import { notify } from '../utils/toastService.js';
 import NumberInput from './NumberInput.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -160,7 +161,10 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
   return (
     <div className="roster-section">
-      <h3 className="roster-section__title">Fee split</h3>
+      <h3 className="roster-section__title">
+        Fee split
+        <InfoTooltip text="Splits the total fee across the roster — a base share per musician plus bonuses for singer/captain/DJ/roadie roles, and whatever's left over as band-leader profit." />
+      </h3>
 
       {!hasTemplate && (
         <p className="field__hint">

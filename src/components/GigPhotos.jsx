@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import { notify } from '../utils/toastService.js';
 import { resizeImageFile } from '../utils/resizeImage.js';
 import { todayStr } from '../utils/formatDate.js';
@@ -197,12 +198,16 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
 
   return (
     <div className="day-sheet__section" id="gig-section-photos">
-      <h3 className="day-sheet__section-title">Gig photos</h3>
-      <p className="field__hint" style={{ marginTop: -6, marginBottom: 10 }}>
-        {canManage
-          ? "Anyone confirmed on this gig's roster can add photos here — you get notified when they do."
-          : "Share your photos from the gig — your band leader gets notified so they can use them for a post."}
-      </p>
+      <h3 className="roster-section__title">
+        Gig photos
+        <InfoTooltip
+          text={
+            canManage
+              ? "Anyone confirmed on this gig's roster can add photos here — you get notified when they do."
+              : "Share your photos from the gig — your band leader gets notified so they can use them for a post."
+          }
+        />
+      </h3>
 
       {canUpload && gigHasHappened && (
         <div style={{ marginBottom: 12 }}>

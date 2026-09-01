@@ -9,6 +9,8 @@ import ShareLinkField from './ShareLinkField.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
+import InfoTooltip from './InfoTooltip.jsx';
+import { Trash2 } from '../utils/stagePlotIcons.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -107,12 +109,15 @@ export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) 
   if (!contract) {
     return (
       <div className="roster-section">
-        <h3 className="roster-section__title">Contract</h3>
+        <h3 className="roster-section__title">
+          Contract
+          <InfoTooltip text="A performance contract with terms and deposit — both you and the client sign it digitally, right here." />
+        </h3>
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No contract yet for this gig.</p>
         {error && <p className="form-error">{error}</p>}
         {isPro ? (
           <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating…' : 'Create contract'}
+            {creating ? 'Creating…' : '+ Create contract'}
           </button>
         ) : (
           <p className="field__hint" style={{ marginTop: 12 }}>Contracts are a Pro feature — upgrade in My Profile to create one.</p>
@@ -126,7 +131,10 @@ export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) 
   return (
     <div className="roster-section">
       <div className="section-header">
-        <h3 className="roster-section__title">Contract</h3>
+        <h3 className="roster-section__title">
+          Contract
+          <InfoTooltip text="A performance contract with terms and deposit — both you and the client sign it digitally, right here." />
+        </h3>
         <span className={`status-tag status-tag--${contract.status}`}>{contract.status}</span>
       </div>
 
@@ -210,13 +218,14 @@ export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) 
             <div className="form-actions">
               {!locked && (
                 <>
-                  <button className="btn btn--ghost" onClick={async () => {
+                  <button className="btn btn--ghost-danger" style={{ gap: 6 }} onClick={async () => {
                     const ok = await confirmAsync('Delete this contract? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('contracts').delete().eq('id', contract.id);
                     if (error) { notify("Couldn't delete: " + error.message); return; }
                     setContract(null);
                   }}>
+                    <Trash2 size={14} />
                     Delete contract
                   </button>
                   <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>

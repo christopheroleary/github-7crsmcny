@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
+import { Trash2 } from '../utils/stagePlotIcons.jsx';
+import VenueMap from './VenueMap.jsx';
+import Avatar from './Avatar.jsx';
 import GigForm from './GigForm.jsx';
 import GigRoster from './GigRoster.jsx';
 import GigMessages from './GigMessages.jsx';
@@ -125,6 +130,18 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
   const [showViewAsPicker, setShowViewAsPicker] = useState(false);
   const [viewAsProfileId, setViewAsProfileId] = useState(null);
+  const viewAsPickerRef = useRef(null);
+  // Same click-outside-closes pattern as NotificationBell's own panel.
+  useEffect(() => {
+    if (!showViewAsPicker) return;
+    function handleClick(e) {
+      if (viewAsPickerRef.current && !viewAsPickerRef.current.contains(e.target)) {
+        setShowViewAsPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showViewAsPicker]);
   // Plays a quick slide-out (see .swipe-back-exiting) before actually
   // navigating away, matched to the animation's own duration. Disabled
   // while editing or viewing as another musician -- those have their own
@@ -309,50 +326,51 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         )}
       </div>
 
-      {!isOffline && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '4px 0 12px' }}>
-          <button className="btn btn--primary btn--small" onClick={() => setEditing(true)}>Edit gig</button>
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            onClick={() => setShowViewAsPicker((v) => !v)}
-          >
-            👁 View as musician
-          </button>
-        </div>
-      )}
-
-      {showViewAsPicker && (
-        <div className="inline-subform" style={{ marginBottom: 12 }}>
-          {realMusicians.length === 0 ? (
-            <p className="field__hint">No musicians with real accounts are booked on this gig yet.</p>
-          ) : (
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) {
-                  setViewAsProfileId(e.target.value);
-                  setShowViewAsPicker(false);
-                }
-              }}
-            >
-              <option value="">Choose a musician…</option>
-              {realMusicians.map((l) => (
-                <option key={l.profile_id} value={l.profile_id}>{l.profiles?.full_name}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
-
+      <div className="day-sheet__section">
       <div className="section-header">
         <h2 className="section-header__title">{venue?.name ?? 'No venue set'}</h2>
         <span className={`status-tag status-tag--${gig.status}`}>{gig.status}</span>
       </div>
 
+      {!isOffline && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', margin: '10px 0 12px' }}>
+          <button className="btn btn--primary btn--small" style={{ width: 'auto' }} onClick={() => setEditing(true)}>✏️ Edit gig</button>
+
+          <div className="viewas-picker" ref={viewAsPickerRef}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setShowViewAsPicker((v) => !v)}
+            >
+              👁 View as musician
+            </button>
+            {showViewAsPicker && (
+              <div className="viewas-menu">
+                {realMusicians.length === 0 ? (
+                  <p className="field__hint viewas-menu__empty">No musicians with real accounts are booked on this gig yet.</p>
+                ) : (
+                  realMusicians.map((l) => (
+                    <button
+                      key={l.profile_id}
+                      type="button"
+                      className="viewas-menu__item"
+                      onClick={() => { setViewAsProfileId(l.profile_id); setShowViewAsPicker(false); }}
+                    >
+                      <Avatar url={l.profiles?.avatar_url} name={l.profiles?.full_name} />
+                      {l.profiles?.full_name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <dl className="detail-list">
         <dt>Date</dt><dd>{formatFullDate(gig.gig_date)}</dd>
         <dt>Band</dt><dd>{gig.bands?.name || '—'}</dd>
+        <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Client</dt><dd>{gig.clients?.name || '—'}</dd>
         <dt>Times</dt>
         <dd>
@@ -371,7 +389,6 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         <dd>{gig.performance_type || '—'}</dd>
         <dt>Mileage rate</dt>
         <dd>{gig.mileage_rate_pence ?? 35}p per mile</dd>
-        <dt>Venue address</dt><dd>{venue?.address || '—'}</dd>
         <dt>Parking notes</dt><dd>{gig.parking_notes || '—'}</dd>
         <dt>Notes</dt><dd className="u-pre-line">{gig.notes || '—'}</dd>
         <dt>Sets</dt><dd>{gig.sets_info || '—'}</dd>
@@ -397,14 +414,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       </dl>
 
       {hasPin && !isOffline && (
-        <iframe
-          title="Venue location"
-          width="100%"
-          height="220"
-          style={{ border: 0, borderRadius: 12, marginTop: 12 }}
-          loading="lazy"
-          src={mapSrc}
-        />
+        <VenueMap title="Venue location" src={mapSrc} height={220} />
       )}
       {hasPin && isOffline && (
         <p className="field__hint" style={{ marginTop: 8 }}>
@@ -448,80 +458,126 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
           )}
         </div>
       )}
-
-      <div id="gig-section-roster">
-        <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} />
       </div>
 
-      <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
+      <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} />
 
-      <ArcadeSection gigId={gigId} />
+      <CollapsibleSection
+        id="gig-section-chat-group"
+        title="Chat & WhatsApp"
+        defaultOpen={scrollToSection === 'chat'}
+        titleExtra={<InfoTooltip text="The gig's group chat, plus everything needed to set up a WhatsApp group for it — group title, invite link, and one-tap invites." />}
+      >
+        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
+        <GigWhatsAppGroup gig={gig} />
+      </CollapsibleSection>
 
-      <GigSuppliers gigId={gigId} gig={gig} refreshSignal={manualRefreshSignal} />
-
-      <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
-
-      <GigWhatsAppGroup gig={gig} />
-
-      <SongRequestsPanel gig={gig} />
-
-      <TravelCalculator
+      <GigSuppliers
         gigId={gigId}
-        venueLat={venue?.latitude}
-        venueLon={venue?.longitude}
-        mileageRatePence={gig.mileage_rate_pence}
-        rosterVersion={rosterVersion}
+        gig={gig}
         refreshSignal={manualRefreshSignal}
+        defaultOpen={scrollToSection === 'suppliers'}
       />
 
-      <GigFeeSplit
+      <CollapsibleSection
+        id="gig-section-travel-fee"
+        title="Travel & fee"
+        defaultOpen={false}
+        titleExtra={<InfoTooltip text="Each musician's travel cost home-to-venue, and how the total fee is split across the roster." />}
+      >
+        <TravelCalculator
+          gigId={gigId}
+          venueLat={venue?.latitude}
+          venueLon={venue?.longitude}
+          mileageRatePence={gig.mileage_rate_pence}
+          rosterVersion={rosterVersion}
+          refreshSignal={manualRefreshSignal}
+        />
+
+        <GigFeeSplit
+          gigId={gigId}
+          feeAmount={gig.fee_amount}
+          bandId={gig.band_id}
+          estimatedTravelPence={gig.estimated_travel_pence}
+          plannedHeadcount={gig.planned_headcount}
+          lineup={lineup}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        id="gig-section-documents"
+        title="Documents"
+        defaultOpen={false}
+        titleExtra={<InfoTooltip text="Quote, contract, and invoice for this gig — draft, sign, and get paid, all from client and band details already on file." />}
+      >
+        <GigQuote
+          gigId={gigId}
+          gig={gig}
+          client={docClient}
+          band={docBand}
+          gigFeeAmount={gig.fee_amount}
+          onConverted={() => setInvoiceRefreshKey((k) => k + 1)}
+        />
+
+        <GigContract
+          gigId={gigId}
+          gig={gig}
+          client={docClient}
+          band={docBand}
+          gigFeeAmount={gig.fee_amount}
+        />
+
+        <GigInvoice
+          key={invoiceRefreshKey}
+          gigId={gigId}
+          gig={gig}
+          client={docClient}
+          band={docBand}
+          lineup={lineup}
+          gigFeeAmount={gig.fee_amount}
+          mileageRatePence={gig.mileage_rate_pence}
+        />
+      </CollapsibleSection>
+
+      <MusicianClaimsAdmin gigId={gigId} lineup={lineup} defaultOpen={scrollToSection === 'claims'} />
+
+      <GigSetlist
         gigId={gigId}
-        feeAmount={gig.fee_amount}
         bandId={gig.band_id}
-        estimatedTravelPence={gig.estimated_travel_pence}
-        plannedHeadcount={gig.planned_headcount}
+        refreshSignal={manualRefreshSignal}
+        defaultOpen={scrollToSection === 'setlist'}
+      />
+
+      <GigStagePlot
+        gigId={gigId}
+        bandId={gig.band_id}
+        gig={gig}
+        venue={venue}
         lineup={lineup}
+        setlists={setlists}
+        defaultOpen={scrollToSection === 'stage-plot'}
       />
 
-      <div id="gig-section-claims">
-        <MusicianClaimsAdmin gigId={gigId} lineup={lineup} />
-      </div>
-
-      <GigQuote
-        gigId={gigId}
-        gig={gig}
-        client={docClient}
-        band={docBand}
-        gigFeeAmount={gig.fee_amount}
-        onConverted={() => setInvoiceRefreshKey((k) => k + 1)}
-      />
-
-      <GigContract
-        gigId={gigId}
-        gig={gig}
-        client={docClient}
-        band={docBand}
-        gigFeeAmount={gig.fee_amount}
-      />
-
-      <GigInvoice
-        key={invoiceRefreshKey}
-        gigId={gigId}
-        gig={gig}
-        client={docClient}
-        band={docBand}
-        lineup={lineup}
-        gigFeeAmount={gig.fee_amount}
-        mileageRatePence={gig.mileage_rate_pence}
-      />
-
-      <GigSetlist gigId={gigId} bandId={gig.band_id} refreshSignal={manualRefreshSignal} />
-
-      <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} />
+      <CollapsibleSection
+        id="gig-section-day-of-gig"
+        title="Day of gig"
+        defaultOpen={scrollToSection === 'photos'}
+        titleExtra={<InfoTooltip text="Everything for gig day itself — break-time games, a QR code for song requests, and a place to share photos afterwards." />}
+      >
+        <ArcadeSection gigId={gigId} />
+        <SongRequestsPanel gig={gig} />
+        <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
+      </CollapsibleSection>
 
       <div className="form-actions">
         {!isOffline && (
-          <button className="btn btn--ghost" onClick={handleDelete}>Delete gig</button>
+          <>
+            <button className="btn btn--ghost btn--small" onClick={() => setEditing(true)}>✏️ Edit gig</button>
+            <button className="btn btn--ghost-danger btn--small" style={{ gap: 6 }} onClick={handleDelete}>
+              <Trash2 size={14} />
+              Delete gig
+            </button>
+          </>
         )}
         {isOffline && (
           <p className="field__hint">Connect to delete this gig.</p>

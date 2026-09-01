@@ -8,6 +8,8 @@ import DateInput from './DateInput.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { friendlyDbError } from '../utils/friendlyDbError.js';
+import InfoTooltip from './InfoTooltip.jsx';
+import { Trash2 } from '../utils/stagePlotIcons.jsx';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -161,7 +163,10 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
   if (!quote) {
     return (
       <div className="roster-section">
-        <h3 className="roster-section__title">Quote</h3>
+        <h3 className="roster-section__title">
+          Quote
+          <InfoTooltip text="A formal price quote you can send to the client before the booking is confirmed — convert it to an invoice once they've agreed." />
+        </h3>
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No quote yet for this gig.</p>
         {!gig?.band_id && (
           <p className="field__hint" style={{ marginTop: 6 }}>
@@ -171,7 +176,7 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
         {error && <p className="form-error">{error}</p>}
         {isPro ? (
           <button className="btn btn--primary btn--small" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating…' : 'Create quote'}
+            {creating ? 'Creating…' : '+ Create quote'}
           </button>
         ) : (
           <p className="field__hint" style={{ marginTop: 12 }}>Quotes are a Pro feature — upgrade in My Profile to create one.</p>
@@ -186,7 +191,10 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
   return (
     <div className="roster-section">
       <div className="section-header">
-        <h3 className="roster-section__title">Quote</h3>
+        <h3 className="roster-section__title">
+          Quote
+          <InfoTooltip text="A formal price quote you can send to the client before the booking is confirmed — convert it to an invoice once they've agreed." />
+        </h3>
         <span className={`status-tag status-tag--${quote.status}`}>{quote.status}</span>
       </div>
 
@@ -239,7 +247,7 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
             <div className="form-actions">
               {!locked && (
                 <>
-                  <button className="btn btn--ghost" onClick={async () => {
+                  <button className="btn btn--ghost-danger" style={{ gap: 6 }} onClick={async () => {
                     const ok = await confirmAsync('Delete this quote? This cannot be undone.');
                     if (!ok) return;
                     const { error } = await supabase.from('quotes').delete().eq('id', quote.id);
@@ -247,6 +255,7 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
                     setQuote(null);
                     setItems([]);
                   }}>
+                    <Trash2 size={14} />
                     Delete quote
                   </button>
                   <button className="btn btn--ghost" onClick={() => setEditing(true)}>Edit</button>
