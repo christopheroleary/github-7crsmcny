@@ -1,0 +1,96 @@
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import CollapsibleSection from './CollapsibleSection.jsx';
+import { notify } from '../utils/toastService.js';
+
+// Gig-scoped counterpart to TasksWidget.jsx's cross-band Dashboard list --
+// only manual tasks tied to THIS gig_id, no derived items (those are
+// band-wide by nature -- needs-invoicing/anniversary/uninvited-dep don't
+// belong to one specific gig the way "confirm parking with the venue"
+// does), so there's nothing to duplicate between the two surfaces.
+export default function GigTasks({ gigId, bandId, defaultOpen }) {
+  const { profile: me } = useCurrentProfile();
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('tasks')
+      .select('id, title, due_date, done')
+      .eq('gig_id', gigId)
+      .eq('done', false)
+      .order('due_date', { ascending: true, nullsFirst: false });
+    setTasks(data || []);
+    setLoading(false);
+  }, [gigId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setAdding(true);
+    const { error } = await supabase.from('tasks').insert({
+      band_id: bandId,
+      gig_id: gigId,
+      title: title.trim(),
+      due_date: dueDate || null,
+      created_by: me?.id,
+    });
+    setAdding(false);
+    if (error) { notify("Couldn't add task: " + error.message); return; }
+    setTitle('');
+    setDueDate('');
+    load();
+  }
+
+  async function handleComplete(task) {
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    const { error } = await supabase.from('tasks').update({ done: true, done_at: new Date().toISOString() }).eq('id', task.id);
+    if (error) { notify("Couldn't complete: " + error.message); load(); }
+  }
+
+  return (
+    <CollapsibleSection id="gig-section-tasks" title="Tasks" defaultOpen={defaultOpen}>
+      {loading ? (
+        <p className="state-message">Loading tasks…</p>
+      ) : tasks.length === 0 ? (
+        <p className="state-message">No open tasks for this gig.</p>
+      ) : (
+        <ul className="simple-list">
+          {tasks.map((t) => (
+            <li className="simple-list__item" key={t.id}>
+              <div className="simple-list__row">
+                <div>
+                  <span className="simple-list__title">{t.title}</span>
+                  {t.due_date && <span className="simple-list__subtitle">due {t.due_date}</span>}
+                </div>
+                <div className="simple-list__actions">
+                  <button type="button" className="link-button" onClick={() => handleComplete(t)}>Done</button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form className="inline-subform" onSubmit={handleAdd} style={{ marginTop: 12, display: 'flex', flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        <input
+          placeholder="e.g. Confirm load-in time with venue"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          style={{ flex: '1 1 220px' }}
+        />
+        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ flex: '0 1 160px' }} />
+        <button type="submit" className="btn btn--primary btn--small" disabled={adding || !title.trim()}>
+          {adding ? 'Adding…' : '+ Add'}
+        </button>
+      </form>
+    </CollapsibleSection>
+  );
+}

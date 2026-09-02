@@ -466,6 +466,10 @@ function DepDetailsEditor({ ph, onSaved }) {
 
   function handleInvite() {
     window.location.href = buildInviteMailto(ph.name, email);
+    // Fire-and-forget -- the mailto navigation above doesn't wait on this,
+    // and shouldn't: it's just bookkeeping for the "dep never invited" task
+    // (get_uninvited_dep_tasks), not something the click needs to succeed.
+    supabase.from('placeholder_musicians').update({ invite_sent_at: new Date().toISOString() }).eq('id', ph.id).then(() => {});
   }
 
   return (

@@ -24,6 +24,7 @@ import GigInvoice from './GigInvoice.jsx';
 import GigQuote from './GigQuote.jsx';
 import GigContract from './GigContract.jsx';
 import MusicianClaimsAdmin from './MusicianClaimsAdmin.jsx';
+import GigTasks from './GigTasks.jsx';
 import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 import { confirmAsync } from '../utils/confirmService.js';
@@ -474,6 +475,8 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       </div>
 
       <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
+
+      <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} />
 
       <CollapsibleSection
         id="gig-section-chat-group"

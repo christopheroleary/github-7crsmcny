@@ -249,7 +249,13 @@ export default function BandMembers({ bandId, isAdmin }) {
                   {isAdmin && isDepRow && (
                     <button
                       className="link-button"
-                      onClick={() => { window.location.href = buildInviteMailto(displayName); }}
+                      onClick={() => {
+                        window.location.href = buildInviteMailto(displayName);
+                        // Same bookkeeping as MusiciansList.jsx's identical
+                        // button -- fire-and-forget, feeds the "dep never
+                        // invited" task (get_uninvited_dep_tasks).
+                        supabase.from('placeholder_musicians').update({ invite_sent_at: new Date().toISOString() }).eq('id', m.placeholder_id).then(() => {});
+                      }}
                       title="Send them a link to create their own account -- their spot in this band carries across automatically once they sign up."
                     >
                       ✉ Invite to sign up

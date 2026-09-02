@@ -5,6 +5,7 @@ import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDa
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import DailyNewsWidget from './DailyNewsWidget.jsx';
 import MyEarnings from './MyEarnings.jsx';
+import TasksWidget from './TasksWidget.jsx';
 
 function KPICard({ label, count, value, colour, onClick }) {
   return (
@@ -355,6 +356,7 @@ export default function Dashboard({ onNavigate }) {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <TasksWidget isAdmin={isAdminRole} ledBandIds={ledBandIds} onNavigate={onNavigate} />
         </>
       )}
 
