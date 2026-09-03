@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import TimeInput from './TimeInput.jsx';
@@ -7,6 +7,7 @@ import NumberInput from './NumberInput.jsx';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import InfoTooltip from './InfoTooltip.jsx';
+import { notify } from '../utils/toastService.js';
 
 function poundsFromPence(pence) {
   return (pence / 100).toFixed(2);
@@ -90,6 +91,8 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
   // const [newClientPhone, setNewClientPhone] = useState('');
 
   const [gigDate, setGigDate] = useState(gig?.gig_date || '');
+  const [dateMissing, setDateMissing] = useState(false);
+  const dateInputRef = useRef(null);
   const [startTime, setStartTime] = useState(gig?.start_time?.slice(0, 5) || '');
   const [endTime, setEndTime] = useState(gig?.end_time?.slice(0, 5) || '');
   const [loadInTime, setLoadInTime] = useState(gig?.load_in_time?.slice(0, 5) || '');
@@ -199,8 +202,28 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+
+    // DateInput's own `required` attribute is silently ignored -- it's
+    // set on a readOnly input, and a readOnly field is barred from
+    // constraint validation entirely, so the browser never blocked
+    // submission the way it does for the other required fields in this
+    // form. Caught live: an empty date went straight through to the
+    // insert and came back as a raw "invalid input syntax for type
+    // date" from Postgres. Validate explicitly instead of trusting the
+    // browser, and make the fix visible three ways at once -- a toast
+    // (in case the field itself has scrolled out of view), an inline
+    // error right where it's about to be typed, and scrolling/focusing
+    // the field itself.
+    if (!gigDate) {
+      setDateMissing(true);
+      notify('Pick a date for the gig before saving.');
+      dateInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      dateInputRef.current?.focus();
+      return;
+    }
+    setDateMissing(false);
     setSubmitting(true);
-    
+
     // Quick-create band
     let finalBandId = bandId || null;
     if (showNewBand && newBandName.trim()) {
@@ -434,8 +457,17 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
 
       <div className="field-row">
         <label className="field">
-          <span className="field__label">Date</span>
-          <DateInput value={gigDate} onChange={(e) => setGigDate(e.target.value)} required />
+          <span className="field__label">Date <span className="field__required" aria-hidden="true">*</span></span>
+          <DateInput
+            ref={dateInputRef}
+            value={gigDate}
+            onChange={(e) => { setGigDate(e.target.value); if (e.target.value) setDateMissing(false); }}
+            required
+            className={dateMissing ? 'date-input-trigger--error' : ''}
+          />
+          {dateMissing && (
+            <p className="form-error" style={{ margin: '4px 0 0' }}>Pick a date for the gig.</p>
+          )}
           {sameDayGigs.length > 0 && (
             <span className="field__hint" style={{ color: 'var(--rust)' }}>
               ⚠ Already {sameDayGigs.length} gig{sameDayGigs.length > 1 ? 's' : ''} booked this date: {sameDayGigs.map((g) => g.venues?.name || g.bands?.name || 'Unknown venue').join(', ')}

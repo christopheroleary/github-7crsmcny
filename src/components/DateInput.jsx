@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useId } from 'react';
+import { useState, useRef, useEffect, useId, forwardRef } from 'react';
 import { todayStr } from '../utils/formatDate.js';
 import { WEEKDAY_LABELS, MONTH_LABELS, mondayIndex, buildMonthGrid } from '../utils/monthGrid.js';
 
@@ -27,7 +27,13 @@ function formatDisplay(iso) {
 // same value (ISO 'YYYY-MM-DD' or '') and onChange({ target: { value } })
 // shape as the native input it replaces, so swapping back is just
 // reverting the import if this doesn't feel right.
-export default function DateInput({ value, onChange, id, required, placeholder = 'Select a date…' }) {
+// Forwards a ref to the real trigger <input> -- lets a caller with its
+// own required-field validation (GigForm.jsx, since this input's own
+// `required` attribute is silently ignored by the browser: per spec, a
+// readOnly input -- which this is, since typing directly into it isn't
+// how you pick a date here -- is barred from constraint validation
+// entirely) scroll to and focus it after a failed submit.
+const DateInput = forwardRef(function DateInput({ value, onChange, id, required, placeholder = 'Select a date…', className = '' }, ref) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [viewYear, setViewYear] = useState(() => (parseISO(value) || parseISO(todayStr())).y);
@@ -145,8 +151,9 @@ export default function DateInput({ value, onChange, id, required, placeholder =
   return (
     <>
       <input
+        ref={ref}
         type="text"
-        className="date-input-trigger"
+        className={'date-input-trigger' + (className ? ' ' + className : '')}
         id={id}
         readOnly
         required={required}
@@ -234,4 +241,6 @@ export default function DateInput({ value, onChange, id, required, placeholder =
       )}
     </>
   );
-}
+});
+
+export default DateInput;

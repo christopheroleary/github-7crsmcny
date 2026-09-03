@@ -31,7 +31,7 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
-  const { gig, lineup, setlists, isOffline, syncing, syncedAt, error, refresh } =
+  const { gig, lineup, setlists, requirements, isOffline, syncing, syncedAt, error, refresh } =
     useOfflineGigData(gigId);
   const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
@@ -474,7 +474,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       )}
       </div>
 
-      <GigRoster gigId={gigId} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
+      <GigRoster gigId={gigId} cachedLineup={lineup} cachedRequirements={requirements} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
 
       <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} />
 
@@ -561,6 +561,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         gigId={gigId}
         bandId={gig.band_id}
         lineup={lineup}
+        cachedSetlists={setlists}
         refreshSignal={manualRefreshSignal}
         defaultOpen={scrollToSection === 'setlist'}
       />

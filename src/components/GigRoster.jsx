@@ -150,7 +150,7 @@ function CaptainBadge() {
   );
 }
 
-export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEditRequirements }) {
+export default function GigRoster({ gigId, cachedLineup = [], cachedRequirements = [], onRosterChanged, refreshSignal, onEditRequirements }) {
   const { profile: me, isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [requirements, setRequirements] = useState([]);
@@ -161,6 +161,24 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
   const [musicianInstruments, setMusicianInstruments] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Separate from `error` above, which is for add-musician mutation
+  // failures ("already on the roster" etc.) shown down by the picker --
+  // this is specifically "the roster itself couldn't load", shown at the
+  // top of the section instead.
+  const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
   // Guards the per-row Confirm/Remove/vocal-role/DJ/Roadie/Captain actions
   // against a rapid double-click sending two overlapping mutations for the
   // same roster row -- kept until loadLineup() finishes, not just the write, so a
@@ -267,14 +285,38 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
   // only needs to redo these two -- not the whole picker dataset too.
   const loadLineup = useCallback(async () => {
     setLoading(true);
-    const [{ data: reqs }, { data: lineupRows }] = await Promise.all([
-      supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
-      supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, created_at, invite_push_status, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
-    ]);
-    setRequirements(reqs || []);
-    setLineup(lineupRows || []);
-    setLoading(false);
-  }, [gigId]);
+    setLoadError(null);
+    try {
+      const [{ data: reqs, error: reqsError }, { data: lineupRows, error: lineupError }] = await Promise.all([
+        supabase.from('gig_requirements').select('instrument_id, quantity, instruments(name)').eq('gig_id', gigId),
+        supabase.from('gig_lineup').select('id, profile_id, placeholder_id, instrument_id, confirmed, vocal_role, is_captain, is_dj, is_roadie, role_on_gig, travel_cost_pence, fee_pence, confirmed_fee_pence, created_at, invite_push_status, profiles(full_name, avatar_url), instruments(name), placeholder_musicians(name)').eq('gig_id', gigId),
+      ]);
+      if (reqsError) throw reqsError;
+      if (lineupError) throw lineupError;
+      setRequirements(reqs || []);
+      setLineup(lineupRows || []);
+      setUsingCache(false);
+    } catch (err) {
+      // A genuinely unreachable network doesn't always resolve to
+      // { data, error } the way a server-side rejection does -- fetch()
+      // itself can reject, which throws here instead. Previously nothing
+      // downstream of that ever ran, including setLoading(false) at the
+      // bottom -- the roster was stuck on "Loading…" forever rather than
+      // falling back to what useOfflineGigData already cached for this
+      // gig. Caught live: most of the gig detail page not working
+      // offline, including reaching an offline-saved backing track,
+      // since the setlist below has the identical gap.
+      if (cachedLineup.length > 0) {
+        setRequirements(cachedRequirements);
+        setLineup(cachedLineup);
+        setUsingCache(true);
+      } else {
+        setLoadError("Couldn't load the roster" + (navigator.onLine ? ': ' + (err.message || 'unknown error') : ' — no signal, and nothing saved yet for this gig.'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [gigId, cachedLineup, cachedRequirements]);
 
   // Every mutation below (add/remove/confirm/toggle) calls this instead of
   // loadLineup() directly -- it does the same local reload plus tells the
@@ -681,6 +723,12 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
       defaultOpen
       titleExtra={<InfoTooltip text="Who's booked and who's still needed — confirm musicians, apply a saved band preset, or find a dep for an open slot." />}
     >
+      {loadError && <p className="form-error" style={{ marginBottom: 10 }}>{loadError}</p>}
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the roster as it was last saved to this device. Adding, confirming or removing anyone needs a signal.
+        </p>
+      )}
       {(requirements.length > 0 || gigNeeds.needs_dj || gigNeeds.needs_roadie) && (
         <ul className="vacancy-list">
           {requirements.map((r, i) => {

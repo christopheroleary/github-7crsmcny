@@ -15,13 +15,26 @@ import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, defaultOpen = false }) {
+export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists = [], refreshSignal, defaultOpen = false }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
   const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
   const [attachedIds, setAttachedIds] = useState([]);
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
   // songId -> array of display names -- who on THIS gig's roster (real
   // member or dep, confirmed or not -- still the plan either way) has
   // ticked "Lead vocal" for that song in their own repertoire. Recomputed
@@ -46,23 +59,62 @@ export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, 
       return;
     }
     setLoading(true);
+    setError(null);
 
-    const { data: setlistRows } = await supabase
-      .from('setlists')
-      .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, bpm, lyrics, reference_url, is_public))')
-      .eq('band_id', bandId)
-      .order('name');
+    try {
+      const { data: setlistRows, error: setlistsError } = await supabase
+        .from('setlists')
+        .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, bpm, lyrics, reference_url, is_public))')
+        .eq('band_id', bandId)
+        .order('name');
+      if (setlistsError) throw setlistsError;
 
-    const sorted = (setlistRows || []).map((sl) => ({
-      ...sl,
-      setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
-    }));
-    setBandSetlists(sorted);
+      const sorted = (setlistRows || []).map((sl) => ({
+        ...sl,
+        setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
+      }));
 
-    const { data: links } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
-    setAttachedIds((links || []).map((l) => l.setlist_id));
-    setLoading(false);
-  }, [gigId, bandId]);
+      const { data: links, error: linksError } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
+      if (linksError) throw linksError;
+
+      setBandSetlists(sorted);
+      setAttachedIds((links || []).map((l) => l.setlist_id));
+      setUsingCache(false);
+    } catch (err) {
+      // A genuinely unreachable network doesn't always resolve to
+      // { data, error } the way a server-side rejection does -- fetch()
+      // itself can reject, which threw here uncaught before this
+      // try/catch existed, and nothing downstream ever ran, including
+      // setLoading(false) at the bottom. Caught live: the setlist stuck
+      // on "Loading…" with no signal, including blocking the one thing
+      // that's actually available offline underneath it -- a
+      // backing track already saved to this device (see
+      // BackingTrackPlayer.jsx/offlineBackingTracks.js), which never got
+      // a chance to render because this never got past loading.
+      //
+      // useOfflineGigData's cache only has the setlist(s) already
+      // attached to this gig, not the band's whole library (attaching a
+      // different one is a mutation that needs a connection anyway) --
+      // songs() there doesn't carry a top-level song_id the way the live
+      // query's embed does, so it's normalized in here.
+      if (cachedSetlists.length > 0) {
+        const normalized = cachedSetlists.map((sl) => ({
+          ...sl,
+          setlist_items: (sl.setlist_items || []).map((item) => ({
+            ...item,
+            song_id: item.song_id ?? item.songs?.id ?? null,
+          })),
+        }));
+        setBandSetlists(normalized);
+        setAttachedIds(normalized.map((sl) => sl.id));
+        setUsingCache(true);
+      } else {
+        setError("Couldn't load the setlist" + (navigator.onLine ? ': ' + (err.message || 'unknown error') : ' — no signal, and nothing saved yet for this gig.'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [gigId, bandId, cachedSetlists]);
 
   // The whole-catalog "add a song" picker -- not scoped to this band or gig
   // at all, so it only needs loading once per mount, plus again on the two
@@ -287,6 +339,14 @@ export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, 
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="The set(s) attached to this gig from your band's library — attach an existing one, create a new one, or import a pasted list." />}
     >
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the setlist as it was last saved to this device. Attaching, editing or reordering needs a signal; backing tracks saved for offline still play.
+        </p>
+      )}
+      {!usingCache && error && attachedSetlists.length === 0 && (
+        <p className="form-error" style={{ marginBottom: 10 }}>{error}</p>
+      )}
       {attachedSetlists.length === 0 ? (
         <p className="state-message">No sets attached to this gig yet.</p>
       ) : (

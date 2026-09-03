@@ -250,6 +250,14 @@ input {
   color: var(--text-muted);
   margin-bottom: 6px;
 }
+/* Same --rust already used for .form-error and delete buttons -- a
+   required-field marker doesn't need the fixed, non-theme-tinted red
+   .gig-card--needs-confirmation uses for an actual urgent alert, just
+   the ordinary "this matters" colour already consistent everywhere
+   else in a form. */
+.field__required {
+  color: var(--rust);
+}
 
 .field input {
   width: 100%;
@@ -3835,6 +3843,12 @@ details[open] > .collapsible-summary::before {
 }
 .date-input-trigger {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6357' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='3'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+}
+/* GigForm.jsx's own explicit "date is required" check, not this input's
+   own (silently ignored -- see DateInput.jsx) required attribute. */
+.date-input-trigger--error {
+  border-color: var(--rust);
+  background-color: rgba(182, 69, 44, 0.06);
 }
 .time-input-trigger {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6357' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15.5 14'/%3E%3C/svg%3E");

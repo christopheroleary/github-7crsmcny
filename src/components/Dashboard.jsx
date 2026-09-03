@@ -7,6 +7,30 @@ import DailyNewsWidget from './DailyNewsWidget.jsx';
 import MyEarnings from './MyEarnings.jsx';
 import TasksWidget from './TasksWidget.jsx';
 
+// Cached exactly the way useOfflineGigList caches the gigs list -- keyed to
+// this viewer's own scope so a network hiccup falls back to their own last
+// numbers, never someone else's. Without this, a failed fetch left every
+// KPI at its initial useState zero, which reads as "you really do have 0
+// gigs and 0 enquiries" instead of "couldn't reach the server" -- the
+// opposite of what actually happened.
+const DASH_KEY = (isAdmin, bandFilterIds, profileId) =>
+  'gigcache:dashboard:' + (isAdmin ? 'admin:' + (bandFilterIds ? [...bandFilterIds].sort().join(',') : 'all') : 'musician:' + profileId);
+
+function readDashCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashCache(key, snapshot) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...snapshot, synced_at: new Date().toISOString() }));
+  } catch {}
+}
+
 function KPICard({ label, count, value, colour, onClick }) {
   return (
     <button type="button" className="kpi-card kpi-card--clickable" style={{ borderTopColor: colour }} onClick={onClick}>
@@ -94,16 +118,65 @@ export default function Dashboard({ onNavigate }) {
   const [trends, setTrends] = useState([]);
   const [activeDrilldown, setActiveDrilldown] = useState(null); // one of the state keys above, or null
 
+  // usingCache: fetch failed but a previous successful load was saved on this
+  // device -- the numbers below are real, just stale. loadError: fetch failed
+  // AND there's nothing cached to fall back to, so there's genuinely nothing
+  // honest to show instead of an explanation. See the load() catch below.
+  const [usingCache, setUsingCache] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [syncedAt, setSyncedAt] = useState(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
   useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
+
+  useEffect(() => {
+    const cacheKey = DASH_KEY(isAdmin, bandFilterIds, profile?.id);
+
     async function load() {
       // Guards the whole body: an uncaught throw anywhere in here (as just
-      // happened with an embedded-relation shape mismatch) used to leave
+      // happened with an embedded-relation shape mismatch, or -- the more
+      // common case out at a gig -- no signal at all) used to leave
       // setLoading(false) unreached, freezing the page on "Loading
-      // dashboard…" forever with no visible error.
+      // dashboard…" forever with no visible error. Now it falls back to
+      // whatever was last cached on this device instead of silently
+      // stranding every KPI at its initial zero, which used to read as "you
+      // genuinely have 0 gigs and 0 enquiries" rather than "couldn't reach
+      // the server".
       try {
-        await loadImpl();
+        const snapshot = await loadImpl();
+        writeDashCache(cacheKey, snapshot);
+        setUsingCache(false);
+        setLoadError(null);
+        setSyncedAt(new Date().toISOString());
       } catch (err) {
         console.error('Dashboard failed to load:', err);
+        const cached = readDashCache(cacheKey);
+        if (cached) {
+          setOutstanding(cached.outstanding);
+          setUpcoming(cached.upcoming);
+          setThisMonth(cached.thisMonth);
+          setAllGigs(cached.allGigs);
+          setUnInvoiced(cached.unInvoiced);
+          setInquiries(cached.inquiries);
+          setTrends(cached.trends);
+          setUsingCache(true);
+          setSyncedAt(cached.synced_at || null);
+        } else {
+          setLoadError(
+            navigator.onLine
+              ? "Couldn't load the dashboard: " + (err.message || 'unknown error')
+              : "Couldn't load the dashboard — no signal, and nothing saved on this device yet. Open the app while online at least once to see your gigs and enquiries offline."
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -153,7 +226,9 @@ export default function Dashboard({ onNavigate }) {
           }
         });
 
-        setTrends(Object.values(monthMap));
+        const trendsArr = Object.values(monthMap);
+        setTrends(trendsArr);
+        return trendsArr;
       }
 
       if (isAdmin) {
@@ -166,14 +241,7 @@ export default function Dashboard({ onNavigate }) {
         // Applied identically to every query below rather than repeating the
         // conditional six times.
         const scoped = (q) => (bandFilterIds ? q.in('band_id', bandFilterIds) : q);
-        const [
-          { data: completedGigs },
-          { data: upcomingGigs },
-          { data: trendGigs },
-          { data: allGigsData },
-          { data: pastGigs },
-          { data: inquiryGigs }
-        ] = await Promise.all([
+        const results = await Promise.all([
           scoped(supabase.from('gigs').select(gigCols).eq('status', 'completed')),
           scoped(supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")')),
           scoped(supabase.from('gigs').select('gig_date, fee_amount, status').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")')),
@@ -181,70 +249,129 @@ export default function Dashboard({ onNavigate }) {
           scoped(supabase.from('gigs').select(gigCols).lt('gig_date', today).not('status', 'in', '("cancelled")')),
           scoped(supabase.from('gigs').select(gigCols).eq('status', 'inquiry'))
         ]);
+        // A network failure doesn't reject Promise.all here -- supabase-js
+        // catches the underlying fetch rejection itself and resolves with
+        // { data: null, error }, same as a genuine server-side rejection
+        // would. Left unchecked, every count below would silently compute
+        // from `data: null` as 0, which is exactly the "0 gigs, 0
+        // enquiries" bug this file exists to fix -- so any error here has
+        // to be surfaced (thrown) explicitly to reach the catch in load()
+        // and trigger the cache fallback.
+        const firstError = results.find(r => r.error)?.error;
+        if (firstError) throw firstError;
+        const [
+          { data: completedGigs },
+          { data: upcomingGigs },
+          { data: trendGigs },
+          { data: allGigsData },
+          { data: pastGigs },
+          { data: inquiryGigs }
+        ] = results;
 
-        setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
-        setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
+        const allGigsVal = { count: (allGigsData || []).length, gigs: allGigsData || [] };
+        setAllGigs(allGigsVal);
+        const inquiriesVal = { count: (inquiryGigs || []).length, gigs: inquiryGigs || [] };
+        setInquiries(inquiriesVal);
 
         // invoices is embedded as a single object, not an array -- invoices.gig_id
         // has a UNIQUE constraint, so PostgREST returns a to-one relationship.
         const unInvoicedGigs = (pastGigs || []).filter(g => g.invoices?.status !== 'sent' && g.invoices?.status !== 'paid');
-        setUnInvoiced({
+        const unInvoicedVal = {
           count: unInvoicedGigs.length,
           value: unInvoicedGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
           gigs: unInvoicedGigs,
-        });
+        };
+        setUnInvoiced(unInvoicedVal);
 
         const outstandingGigs = (completedGigs || []).filter(g => g.invoices?.status !== 'paid');
-        setOutstanding({
+        const outstandingVal = {
           count: outstandingGigs.length,
           value: outstandingGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
           gigs: outstandingGigs,
-        });
+        };
+        setOutstanding(outstandingVal);
 
-        setUpcoming({
+        const upcomingVal = {
           count: (upcomingGigs || []).length,
           value: (upcomingGigs || []).reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
           gigs: upcomingGigs || [],
-        });
+        };
+        setUpcoming(upcomingVal);
 
         // upcomingGigs (>= today) and pastGigs (< today) are mutually exclusive
         // by date and both already exclude cancelled gigs, so together they
         // cover every gig that could fall in the current month.
         const thisMonthGigs = (upcomingGigs || []).concat(pastGigs || [])
           .filter(g => g.gig_date >= monthStart && g.gig_date <= today);
-        setThisMonth({
+        const thisMonthVal = {
           count: thisMonthGigs.length,
           value: thisMonthGigs.reduce((s, g) => s + (Number(g.fee_amount) || 0), 0),
           gigs: thisMonthGigs,
-        });
+        };
+        setThisMonth(thisMonthVal);
 
-        buildTrends(trendGigs, true);
+        const trendsVal = buildTrends(trendGigs, true);
+
+        return {
+          allGigs: allGigsVal,
+          inquiries: inquiriesVal,
+          unInvoiced: unInvoicedVal,
+          outstanding: outstandingVal,
+          upcoming: upcomingVal,
+          thisMonth: thisMonthVal,
+          trends: trendsVal,
+        };
 
       } else {
         // ── MUSICIAN VIEW — scoped to gigs they're personally booked on only,
         // matching what they can already see on their own gigs list. No fee
         // or client info, same as the rest of the app shows them. ──
         const gigCols = 'id, gig_date, status, venues(name), bands(name), gig_lineup!inner(profile_id)';
-        const [
-          { data: upcomingGigs },
-          { data: trendGigs },
-          { data: allGigsData },
-          { data: inquiryGigs }
-        ] = await Promise.all([
+        const results = await Promise.all([
           supabase.from('gigs').select(gigCols).gte('gig_date', today).not('status', 'in', '("cancelled")').eq('gig_lineup.profile_id', profile?.id),
           supabase.from('gigs').select('gig_date, gig_lineup!inner(profile_id)').gte('gig_date', twelveAgo).not('status', 'in', '("cancelled")').eq('gig_lineup.profile_id', profile?.id),
           supabase.from('gigs').select(gigCols).eq('gig_lineup.profile_id', profile?.id),
           supabase.from('gigs').select(gigCols).eq('status', 'inquiry').eq('gig_lineup.profile_id', profile?.id)
         ]);
+        // See the matching comment in the admin branch above -- a network
+        // failure resolves gracefully as { data: null, error } rather than
+        // rejecting, so it has to be surfaced by hand or every count below
+        // silently computes as 0.
+        const firstError = results.find(r => r.error)?.error;
+        if (firstError) throw firstError;
+        const [
+          { data: upcomingGigs },
+          { data: trendGigs },
+          { data: allGigsData },
+          { data: inquiryGigs }
+        ] = results;
 
-        setAllGigs({ count: (allGigsData || []).length, gigs: allGigsData || [] });
-        setInquiries({ count: (inquiryGigs || []).length, gigs: inquiryGigs || [] });
-        setUpcoming({ count: (upcomingGigs || []).length, value: null, gigs: upcomingGigs || [] });
+        const allGigsVal = { count: (allGigsData || []).length, gigs: allGigsData || [] };
+        setAllGigs(allGigsVal);
+        const inquiriesVal = { count: (inquiryGigs || []).length, gigs: inquiryGigs || [] };
+        setInquiries(inquiriesVal);
+        const upcomingVal = { count: (upcomingGigs || []).length, value: null, gigs: upcomingGigs || [] };
+        setUpcoming(upcomingVal);
 
         const thisMonthGigs = (allGigsData || []).filter(g => g.gig_date >= monthStart && g.gig_date <= today && g.status !== 'cancelled');
-        setThisMonth({ count: thisMonthGigs.length, value: null, gigs: thisMonthGigs });
+        const thisMonthVal = { count: thisMonthGigs.length, value: null, gigs: thisMonthGigs };
+        setThisMonth(thisMonthVal);
 
-        buildTrends(trendGigs, false);
+        const trendsVal = buildTrends(trendGigs, false);
+
+        return {
+          allGigs: allGigsVal,
+          inquiries: inquiriesVal,
+          upcoming: upcomingVal,
+          thisMonth: thisMonthVal,
+          trends: trendsVal,
+          // A musician's dashboard never shows these two cards (admin-only),
+          // but the cache snapshot still needs a value for them so a later
+          // role change (or an admin's own cache key colliding, which it
+          // can't -- see DASH_KEY) never reads back `undefined`.
+          unInvoiced: { count: 0, value: 0, gigs: [] },
+          outstanding: { count: 0, value: 0, gigs: [] },
+        };
       }
     }
 
@@ -294,8 +421,15 @@ export default function Dashboard({ onNavigate }) {
         )}
       </div>
 
-      {(!isAdmin || dashboardMode === 'business') && (
+      {loadError && <p className="form-error" style={{ marginBottom: 16 }}>{loadError}</p>}
+
+      {!loadError && (!isAdmin || dashboardMode === 'business') && (
         <>
+          {usingCache && (
+            <p className="field__hint" style={{ marginBottom: 12, color: 'var(--rust)' }}>
+              {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the dashboard as it was last loaded on this device{syncedAt ? ', ' + new Date(syncedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}. Numbers may be out of date until you're back online.
+            </p>
+          )}
           <div className="kpi-row">
             <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
             <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
