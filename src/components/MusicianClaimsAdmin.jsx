@@ -8,6 +8,7 @@ import { notify } from '../utils/toastService.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
+import { ClaimsIcon } from '../utils/gigSectionIcons.jsx';
 import NumberInput from './NumberInput.jsx';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import { uploadDepInvoiceAttachment, deleteDepInvoiceAttachment } from '../utils/depInvoiceAttachment.js';
@@ -400,6 +401,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       <CollapsibleSection
         id="gig-section-claims"
         title="Musician claims"
+        icon={<ClaimsIcon />}
         defaultOpen={defaultOpen}
         titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
       >
@@ -420,6 +422,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
     <CollapsibleSection
       id="gig-section-claims"
       title="Musician claims"
+      icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
     >
@@ -431,6 +434,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
     <CollapsibleSection
       id="gig-section-claims"
       title="Musician claims"
+      icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
     >
@@ -453,6 +457,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
     <CollapsibleSection
       id="gig-section-claims"
       title="Musician claims"
+      icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
     >

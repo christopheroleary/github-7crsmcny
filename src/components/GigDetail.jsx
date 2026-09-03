@@ -30,6 +30,7 @@ import GigDetailBandMember from './GigDetailBandMember.jsx';
 import { formatFullDate } from '../utils/formatDate.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import { ChatIcon, TravelFeeIcon, DocumentsIcon, DayOfGigIcon } from '../utils/gigSectionIcons.jsx';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
   const {
@@ -485,6 +486,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <CollapsibleSection
         id="gig-section-chat-group"
         title="Chat & WhatsApp"
+        icon={<ChatIcon />}
         defaultOpen={scrollToSection === 'chat'}
         titleExtra={<InfoTooltip text="The gig's group chat, plus everything needed to set up a WhatsApp group for it — group title, invite link, and one-tap invites." />}
       >
@@ -503,6 +505,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <CollapsibleSection
         id="gig-section-travel-fee"
         title="Travel & fee"
+        icon={<TravelFeeIcon />}
         defaultOpen={false}
         titleExtra={<InfoTooltip text="Each musician's travel cost home-to-venue, and how the total fee is split across the roster." />}
       >
@@ -528,6 +531,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <CollapsibleSection
         id="gig-section-documents"
         title="Documents"
+        icon={<DocumentsIcon />}
         defaultOpen={false}
         titleExtra={<InfoTooltip text="Quote, contract, and invoice for this gig — draft, sign, and get paid, all from client and band details already on file." />}
       >
@@ -586,6 +590,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <CollapsibleSection
         id="gig-section-day-of-gig"
         title="Day of gig"
+        icon={<DayOfGigIcon />}
         defaultOpen={scrollToSection === 'photos'}
         titleExtra={<InfoTooltip text="Everything for gig day itself — break-time games, a QR code for song requests, and a place to share photos afterwards." />}
       >

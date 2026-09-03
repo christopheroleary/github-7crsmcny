@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useIsOffline } from '../hooks/useIsOffline.js';
 import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
+import { TasksIcon } from '../utils/gigSectionIcons.jsx';
 import { notify } from '../utils/toastService.js';
 
 // Gig-scoped counterpart to TasksWidget.jsx's cross-band Dashboard list --
@@ -88,7 +89,7 @@ export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [],
   }
 
   return (
-    <CollapsibleSection id="gig-section-tasks" title="Tasks" defaultOpen={defaultOpen}>
+    <CollapsibleSection id="gig-section-tasks" title="Tasks" icon={<TasksIcon />} defaultOpen={defaultOpen}>
       {usingCache && (
         <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
           {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing tasks as they were last saved to this device. Adding or completing one needs a signal.

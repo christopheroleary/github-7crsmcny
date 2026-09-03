@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
 // would silently re-collapse a section the user just opened, or one
 // they just opened by hand. Once mounted, the browser's own native
 // toggle owns it completely.
-export default function CollapsibleSection({ id, title, titleExtra, defaultOpen = false, children }) {
+export default function CollapsibleSection({ id, title, icon, titleExtra, defaultOpen = false, children }) {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current) ref.current.open = defaultOpen;
@@ -23,6 +23,9 @@ export default function CollapsibleSection({ id, title, titleExtra, defaultOpen 
   return (
     <details ref={ref} className="day-sheet__section" id={id}>
       <summary className="day-sheet__section-title collapsible-summary">
+        {/* aria-hidden -- purely decorative, the title text alone is
+            already the accessible name for this fold. */}
+        {icon && <span className="collapsible-summary__icon" aria-hidden="true">{icon}</span>}
         {title}
         {titleExtra}
       </summary>

@@ -6,6 +6,10 @@ import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import SupplierForm from './SupplierForm.jsx';
+// Reused outright, not redrawn -- same "vendors/suppliers" concept as the
+// Suppliers nav tab, so this section gets the exact same glyph rather than
+// a second, slightly-different one.
+import { SuppliersIcon } from '../utils/tabIcons.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import { normalizeExternalUrl } from '../utils/normalizeExternalUrl.js';
@@ -172,6 +176,7 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
     <CollapsibleSection
       id="gig-section-suppliers"
       title="Suppliers"
+      icon={<SuppliersIcon />}
       defaultOpen={defaultOpen}
       titleExtra={
         <InfoTooltip text="Photographer, florist, DJ and other vendors working this gig — tag them here so everyone knows who to credit in photos, and so a follow-up thank-you is one click away." />

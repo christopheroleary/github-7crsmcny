@@ -8,7 +8,9 @@
 // for ~15 icons -- keeps the bundle small and matches the one icon this app
 // already had.
 
-const svgProps = {
+// Exported so other hand-drawn icon sets (gigSectionIcons.jsx) can match
+// this exact stroke convention rather than each redefining their own copy.
+export const svgProps = {
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',

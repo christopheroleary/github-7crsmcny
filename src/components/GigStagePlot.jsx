@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
+import { StagePlotIcon } from '../utils/gigSectionIcons.jsx';
 import StagePlot from './StagePlot.jsx';
 import { buildStagePlotSeed } from '../utils/stagePlotAdapter.js';
 import { useGigStagePlot } from '../hooks/useGigStagePlot.js';
@@ -51,7 +52,7 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
   // rendering as an always-open card with no chevron among all the others.
   if (loading) {
     return (
-      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" defaultOpen={defaultOpen}>
+      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" icon={<StagePlotIcon />} defaultOpen={defaultOpen}>
         <p className="state-message">Loading stage plot…</p>
       </CollapsibleSection>
     );
@@ -59,7 +60,7 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
 
   if (error) {
     return (
-      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" defaultOpen={defaultOpen}>
+      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" icon={<StagePlotIcon />} defaultOpen={defaultOpen}>
         <p className="state-message state-message--error">
           {navigator.onLine ? "Couldn't load: " + error : "Couldn't load — no signal."}
         </p>
@@ -77,6 +78,7 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
     <CollapsibleSection
       id="gig-section-stage-plot"
       title="Stage plot"
+      icon={<StagePlotIcon />}
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="An auto-generated stage layout from the roster — drag anything to adjust it, then choose whether musicians can see it too." />}
     >

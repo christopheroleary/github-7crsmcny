@@ -5,6 +5,10 @@ import { useIsOffline } from '../hooks/useIsOffline.js';
 import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
+// Reused outright, not redrawn -- same "songs" concept as the Repertoire
+// nav tab, so this section gets the exact same glyph rather than a second,
+// slightly-different one.
+import { RepertoireIcon } from '../utils/tabIcons.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
 import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
@@ -336,6 +340,7 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
     <CollapsibleSection
       id="gig-section-setlist"
       title="Setlist"
+      icon={<RepertoireIcon />}
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="The set(s) attached to this gig from your band's library — attach an existing one, create a new one, or import a pasted list." />}
     >
