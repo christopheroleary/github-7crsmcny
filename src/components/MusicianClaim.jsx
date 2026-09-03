@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { ReceiptLineAttach } from './ReceiptCapture.jsx';
+import DepInvoiceAttachmentLink from './DepInvoiceAttachmentLink.jsx';
 import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
 import { CLAIM_CATEGORIES } from '../utils/claimCategories.js';
 import NumberInput from './NumberInput.jsx';
@@ -616,6 +617,25 @@ export default function MusicianClaim({ gigId, myProfileId, refreshSignal }) {
               <div className="claim-card__row">
                 <span className="claim-card__label">Notes</span>
                 <span>{claim.notes}</span>
+              </div>
+            )}
+            {/* Only ever set on a claim raised on someone's behalf while
+                they were a dep with no account (MusicianClaimsAdmin.jsx's
+                "+ Add invoice for a dep") -- these two carry through
+                automatically once merge_placeholder_musician links that
+                dep to this real account, so this is how they first see the
+                evidence behind a claim they never actually submitted
+                themselves. */}
+            {claim.external_link && (
+              <div className="claim-card__row">
+                <span className="claim-card__label">Invoice link</span>
+                <a href={claim.external_link} target="_blank" rel="noopener noreferrer">🔗 {claim.external_link}</a>
+              </div>
+            )}
+            {claim.attachment_path && (
+              <div className="claim-card__row">
+                <span className="claim-card__label">Invoice on file</span>
+                <DepInvoiceAttachmentLink path={claim.attachment_path} />
               </div>
             )}
             <div className="claim-card__row">

@@ -555,7 +555,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         />
       </CollapsibleSection>
 
-      <MusicianClaimsAdmin gigId={gigId} lineup={lineup} defaultOpen={scrollToSection === 'claims'} />
+      <MusicianClaimsAdmin gigId={gigId} bandId={gig.band_id} lineup={lineup} defaultOpen={scrollToSection === 'claims'} />
 
       <GigSetlist
         gigId={gigId}
