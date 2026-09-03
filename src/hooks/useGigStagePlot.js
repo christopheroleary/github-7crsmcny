@@ -1,13 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
-export function useGigStagePlot(gigId, buildSeed) {
+// cachedStagePlot: the { config, visible_to_band } row as last saved to
+// this device by useOfflineGigData, or null if this gig's never been
+// synced. Fallen back to on a failed load -- same read-only-offline
+// pattern as GigRoster/GigSetlist; a musician or admin can still see the
+// last-saved layout with no signal, dragging/saving/toggling visibility
+// still needs one (GigStagePlot.jsx's own save()/setVisibleToBand calls
+// aren't guarded here, they just fail the way any offline write does).
+export function useGigStagePlot(gigId, buildSeed, cachedStagePlot = null) {
   const [config, setConfig] = useState(null);
   const [visibleToBand, setVisibleToBandState] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
   const buildSeedRef = useRef(buildSeed);
   buildSeedRef.current = buildSeed;
+  const cachedRef = useRef(cachedStagePlot);
+  cachedRef.current = cachedStagePlot;
   const configRef = useRef(config);
   configRef.current = config;
 
@@ -22,7 +32,19 @@ export function useGigStagePlot(gigId, buildSeed) {
         .eq('gig_id', gigId)
         .maybeSingle();
       if (cancelled) return;
-      if (loadError) { setError(loadError.message); setLoading(false); return; }
+      if (loadError) {
+        if (cachedRef.current) {
+          setConfig(cachedRef.current.config ?? buildSeedRef.current());
+          setVisibleToBandState(cachedRef.current.visible_to_band ?? false);
+          setUsingCache(true);
+          setLoading(false);
+        } else {
+          setError(loadError.message);
+          setLoading(false);
+        }
+        return;
+      }
+      setUsingCache(false);
       setConfig(data?.config ?? buildSeedRef.current());
       setVisibleToBandState(data?.visible_to_band ?? false);
       setLoading(false);
@@ -64,5 +86,5 @@ export function useGigStagePlot(gigId, buildSeed) {
     if (visError) { setVisibleToBandState(!next); throw visError; }
   }, [gigId]);
 
-  return { config, visibleToBand, setVisibleToBand, loading, error, save };
+  return { config, visibleToBand, setVisibleToBand, loading, error, usingCache, save };
 }

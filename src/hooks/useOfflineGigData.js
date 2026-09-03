@@ -26,6 +26,18 @@ function writeCache(gigId, data) {
  * Fetches all fields needed by both GigDetail (admin) and GigDetailBandMember.
  * Includes fee_amount, mileage_rate_pence, band_id so GigDetail renders fully.
  * Also fetches gig_requirements for GigDetail's instruments-needed section.
+ *
+ * Also fetches six lighter, per-section datasets purely so GigMessages,
+ * GigTasks, MusicianClaimsAdmin, GigSuppliers, SongRequestsPanel, and
+ * GigStagePlot have something real to fall back to when their own live
+ * query fails offline -- same idea as the roster/setlist cache above, just
+ * for the rest of the gig page. All six are plain text/small JSON (no
+ * images -- gig photos are deliberately NOT cached here, that's real data),
+ * and each mirrors that component's own existing select() so the cached
+ * shape is a drop-in match for what it already expects. None of the six is
+ * allowed to fail the whole gig load -- same resilience pattern as the
+ * phone RPC below, missing chat/tasks/etc. offline is a real limitation but
+ * not one that should also take out the roster and setlist.
  */
 async function fetchGigData(gigId) {
   const [
@@ -33,6 +45,12 @@ async function fetchGigData(gigId) {
     { data: lineupData },
     { data: setlistLinks },
     { data: requirementsData },
+    { data: messagesData },
+    { data: tasksData },
+    { data: claimsData },
+    { data: suppliersData },
+    { data: songRequestsData },
+    { data: stagePlotData },
   ] = await Promise.all([
     supabase
       .from('gigs')
@@ -66,9 +84,79 @@ async function fetchGigData(gigId) {
       .from('gig_requirements')
       .select('quantity, instruments(name)')
       .eq('gig_id', gigId),
+
+    // Same select as GigMessages.jsx's own load() -- reactions are fetched
+    // separately below since they key off the message ids this returns.
+    supabase
+      .from('gig_messages')
+      .select('id, sender_id, body, created_at, sender:profiles(full_name)')
+      .eq('gig_id', gigId)
+      .order('created_at', { ascending: true })
+      .limit(200)
+      .then((res) => res, () => ({ data: [] })),
+
+    // Same select as GigTasks.jsx's own load().
+    supabase
+      .from('tasks')
+      .select('id, title, due_date, done')
+      .eq('gig_id', gigId)
+      .eq('done', false)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .then((res) => res, () => ({ data: [] })),
+
+    // Same select as MusicianClaimsAdmin.jsx's own load().
+    supabase
+      .from('musician_claims')
+      .select('*, profiles(full_name, stripe_connect_status), placeholder_musicians(name), musician_claim_items(*)')
+      .eq('gig_id', gigId)
+      .order('created_at')
+      .then((res) => res, () => ({ data: [] })),
+
+    // Same select as GigSuppliers.jsx's own loadAttached() -- the separate
+    // "worked together before" prior-gig count it also computes is a small
+    // nicety, not essential to reading the list offline, so it's not
+    // duplicated here.
+    supabase
+      .from('gig_suppliers')
+      .select('id, person_met_on_site, supplier_id, suppliers(*)')
+      .eq('gig_id', gigId)
+      .order('created_at')
+      .then((res) => res, () => ({ data: [] })),
+
+    // Same select as SongRequestsPanel.jsx's own load().
+    supabase
+      .from('song_requests')
+      .select('*, songs(title, artist)')
+      .eq('gig_id', gigId)
+      .then((res) => res, () => ({ data: [] })),
+
+    // Same select as useGigStagePlot.js's own load().
+    supabase
+      .from('gig_stage_plots')
+      .select('config, visible_to_band')
+      .eq('gig_id', gigId)
+      .maybeSingle()
+      .then((res) => res, () => ({ data: null })),
   ]);
 
   if (gigError) throw new Error(gigError.message);
+
+  // Reactions key off the message ids just fetched, so this can't join the
+  // Promise.all above -- kept best-effort like everything else here rather
+  // than letting a reactions-table hiccup drop the messages themselves.
+  let reactionsData = [];
+  const messageIds = (messagesData || []).map((m) => m.id);
+  if (messageIds.length > 0) {
+    try {
+      const { data } = await supabase
+        .from('gig_message_reactions')
+        .select('message_id, profile_id')
+        .in('message_id', messageIds);
+      reactionsData = data || [];
+    } catch {
+      // Leave reactions empty -- messages themselves still cache fine.
+    }
+  }
 
   // Merge in only the numbers whose owner opted into sharing. Failing this
   // call must not break the gig view -- a day sheet without phone numbers is
@@ -102,6 +190,13 @@ async function fetchGigData(gigId) {
     lineup: lineupWithPhones,
     setlists,
     requirements: requirementsData || [],
+    messages: messagesData || [],
+    reactions: reactionsData,
+    tasks: tasksData || [],
+    claims: claimsData || [],
+    suppliers: suppliersData || [],
+    songRequests: songRequestsData || [],
+    stagePlot: stagePlotData || null,
   };
 }
 
@@ -117,8 +212,11 @@ async function fetchGigData(gigId) {
  * will find it immediately and render with zero loading state.
  *
  * Usage:
- *   const { gig, lineup, setlists, requirements, isOffline, syncing, syncedAt, error, refresh } =
- *     useOfflineGigData(gigId);
+ *   const {
+ *     gig, lineup, setlists, requirements,
+ *     messages, reactions, tasks, claims, suppliers, songRequests, stagePlot,
+ *     isOffline, syncing, syncedAt, error, refresh,
+ *   } = useOfflineGigData(gigId);
  */
 export function useOfflineGigData(gigId) {
   const [data, setData] = useState(() => readCache(gigId));
@@ -185,6 +283,16 @@ export function useOfflineGigData(gigId) {
     lineup: data?.lineup || [],
     setlists: data?.setlists || [],
     requirements: data?.requirements || [], // needed by GigDetail
+    // The six below are each a fallback for one section's own live query --
+    // see the matching cached<X> prop on GigMessages/GigTasks/
+    // MusicianClaimsAdmin/GigSuppliers/SongRequestsPanel/GigStagePlot.
+    messages: data?.messages || [],
+    reactions: data?.reactions || [],
+    tasks: data?.tasks || [],
+    claims: data?.claims || [],
+    suppliers: data?.suppliers || [],
+    songRequests: data?.songRequests || [],
+    stagePlot: data?.stagePlot || null,
     syncedAt: data?.synced_at || null,
     isOffline,
     syncing,

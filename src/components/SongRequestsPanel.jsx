@@ -83,15 +83,31 @@ function buildTableTentHTML(band, url, dataUrl) {
 // GigMessages.jsx's exact recipe (channel scoped by gig_id, cleaned up via
 // supabase.removeChannel on unmount) -- RLS (song_requests_select) is what
 // actually decides who receives events, this just opens the channel.
-export default function SongRequestsPanel({ gig }) {
+export default function SongRequestsPanel({ gig, cachedRequests = [] }) {
   const { isAdmin, ledBandIds } = useCurrentProfile();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   // Without this, a failed fetch left `requests` at its initial [] and this
   // rendered "No requests yet" -- indistinguishable from genuinely having
   // none, when what actually happened is there's no signal to check.
+  // usingCache means it fell back to cachedRequests instead -- marking one
+  // played/dismissed still needs a signal (read-only offline support, no
+  // write queue).
   const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showQr, setShowQr] = useState(false);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
 
   const canManage = isAdmin || ledBandIds.includes(gig.band_id);
   const url = window.location.origin + '/requests/' + gig.requests_token;
@@ -113,16 +129,23 @@ export default function SongRequestsPanel({ gig }) {
         .eq('gig_id', gig.id);
       if (cancelled) return;
       if (error) {
-        setLoadError(navigator.onLine ? "Couldn't load requests: " + error.message : "Couldn't load requests — no signal.");
+        if (cachedRequests.length > 0) {
+          setRequests(sortRequests(cachedRequests.map(flattenSongJoin)));
+          setUsingCache(true);
+          setLoadError(null);
+        } else {
+          setLoadError(navigator.onLine ? "Couldn't load requests: " + error.message : "Couldn't load requests — no signal.");
+        }
         setLoading(false);
         return;
       }
       setLoadError(null);
+      setUsingCache(false);
       setRequests(sortRequests((data || []).map(flattenSongJoin)));
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [gig.id]);
+  }, [gig.id, cachedRequests]);
 
   useEffect(() => {
     const channel = supabase
@@ -206,6 +229,11 @@ export default function SongRequestsPanel({ gig }) {
         </div>
       )}
 
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing requests as they were last saved to this device. Marking one played or dismissed needs a signal.
+        </p>
+      )}
       {loadError ? (
         <p className="form-error">{loadError}</p>
       ) : requests.length === 0 ? (

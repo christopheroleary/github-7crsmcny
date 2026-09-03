@@ -43,7 +43,7 @@ function autoResizeCompose(el) {
 // elsewhere on this page). Messages are immutable once sent -- there's no
 // edit, only delete-your-own-or-admin -- and capped at 160 characters,
 // same as a classic SMS.
-export default function GigMessages({ gigId, bandId, lineup = [] }) {
+export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages = [], cachedReactions = [] }) {
   const { profile, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
   const [messages, setMessages] = useState([]);
   const [namesById, setNamesById] = useState({});
@@ -52,14 +52,30 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
   // Without this, a failed fetch left `messages` at its initial [] and this
   // rendered "No messages yet — say hi" -- indistinguishable from a
   // genuinely empty chat, when what actually happened is there's no
-  // signal to check.
+  // signal to check. usingCache means it fell back to cachedMessages
+  // instead (see the load() catch below) -- sending/liking still needs a
+  // signal (this is read-only offline support, no write queue), so the
+  // compose box stays enabled and just fails with its own error if tried.
   const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef(null);
   const composeRef = useRef(null);
 
   useEffect(() => { autoResizeCompose(composeRef.current); }, [body]);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
 
   const canAccess = Boolean(profile) && (
     isAdmin
@@ -77,11 +93,24 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
       .order('created_at', { ascending: true })
       .limit(200);
     if (error) {
-      setLoadError(navigator.onLine ? "Couldn't load messages: " + error.message : "Couldn't load messages — no signal.");
+      if (cachedMessages.length > 0) {
+        setMessages(cachedMessages);
+        setNamesById((prev) => {
+          const next = { ...prev };
+          cachedMessages.forEach((m) => { next[m.sender_id] = m.sender?.full_name || 'Unknown'; });
+          return next;
+        });
+        setReactionsByMessage(buildReactionMap(cachedReactions, profile?.id));
+        setUsingCache(true);
+        setLoadError(null);
+      } else {
+        setLoadError(navigator.onLine ? "Couldn't load messages: " + error.message : "Couldn't load messages — no signal.");
+      }
       setLoading(false);
       return;
     }
     setLoadError(null);
+    setUsingCache(false);
     setMessages(data || []);
     setNamesById((prev) => {
       const next = { ...prev };
@@ -102,7 +131,7 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
 
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gigId, canAccess, profile?.id]);
+  }, [gigId, canAccess, profile?.id, cachedMessages, cachedReactions]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -256,6 +285,12 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
         Gig chat
         <InfoTooltip text="Everyone else on this gig's roster gets a notification when you send one of these." />
       </h3>
+
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 8, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing messages as they were last saved to this device. Sending or liking needs a signal.
+        </p>
+      )}
 
       <div className="gig-chat__messages" ref={listRef}>
         {loading && <p className="field__hint">Loading messages…</p>}

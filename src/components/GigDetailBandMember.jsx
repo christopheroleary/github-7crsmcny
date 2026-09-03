@@ -72,7 +72,11 @@ function formatSyncTime(iso) {
 }
 
 export default function GigDetailBandMember({ gigId, myProfileId, onBack, scrollToSection, onScrolled, backLabel = '← Back to my gigs' }) {
-  const { gig, lineup, setlists, syncedAt, isOffline, syncing, error, refresh } = useOfflineGigData(gigId);
+  const {
+    gig, lineup, setlists,
+    messages, reactions, suppliers, stagePlot,
+    syncedAt, isOffline, syncing, error, refresh,
+  } = useOfflineGigData(gigId);
   const { isBandLeader, ledBandIds } = useCurrentProfile();
   // True whenever a band leader lands here for a gig outside band(s) they
   // actually lead -- either GigsList routed them here directly, or
@@ -556,18 +560,15 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
 
       {/* Read-only -- RLS on gig_stage_plots also blocks a musician's
           write outright, this just keeps the editing UI off their
-          screen too (see the stage_plot migration). Gated on isOffline
-          like Suppliers below it: unlike the setlist above (served from
-          useOfflineGigData's own cache), GigStagePlot does its own live
-          Supabase queries with no offline fallback yet. */}
-      {!isOffline && (
-        <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} readOnly />
-      )}
+          screen too (see the stage_plot migration). No longer gated on
+          isOffline -- GigStagePlot now falls back to cachedStagePlot the
+          same way the setlist above already does, so there's somewhere
+          real to render instead of hiding the section outright. */}
+      <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} readOnly cachedStagePlot={stagePlot} />
 
-      {/* Gig chat — only when online */}
-      {!isOffline && (
-        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
-      )}
+      {/* Gig chat -- no longer gated on isOffline, GigMessages now falls
+          back to cachedMessages/cachedReactions on a failed live fetch. */}
+      <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} />
 
       {/* Break-time games -- deliberately NOT gated on isOffline like chat
           above. The games themselves are pure client-side canvas/DOM logic
@@ -577,15 +578,14 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           handles that failing gracefully. */}
       <ArcadeSection gigId={gigId} />
 
-      {/* Suppliers (photographer, DJ, etc.) — only when online. Always
-          read-only here, same as venue/client info elsewhere on this page:
-          this component doesn't know whether it's rendering for a real
-          musician or an admin's "view as" preview (that only swaps
-          myProfileId, not role context), so management stays on the
+      {/* Suppliers (photographer, DJ, etc.) -- no longer gated on isOffline,
+          GigSuppliers now falls back to cachedSuppliers on a failed live
+          fetch. Always read-only here, same as venue/client info elsewhere
+          on this page: this component doesn't know whether it's rendering
+          for a real musician or an admin's "view as" preview (that only
+          swaps myProfileId, not role context), so management stays on the
           admin-facing gig view regardless of who's actually signed in. */}
-      {!isOffline && (
-        <GigSuppliers gigId={gigId} gig={gig} readOnly refreshSignal={manualRefreshSignal} />
-      )}
+      <GigSuppliers gigId={gigId} gig={gig} readOnly refreshSignal={manualRefreshSignal} cachedSuppliers={suppliers} />
 
       {/* Gig photos -- only when online. readOnly here (unlike the props
           otherwise being identical to GigDetail.jsx's call site) -- upload

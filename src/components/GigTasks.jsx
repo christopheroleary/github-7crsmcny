@@ -9,18 +9,34 @@ import { notify } from '../utils/toastService.js';
 // band-wide by nature -- needs-invoicing/anniversary/uninvited-dep don't
 // belong to one specific gig the way "confirm parking with the venue"
 // does), so there's nothing to duplicate between the two surfaces.
-export default function GigTasks({ gigId, bandId, defaultOpen }) {
+export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [] }) {
   const { profile: me } = useCurrentProfile();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   // Without this, a failed fetch left `tasks` at its initial [] and this
   // rendered "No open tasks for this gig" -- indistinguishable from
   // genuinely having none, when what actually happened is there's no
-  // signal to check.
+  // signal to check. usingCache means it fell back to cachedTasks instead
+  // -- adding/completing a task still needs a signal (read-only offline
+  // support, no write queue), so those controls stay as they are and just
+  // fail with their own error if tried.
   const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,13 +47,20 @@ export default function GigTasks({ gigId, bandId, defaultOpen }) {
       .eq('done', false)
       .order('due_date', { ascending: true, nullsFirst: false });
     if (error) {
-      setLoadError(navigator.onLine ? "Couldn't load tasks: " + error.message : "Couldn't load tasks — no signal.");
+      if (cachedTasks.length > 0) {
+        setTasks(cachedTasks);
+        setUsingCache(true);
+        setLoadError(null);
+      } else {
+        setLoadError(navigator.onLine ? "Couldn't load tasks: " + error.message : "Couldn't load tasks — no signal.");
+      }
     } else {
       setTasks(data || []);
       setLoadError(null);
+      setUsingCache(false);
     }
     setLoading(false);
-  }, [gigId]);
+  }, [gigId, cachedTasks]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -67,6 +90,11 @@ export default function GigTasks({ gigId, bandId, defaultOpen }) {
 
   return (
     <CollapsibleSection id="gig-section-tasks" title="Tasks" defaultOpen={defaultOpen}>
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing tasks as they were last saved to this device. Adding or completing one needs a signal.
+        </p>
+      )}
       {loading ? (
         <p className="state-message">Loading tasks…</p>
       ) : loadError ? (

@@ -31,8 +31,11 @@ import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 
 export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, onScrolled }) {
-  const { gig, lineup, setlists, requirements, isOffline, syncing, syncedAt, error, refresh } =
-    useOfflineGigData(gigId);
+  const {
+    gig, lineup, setlists, requirements,
+    messages, reactions, tasks, claims, suppliers, songRequests, stagePlot,
+    isOffline, syncing, syncedAt, error, refresh,
+  } = useOfflineGigData(gigId);
   const { profile: me, isAdmin: isAdminRole, ledBandIds } = useCurrentProfile();
 
   // GigRoster and TravelCalculator each keep their own independent copy of
@@ -476,7 +479,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
       <GigRoster gigId={gigId} cachedLineup={lineup} cachedRequirements={requirements} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
 
-      <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} />
+      <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} cachedTasks={tasks} />
 
       <CollapsibleSection
         id="gig-section-chat-group"
@@ -484,7 +487,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         defaultOpen={scrollToSection === 'chat'}
         titleExtra={<InfoTooltip text="The gig's group chat, plus everything needed to set up a WhatsApp group for it — group title, invite link, and one-tap invites." />}
       >
-        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} />
+        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} />
         <GigWhatsAppGroup gig={gig} />
       </CollapsibleSection>
 
@@ -493,6 +496,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         gig={gig}
         refreshSignal={manualRefreshSignal}
         defaultOpen={scrollToSection === 'suppliers'}
+        cachedSuppliers={suppliers}
       />
 
       <CollapsibleSection
@@ -555,7 +559,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         />
       </CollapsibleSection>
 
-      <MusicianClaimsAdmin gigId={gigId} bandId={gig.band_id} lineup={lineup} defaultOpen={scrollToSection === 'claims'} />
+      <MusicianClaimsAdmin gigId={gigId} bandId={gig.band_id} lineup={lineup} defaultOpen={scrollToSection === 'claims'} cachedClaims={claims} />
 
       <GigSetlist
         gigId={gigId}
@@ -574,6 +578,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         lineup={lineup}
         setlists={setlists}
         defaultOpen={scrollToSection === 'stage-plot'}
+        cachedStagePlot={stagePlot}
       />
 
       <CollapsibleSection
@@ -583,7 +588,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         titleExtra={<InfoTooltip text="Everything for gig day itself — break-time games, a QR code for song requests, and a place to share photos afterwards." />}
       >
         <ArcadeSection gigId={gigId} />
-        <SongRequestsPanel gig={gig} />
+        <SongRequestsPanel gig={gig} cachedRequests={songRequests} />
         <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
       </CollapsibleSection>
 

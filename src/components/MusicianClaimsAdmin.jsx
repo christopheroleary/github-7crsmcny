@@ -240,15 +240,20 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
 // compare against what a musician claimed), never written, so there's no
 // need to fetch them independently -- GigDetail already has them loaded
 // via useOfflineGigData and passes them straight through.
-export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp = [], defaultOpen = false }) {
+export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp = [], defaultOpen = false, cachedClaims = [] }) {
   const { isPro, isAdmin } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   // Without this, a failed fetch left `claims` at its initial [] and this
   // rendered "No payment claims submitted yet" -- indistinguishable from
   // genuinely having none, when what actually happened is there's no
-  // signal to check.
+  // signal to check. usingCache means it fell back to cachedClaims instead
+  // -- approving/rejecting/paying still needs a signal (read-only offline
+  // support, no write queue), so those controls stay as they are and just
+  // fail with their own error if tried.
   const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [payingId, setPayingId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [editingClaimId, setEditingClaimId] = useState(null);
@@ -266,6 +271,17 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
 
   const deps = lineupProp.filter((l) => l.placeholder_id);
 
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -274,14 +290,21 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       .eq('gig_id', gigId)
       .order('created_at');
     if (error) {
-      setLoadError(navigator.onLine ? "Couldn't load claims: " + error.message : "Couldn't load claims — no signal.");
+      if (cachedClaims.length > 0) {
+        setClaims(cachedClaims);
+        setUsingCache(true);
+        setLoadError(null);
+      } else {
+        setLoadError(navigator.onLine ? "Couldn't load claims: " + error.message : "Couldn't load claims — no signal.");
+      }
       setLoading(false);
       return;
     }
     setLoadError(null);
+    setUsingCache(false);
     setClaims(data || []);
     setLoading(false);
-  }, [gigId]);
+  }, [gigId, cachedClaims]);
 
   useEffect(() => {
     load();
@@ -389,6 +412,11 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
 
   const canAddDepInvoice = (isAdmin || isPro) && deps.length > 0 && !adding && !editingClaimId;
   const editingClaim = editingClaimId ? claims.find((c) => c.id === editingClaimId) : null;
+  const cacheBanner = usingCache && (
+    <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+      {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing claims as they were last saved to this device. Approving, rejecting, or paying one needs a signal.
+    </p>
+  );
 
   if (loadError && !adding) return (
     <CollapsibleSection
@@ -408,6 +436,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
     >
+      {cacheBanner}
       <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No payment claims submitted yet.</p>
       {canAddDepInvoice && (
         <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>
@@ -429,6 +458,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
     >
+      {cacheBanner}
       <ul className="simple-list">
         {claims.map((claim) => (
           <li className="simple-list__item" key={claim.id}>

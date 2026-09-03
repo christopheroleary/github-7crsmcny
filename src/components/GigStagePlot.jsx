@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import StagePlot from './StagePlot.jsx';
@@ -16,8 +16,20 @@ import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
  * belt-and-suspenders alongside the RLS policies that are what actually
  * block a musician's write (see the stage_plot migration).
  */
-export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly, defaultOpen = false }) {
+export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly, defaultOpen = false, cachedStagePlot = null }) {
   const { songIds: backingTrackSongIds } = useBandBackingTrackSongIds(bandId);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
 
   // Real automation, not a manual flag: true if this gig's attached
   // setlist has any song with a backing track saved for this band.
@@ -32,7 +44,7 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
     [gig, venue, lineup, hasBackingTracks]
   );
 
-  const { config, visibleToBand, setVisibleToBand, loading, error, save } = useGigStagePlot(gigId, buildSeed);
+  const { config, visibleToBand, setVisibleToBand, loading, error, usingCache, save } = useGigStagePlot(gigId, buildSeed, cachedStagePlot);
 
   // Stamped with the gig id so StagePlot's own identity check
   // (initialConfig !== the last one it saw) treats a genuinely different
@@ -80,6 +92,11 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
       defaultOpen={defaultOpen}
       titleExtra={<InfoTooltip text="An auto-generated stage layout from the roster — drag anything to adjust it, then choose whether musicians can see it too." />}
     >
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the stage plot as it was last saved to this device. Dragging or toggling visibility needs a signal.
+        </p>
+      )}
       {!readOnly && (
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer' }}>
           <input

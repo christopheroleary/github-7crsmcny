@@ -16,7 +16,7 @@ import { buildSupplierFollowUpEmail, buildSupplierMailtoHref } from '../utils/su
 // never quite happens. `gig` is the already-loaded gig object (needs
 // .venues.name, .gig_date, .bands.name for the email template) -- both
 // GigDetail and GigDetailBandMember already have this on hand.
-export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSignal, defaultOpen = false }) {
+export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSignal, defaultOpen = false, cachedSuppliers = [] }) {
   const { isAdmin, isBandLeader } = useCurrentProfile();
   const canManage = !readOnly && (isAdmin || isBandLeader);
 
@@ -33,8 +33,23 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
   // Without this, a failed fetch left `attached` at its initial [] and
   // this rendered "No suppliers tagged yet" -- indistinguishable from
   // genuinely having none, when what actually happened is there's no
-  // signal to check.
+  // signal to check. usingCache means it fell back to cachedSuppliers
+  // instead -- tagging/removing one still needs a signal (read-only
+  // offline support, no write queue).
   const [loadError, setLoadError] = useState(null);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const up = () => setIsOffline(false);
+    const down = () => setIsOffline(true);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
 
   // Split from loadAllSuppliers below: attaching/removing a supplier on
   // THIS gig never changes the supplier directory itself, so a mutation's
@@ -47,11 +62,19 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
       .eq('gig_id', gigId)
       .order('created_at');
     if (loadAttachedError) {
-      setLoadError(navigator.onLine ? "Couldn't load suppliers: " + loadAttachedError.message : "Couldn't load suppliers — no signal.");
+      if (cachedSuppliers.length > 0) {
+        setAttached(cachedSuppliers);
+        setUsingCache(true);
+        setLoadError(null);
+        setPriorCounts({});
+      } else {
+        setLoadError(navigator.onLine ? "Couldn't load suppliers: " + loadAttachedError.message : "Couldn't load suppliers — no signal.");
+      }
       setLoading(false);
       return;
     }
     setLoadError(null);
+    setUsingCache(false);
     setAttached(gs || []);
 
     // "Worked together before" -- does this supplier show up on any OTHER
@@ -70,7 +93,7 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
       setPriorCounts({});
     }
     setLoading(false);
-  }, [gigId]);
+  }, [gigId, cachedSuppliers]);
 
   // The supplier-picker directory -- not scoped to this gig at all, so it
   // only needs loading once per mount, plus again on the one mutation that
@@ -154,6 +177,11 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
         <InfoTooltip text="Photographer, florist, DJ and other vendors working this gig — tag them here so everyone knows who to credit in photos, and so a follow-up thank-you is one click away." />
       }
     >
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing suppliers as they were last saved to this device. Tagging or removing one needs a signal.
+        </p>
+      )}
       {loadError ? (
         <p className="form-error">{loadError}</p>
       ) : attached.length === 0 ? (
