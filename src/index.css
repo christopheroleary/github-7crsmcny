@@ -406,6 +406,15 @@ input {
   padding: 12px 14px;
   box-shadow: 0 8px 24px rgba(30, 27, 22, 0.25);
 }
+/* Every toast used to render with the same red-for-error stripe
+   regardless of what it said -- "Merged into..." looked identical to a
+   failed save. Deliberately NOT theme-tinted (--rust/--teal swap meaning
+   per theme), same reasoning as .gig-card--needs-confirmation: a success
+   toast needs to read as green and an error one as red no matter which
+   of the 4 UI themes is active. */
+.toast--success {
+  border-left-color: #16a34a;
+}
 
 .toast__message {
   flex: 1;
@@ -594,10 +603,26 @@ input {
   margin-bottom: 28px;
 }
 
+/* The wordmark alone (same font/weight as any other section heading) read
+   as just another title on the page rather than a logo -- caught live.
+   The icon mark (the real PWA home-screen icon, reused rather than a
+   second graphic to keep in sync) plus a bigger, tighter-tracked,
+   accent-coloured wordmark is what actually reads as a brand lockup. */
+.app-header__logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.app-header__logo img {
+  border-radius: 7px;
+  flex-shrink: 0;
+}
 .app-header__title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 23px;
+  letter-spacing: -0.01em;
+  color: var(--amber-dark);
 }
 
 .state-message {
@@ -1772,6 +1797,154 @@ input:not([type]) {
   gap: 10px;
   flex-shrink: 0;
 }
+
+/* ImportSetlist.jsx -- one card per pasted song, same raised-card
+   convention as .simple-list__item elsewhere in the app (GigRoster's
+   roster entries, etc.) rather than a thin divider line between flat
+   rows -- caught live as not obvious enough where one song ends and the
+   next begins. Title/artist/remove on top, the match picker on its own
+   row underneath: stacked instead of one wide row specifically to give
+   the picker room on a phone screen, caught live as that whole row
+   simply not fitting. */
+.import-row {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.import-row:last-child {
+  margin-bottom: 0;
+}
+.import-row__top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+/* Icon-only (not a "Remove" text button) to give the row back the width
+   that text cost -- the icon still says what it does, and the label the
+   text button used to always show now only shows on hover/focus via the
+   native title tooltip, per feedback that width is the scarce resource
+   here, especially on phone. Same Trash2/RotateCcw icon pair and
+   link-button--danger styling as GigRoster.jsx's own remove button,
+   rather than a new icon just for this form. */
+.import-row__trash {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 8px;
+}
+.import-row__match {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-match-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* The match picker's colour is the whole point (a scannable "how sure was
+   the matcher" signal down a long pasted list), so deliberately NOT
+   theme-tinted, same reasoning as .gig-card--needs-confirmation:
+   green/yellow/orange need to read as green/yellow/orange regardless of
+   which of the 4 UI themes is active, not whatever colour that theme
+   happens to assign its accent tokens to.
+
+   Each status pairs a bright, clearly-different hue (the background tint
+   and the left stripe -- saturated enough to read as "obviously coloured"
+   at a glance, not just a faint wash) with a darker shade of the same hue
+   for the border and label text, since the bright versions alone are too
+   low-contrast to read as text or a hairline border against a near-white
+   background -- same bright/dark pairing this file already uses for
+   --amber/--amber-dark. The left stripe carries the colour signal even
+   for someone who can't easily tell green from orange by hue alone. */
+.import-match-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+}
+/* Confident, unambiguous auto-match. */
+.import-match-select--green {
+  border-color: #15803d;
+  background: rgba(22, 163, 74, 0.16);
+  box-shadow: inset 5px 0 0 #16a34a;
+}
+.import-match-label--green {
+  color: #15803d;
+}
+/* Either exactly one candidate worth suggesting (pre-selected, but still
+   only a guess) or no candidate at all (defaulted to "create new song")
+   -- both are the matcher making a call with nothing to cross-check it
+   against, so both get the same "take a look" colour; the label text
+   next to it says which. */
+.import-match-select--yellow {
+  border-color: #a16207;
+  background: rgba(234, 179, 8, 0.2);
+  box-shadow: inset 5px 0 0 #eab308;
+}
+.import-match-label--yellow {
+  color: #a16207;
+}
+/* More than one plausible candidate -- the matcher can't tell which is
+   right, so this is the one that most needs a human decision. The
+   top-ranked guess is still pre-selected (accepting it is the common
+   case), the colour is what flags "double-check this one". */
+.import-match-select--orange {
+  border-color: #c2410c;
+  background: rgba(249, 115, 22, 0.16);
+  box-shadow: inset 5px 0 0 #f97316;
+}
+.import-match-label--orange {
+  color: #c2410c;
+}
+
+/* Shared by every "possible duplicates" panel (SongDuplicates.jsx,
+   VenueDuplicates.jsx) -- one bordered block per duplicate group, each
+   candidate version a radio row inside it (a proper form control, not a
+   styled div, so the whole row is one accessible click/tap target via the
+   wrapping <label>). */
+.dup-merge-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.dup-merge-group:last-child {
+  margin-bottom: 0;
+}
+.dup-merge-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.dup-merge-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.dup-merge-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dup-merge-option__title {
+  font-weight: 600;
+}
+.dup-merge-option__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
 .lyrics-view {
   margin-top: 10px;
   padding: 12px;
@@ -2719,9 +2892,35 @@ details[open] > .collapsible-summary::before {
   color: var(--rust);
 }
 
+/* Thumbs-up toggle -- sits in the same row as the timestamp/delete
+   button. Shows a count once someone's reacted, stays a bare glyph
+   otherwise so an un-reacted message doesn't carry a stray "0". */
+.gig-chat__like {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.gig-chat__like:hover {
+  color: var(--ink);
+}
+.gig-chat__like--active {
+  color: var(--amber-dark);
+  font-weight: 700;
+}
+
 .gig-chat__compose {
   display: flex;
-  align-items: center;
+  /* flex-end, not center -- the textarea below grows downward as a
+     message wraps to more lines, and pinning the button/counter to its
+     bottom edge (rather than its vertical middle) is what keeps them
+     from drifting away from the text as the box gets taller. */
+  align-items: flex-end;
   gap: 8px;
 }
 .gig-chat__compose button {
@@ -2731,9 +2930,18 @@ details[open] > .collapsible-summary::before {
      almost nothing. */
   width: auto;
   flex-shrink: 0;
+  /* Matches the textarea's own vertical padding so a one-line message
+     keeps the button sitting level with it, not riding above it. */
+  margin-bottom: 1px;
 }
 
-.gig-chat__compose input {
+/* Was a plain <input> -- single line only, text just scrolled sideways
+   past the edge of the box instead of wrapping the way a real chat
+   compose box does, and Enter had no way to mean anything but "send".
+   A <textarea> that grows with content (autoResizeCompose in
+   GigMessages.jsx) is what actually gets the iMessage/WhatsApp feel;
+   rows=1 is just its unstyled starting height. */
+.gig-chat__compose textarea {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid var(--line);
@@ -2741,8 +2949,13 @@ details[open] > .collapsible-summary::before {
   background: var(--paper);
   color: var(--ink);
   font-size: 14px;
+  font-family: inherit;
+  line-height: 1.35;
+  resize: none;
+  max-height: 110px;
+  overflow-y: auto;
 }
-.gig-chat__compose input:focus {
+.gig-chat__compose textarea:focus {
   outline: 2px solid var(--amber);
   outline-offset: 1px;
 }
@@ -3147,6 +3360,15 @@ details[open] > .collapsible-summary::before {
   position: relative;
   transition: background 0.15s;
 }
+/* The bell icon sets its own width/height inline; tabIcons.jsx's icons
+   (MegaphoneIcon) deliberately don't, sizing being left to whatever wraps
+   them -- this is that sizing for the header "What's new" button, which
+   reuses .notif-bell__btn for identical padding/hover/position. Harmless
+   on the bell's own svg too since it's the same 22px either way. */
+.notif-bell__btn svg {
+  width: 22px;
+  height: 22px;
+}
 
 .notif-bell__btn:hover {
   background: rgba(255,255,255,0.1);
@@ -3255,6 +3477,17 @@ details[open] > .collapsible-summary::before {
   padding: 0 3px;
   line-height: 1;
   border: 2px solid var(--ink);
+}
+/* "What's new" badge -- a boolean (there's an unseen entry or there
+   isn't), not a count, so a plain dot rather than .notif-bell__badge's
+   number pill. Same red/border language as that badge though, so it
+   still reads as "something unseen here" without inventing a second
+   colour meaning. */
+.notif-bell__badge--dot {
+  min-width: 10px;
+  width: 10px;
+  height: 10px;
+  padding: 0;
 }
 
 /* ---- Notification panel ---- */
@@ -3523,6 +3756,68 @@ details[open] > .collapsible-summary::before {
 }
 .modal-panel .travel-table tbody tr:hover {
   background: var(--paper);
+}
+
+/* WhatsNewModal.jsx -- overrides .modal-panel's own single-scroll-
+   everything (overflow-y: auto on the whole padded box) with a fixed
+   header/footer either side of just the middle scrolling, matching the
+   notification panel's own frozen-header behaviour (.notif-panel is the
+   same header/flex:1-scrolling-list split, just via position:fixed
+   instead of centred like every other modal). Two classes on one
+   element (.modal-panel.whats-new-panel) is deliberately higher-
+   specificity than plain .modal-panel, so this doesn't need !important
+   to win. */
+.whats-new-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.whats-new-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.whats-new-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.whats-new-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.whats-new-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.whats-new-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.whats-new-item__date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px;
+}
+.whats-new-item__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+.whats-new-item__body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* ---------- Custom date picker (DateInput.jsx) ----------

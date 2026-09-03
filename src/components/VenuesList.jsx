@@ -6,6 +6,7 @@ import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
+import VenueDuplicates from './VenueDuplicates.jsx';
 
 export default function VenuesList() {
   const { isAdmin, profile } = useCurrentProfile();
@@ -57,6 +58,12 @@ export default function VenuesList() {
       </div>
 
       {showAddForm && <VenueForm onSaved={handleSaved} onCancel={() => setShowAddForm(false)} />}
+
+      {isAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          <VenueDuplicates onMerged={loadVenues} />
+        </div>
+      )}
 
       {!loading && !error && venues.length > 0 && (
         <SearchBox

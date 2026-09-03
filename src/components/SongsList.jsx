@@ -6,6 +6,7 @@ import SongEditFields from './SongEditFields.jsx';
 import { ReferencePlayer, LyricsView } from './SongReference.jsx';
 import SearchBox from './SearchBox.jsx';
 import { useFuzzySearch } from '../hooks/useFuzzySearch.js';
+import SongDuplicates from './SongDuplicates.jsx';
 
 // Matches the stroke-icon convention used elsewhere (App.jsx's UserIcon,
 // NotificationBell) rather than an emoji, which renders inconsistently
@@ -122,6 +123,10 @@ export default function SongsList() {
           </div>
         </form>
       )}
+
+      <div style={{ marginBottom: 16 }}>
+        <SongDuplicates onMerged={load} />
+      </div>
 
       {songs.length > 5 && (
         <SearchBox

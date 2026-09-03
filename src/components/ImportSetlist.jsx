@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import Fuse from 'fuse.js';
 import { supabase } from '../supabaseClient';
 import { parseSongList } from '../utils/parseSongList.js';
+import { Trash2, RotateCcw } from '../utils/stagePlotIcons.jsx';
 
 // Below this Fuse score (0 = perfect match, 1 = totally dissimilar) a parsed
 // line is auto-matched to an existing song; above it, the row defaults to
@@ -67,18 +68,30 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
     () =>
       allSongs.map((s) => ({
         ...s,
-        _normTitle: normalizeForMatch(s.title),
-        _normArtist: normalizeForMatch(s.artist || ''),
         _normFull: normalizeForMatch(s.title + ' ' + (s.artist || '')),
       })),
     [allSongs]
   );
 
+  // Search against the combined "title artist" string as a single Fuse key,
+  // not title and artist as two separate keys -- caught live: a clean,
+  // unambiguous paste like "Africa - Toto" scored ~0.54 (above
+  // MATCH_THRESHOLD, so not auto-matched) against two short separate
+  // fields, because Fuse's per-key scoring penalises a query that only
+  // partially overlaps EACH field even when the two fields together
+  // account for the whole query. Against one combined field the same
+  // query scores ~0.03 -- correctly confident. Verified this doesn't
+  // regress the cases the two-field split was presumably for: a
+  // title-only paste ("Sweet Caroline") still scores ~0.03 against the
+  // longer combined field, and true near-duplicates ("Mr Brightside" vs
+  // "Mr. Brightside") still tie exactly, so the ambiguous check below
+  // still catches them rather than either key change picking one blindly.
+  //
   // threshold: 1 means "return every song, ranked" -- SUGGEST_THRESHOLD and
   // MATCH_THRESHOLD are applied explicitly below instead of letting Fuse
   // silently drop candidates before the token-distance blend ever runs.
   const fuse = useMemo(
-    () => new Fuse(songsForMatching, { keys: ['_normTitle', '_normArtist'], threshold: 1, ignoreLocation: true, includeScore: true }),
+    () => new Fuse(songsForMatching, { keys: ['_normFull'], threshold: 1, ignoreLocation: true, includeScore: true }),
     [songsForMatching]
   );
 
@@ -98,7 +111,7 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         best.score <= MATCH_THRESHOLD && secondBest.score <= MATCH_THRESHOLD &&
         (secondBest.score - best.score) < AMBIGUOUS_DELTA
       );
-      const matchedSongId = best && !ambiguous && best.score <= MATCH_THRESHOLD ? best.item.id : '';
+      const confidentMatch = Boolean(best && !ambiguous && best.score <= MATCH_THRESHOLD);
 
       const candidates = fuseResults
         .map((r) => ({ ...r, combined: Math.min(r.score, tokenSetDistance(query, r.item._normFull)) }))
@@ -107,14 +120,46 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         .slice(0, 5)
         .map((r) => ({ id: r.item.id, title: r.item.title, artist: r.item.artist }));
 
-      return { ...item, matchedSongId, candidates, ambiguous, skip: false };
+      // Colour is a scannable "how sure was the matcher" signal down a long
+      // pasted list -- green needs no attention, yellow is a single guess
+      // (a lone suggestion, or none at all -- both are the matcher making a
+      // call with nothing to cross-check against), orange is where a human
+      // decision actually matters because more than one candidate is
+      // plausible. Green always wins over orange even when a confident
+      // match also happens to have weaker candidates nearby -- those don't
+      // need a second look just because they showed up in the list.
+      //
+      // Every case with at least one candidate pre-selects the top-ranked
+      // one (candidates is already sorted best-first) -- including orange,
+      // where the top guess is usually still right and accepting it is a
+      // glance-and-click, not a manual re-pick from the full library. The
+      // colour is what still tells the reviewer "double-check this one";
+      // pre-selecting doesn't mean the matcher is claiming confidence.
+      let matchedSongId = '';
+      let matchStatus;
+      if (confidentMatch) {
+        matchedSongId = best.item.id;
+        matchStatus = 'green';
+      } else if (candidates.length > 0) {
+        matchedSongId = candidates[0].id;
+        matchStatus = candidates.length > 1 ? 'orange' : 'yellow';
+      } else {
+        matchStatus = 'yellow';
+      }
+
+      return { ...item, matchedSongId, candidates, ambiguous, matchStatus, skip: false };
     });
     setParsed(withMatches);
   }
 
-  function updateItem(index, patch) {
+  // Stable identity (setParsed itself never changes) so ImportRow's
+  // React.memo actually holds -- an inline function here would give every
+  // row a "new" onChange/onClick prop every render, defeating the memo and
+  // putting us right back to rebuilding all ~230 <option> tags per row on
+  // every keystroke in any one of them. See ImportRow below.
+  const updateItem = useCallback((index, patch) => {
     setParsed((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
-  }
+  }, []);
 
   // Groups by detected section, in first-seen order, falling back to a
   // single group when the paste had no section headers at all.
@@ -250,58 +295,9 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
       {sections.map(([sectionName, indices]) => (
         <div key={sectionName} style={{ marginTop: 16 }}>
           <h4 className="section-header__title" style={{ fontSize: 15, marginBottom: 8 }}>{sectionName}</h4>
-          {indices.map((i) => {
-            const item = parsed[i];
-            const candidateIds = new Set(item.candidates.map((c) => c.id));
-            const otherSongs = allSongs.filter((s) => !candidateIds.has(s.id));
-            return (
-              <div key={i}>
-                <div className="field-row" style={{ opacity: item.skip ? 0.5 : 1, marginBottom: item.ambiguous ? 2 : 8, alignItems: 'center' }}>
-                  <input
-                    value={item.title}
-                    onChange={(e) => updateItem(i, { title: e.target.value })}
-                    disabled={item.skip}
-                    style={{ flex: 2 }}
-                  />
-                  <input
-                    value={item.artist}
-                    onChange={(e) => updateItem(i, { artist: e.target.value })}
-                    placeholder="Artist (optional)"
-                    disabled={item.skip}
-                    style={{ flex: 1 }}
-                  />
-                  <select
-                    value={item.matchedSongId}
-                    onChange={(e) => updateItem(i, { matchedSongId: e.target.value })}
-                    disabled={item.skip}
-                    style={{ flex: 2 }}
-                  >
-                    <option value="">+ Create new song</option>
-                    {item.candidates.length > 0 && (
-                      <optgroup label="Possible matches">
-                        {item.candidates.map((c) => (
-                          <option key={c.id} value={c.id}>{c.title}{c.artist ? ' — ' + c.artist : ''}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    <optgroup label={item.candidates.length > 0 ? 'All other songs' : 'All songs'}>
-                      {otherSongs.map((s) => (
-                        <option key={s.id} value={s.id}>{s.title}{s.artist ? ' — ' + s.artist : ''}</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                  <button type="button" className="link-button link-button--danger" onClick={() => updateItem(i, { skip: !item.skip })}>
-                    {item.skip ? 'Restore' : 'Remove'}
-                  </button>
-                </div>
-                {item.ambiguous && !item.skip && (
-                  <p className="field__hint" style={{ color: 'var(--rust)', margin: '0 0 8px' }}>
-                    ⚠ Found more than one similar song in your library — double-check the right one is selected above.
-                  </p>
-                )}
-              </div>
-            );
-          })}
+          {indices.map((i) => (
+            <ImportRow key={i} index={i} item={parsed[i]} allSongs={allSongs} onUpdate={updateItem} />
+          ))}
         </div>
       ))}
 
@@ -316,3 +312,93 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
     </div>
   );
 }
+
+// A pasted setlist can run to 40-50 rows, and the band's whole song
+// catalogue (allSongs, shared across every band -- see loadSongs in
+// GigSetlist.jsx) can run into the hundreds -- every row's <select> holds
+// nearly the whole catalogue as options. Un-memoized, editing any ONE
+// row's title/artist/skip re-rendered the entire list: every other row
+// recomputed its "songs not already suggested" filter and rebuilt its full
+// option list from scratch, an O(rows × catalogue) cost paid again on
+// every keystroke anywhere in the form -- caught live as the dropdown
+// itself feeling slow to open, since that's the moment a re-render is
+// most likely to still be catching up. React.memo plus the stable
+// onUpdate callback above means a change to one row only re-renders that
+// row; otherSongs is memoized too, so it's computed once per row instead
+// of once per row per keystroke anywhere in the form.
+// One line per status, doubling as the "why is this coloured like this"
+// explanation color alone can't carry -- the single-candidate and
+// no-candidate cases share a colour (both are the matcher making an
+// unchecked call) but need different words, since one is a guess sitting
+// in the box and the other is "create new song" left as-is.
+const MATCH_LABELS = {
+  green: 'Matched',
+  yellow: (hasGuess) => (hasGuess ? 'Best guess — check it' : 'No match — new song'),
+  orange: 'Multiple matches — check it',
+};
+
+const ImportRow = memo(function ImportRow({ index, item, allSongs, onUpdate }) {
+  const otherSongs = useMemo(() => {
+    const candidateIds = new Set(item.candidates.map((c) => c.id));
+    return allSongs.filter((s) => !candidateIds.has(s.id));
+  }, [item.candidates, allSongs]);
+
+  const label = item.matchStatus === 'yellow' ? MATCH_LABELS.yellow(item.candidates.length > 0) : MATCH_LABELS[item.matchStatus];
+
+  return (
+    <div className="import-row" style={{ opacity: item.skip ? 0.5 : 1 }}>
+      <div className="import-row__top">
+        <input
+          value={item.title}
+          onChange={(e) => onUpdate(index, { title: e.target.value })}
+          disabled={item.skip}
+          style={{ flex: 2 }}
+        />
+        <input
+          value={item.artist}
+          onChange={(e) => onUpdate(index, { artist: e.target.value })}
+          placeholder="Artist (optional)"
+          disabled={item.skip}
+          style={{ flex: 1 }}
+        />
+        <button
+          type="button"
+          className="link-button link-button--danger import-row__trash"
+          onClick={() => onUpdate(index, { skip: !item.skip })}
+          title={item.skip ? 'Restore' : 'Remove'}
+          aria-label={item.skip ? 'Restore song' : 'Remove song'}
+        >
+          {item.skip ? <RotateCcw size={14} /> : <Trash2 size={14} />}
+        </button>
+      </div>
+      <div className="import-row__match">
+        <span className={'import-match-label import-match-label--' + item.matchStatus}>{label}</span>
+        <select
+          value={item.matchedSongId}
+          onChange={(e) => onUpdate(index, { matchedSongId: e.target.value })}
+          disabled={item.skip}
+          className={'import-match-select import-match-select--' + item.matchStatus}
+        >
+          <option value="">+ Create new song</option>
+          {item.candidates.length > 0 && (
+            <optgroup label="Possible matches">
+              {item.candidates.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}{c.artist ? ' — ' + c.artist : ''}</option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label={item.candidates.length > 0 ? 'All other songs' : 'All songs'}>
+            {otherSongs.map((s) => (
+              <option key={s.id} value={s.id}>{s.title}{s.artist ? ' — ' + s.artist : ''}</option>
+            ))}
+          </optgroup>
+        </select>
+      </div>
+      {item.matchStatus === 'orange' && !item.skip && (
+        <p className="field__hint" style={{ color: 'var(--rust)', margin: '6px 0 0' }}>
+          ⚠ Found more than one similar song in your library — double-check the right one is selected above.
+        </p>
+      )}
+    </div>
+  );
+});
