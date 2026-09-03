@@ -99,6 +99,26 @@ export default function MyRepertoire({ profileId }) {
 
   const { query, setQuery, results: filtered } = useFuzzySearch(songs, ['title', 'artist']);
 
+  // Shared by both copy buttons below -- "songs I can play" (knownIds,
+  // every ticked song) and "songs I can sing" (leadIds, lead-vocal only).
+  // `songs` is already fetched title-sorted (see the query above), so
+  // filtering it straight through keeps that order rather than needing a
+  // second sort.
+  async function handleCopyList(idSet, label) {
+    const list = songs
+      .filter((s) => idSet.has(s.id))
+      .map((s) => s.title + ' - ' + (s.artist || '—'))
+      .join('\n');
+    try {
+      await navigator.clipboard.writeText(list);
+      notify('Copied ' + idSet.size + ' ' + label + ' song' + (idSet.size === 1 ? '' : 's') + ' to clipboard.');
+    } catch {
+      // Clipboard access can fail (permissions, non-HTTPS, older browsers)
+      // -- same fallback wording as BandMembers.jsx's invite-link copy.
+      notify("Couldn't copy automatically -- select and copy the list instead.");
+    }
+  }
+
   if (loading) return null;
 
   return (
@@ -107,9 +127,21 @@ export default function MyRepertoire({ profileId }) {
         Songs I know
         <InfoTooltip text="Tick Play for every public song you can perform, and Lead vocal too if you can also sing lead on it. Admin uses this to find a dep who already knows a gig's setlist — and whether they can front it — not just someone free that day." />
       </h3>
-      <p className="field__hint" style={{ marginBottom: 12 }}>
-        {knownIds.size} of {songs.length} public songs ticked, {leadIds.size} as lead vocal.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <p className="field__hint" style={{ margin: 0 }}>
+          {knownIds.size} of {songs.length} public songs ticked, {leadIds.size} as lead vocal.
+        </p>
+        {knownIds.size > 0 && (
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => handleCopyList(knownIds, 'known')}>
+            📋 Copy songs I can play
+          </button>
+        )}
+        {leadIds.size > 0 && (
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => handleCopyList(leadIds, 'lead-vocal')}>
+            📋 Copy songs I can sing
+          </button>
+        )}
+      </div>
 
       {songs.length === 0 && <p className="field__hint">No public songs in the repertoire yet.</p>}
 

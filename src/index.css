@@ -1705,7 +1705,13 @@ input:not([type]) {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
+  /* flex-basis floor (not just `flex: 1`) so .setlist-song__row's own
+     flex-wrap actually kicks in on narrow screens -- without it,
+     min-width: 0 let this shrink arbitrarily small instead, and the
+     fixed-width .setlist-song__actions always won the fight for space,
+     squeezing the title/key/vocals content into an unreadable sliver
+     rather than the row wrapping onto its own second line. */
+  flex: 1 1 200px;
   min-width: 0;
 }
 .setlist-song__handle {
@@ -1729,6 +1735,13 @@ input:not([type]) {
   font-weight: 500;
   display: flex;
   align-items: center;
+  /* Wraps rather than overflows once a key tag (multi-line on a song with
+     both an original and preferred key) plus a vocals tag can't both fit
+     on one line -- without this the vocals tag rendered past this
+     container's own right edge and visually landed on the row's action
+     buttons. Caught live, not just in review. */
+  flex-wrap: wrap;
+  row-gap: 2px;
   gap: 8px;
 }
 .setlist-song__key {
@@ -1738,6 +1751,21 @@ input:not([type]) {
   color: var(--teal);
   padding: 2px 6px;
   border-radius: 6px;
+}
+/* Deliberately capped and ellipsised, not wrapped -- "don't take a lot of
+   screen real estate" was explicit. Hover/long-press (title attribute)
+   is where the full, untruncated name list lives. */
+.setlist-song__vocals {
+  font-size: 11px;
+  background: rgba(200, 134, 46, 0.12);
+  color: var(--amber-dark);
+  padding: 2px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .setlist-song__actions {
   display: flex;

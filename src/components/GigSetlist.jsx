@@ -15,13 +15,19 @@ import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function GigSetlist({ gigId, bandId, refreshSignal, defaultOpen = false }) {
+export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, defaultOpen = false }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
   const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
   const [attachedIds, setAttachedIds] = useState([]);
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
+  // songId -> array of display names -- who on THIS gig's roster (real
+  // member or dep, confirmed or not -- still the plan either way) has
+  // ticked "Lead vocal" for that song in their own repertoire. Recomputed
+  // whenever the roster or the attached setlists change, not just once,
+  // since either can move independently (a roster swap, a song added).
+  const [vocalsBySong, setVocalsBySong] = useState({});
   const [newSetName, setNewSetName] = useState('');
   const [pickedExistingId, setPickedExistingId] = useState('');
   const [showImport, setShowImport] = useState(false);
@@ -66,6 +72,57 @@ export default function GigSetlist({ gigId, bandId, refreshSignal, defaultOpen =
     const { data: songRows } = await supabase.from('songs').select('id, title, artist').order('title');
     setSongs(songRows || []);
   }, []);
+
+  // Cross-references this gig's roster against each singer's own ticked
+  // repertoire (known_songs for a real member, placeholder_known_songs for
+  // a dep) -- "can they actually sing what's on tonight's setlist", not
+  // just "are they free". Deliberately every roster row, confirmed or not
+  // -- a pending swap is still the plan right now. Handles the gaps
+  // gracefully rather than pretending they don't exist: a real member's
+  // own repertoire is only visible here at all because known_songs_select
+  // now reuses can_view_profile() (see known_songs_leader_visibility
+  // migration -- it used to be self-or-admin only, which silently broke
+  // this same cross-reference for DepFinderWizard.jsx too); a song genuinely
+  // never ticked by anyone on the roster just renders with nothing next to
+  // it rather than a false "nobody can sing this".
+  const loadVocalsBySong = useCallback(async () => {
+    const songIds = Array.from(new Set(
+      bandSetlists
+        .filter((sl) => attachedIds.includes(sl.id))
+        .flatMap((sl) => sl.setlist_items.map((i) => i.song_id))
+    ));
+    const profileRows = lineup.filter((l) => l.profile_id);
+    const placeholderRows = lineup.filter((l) => l.placeholder_id);
+    if (songIds.length === 0 || (profileRows.length === 0 && placeholderRows.length === 0)) {
+      setVocalsBySong({});
+      return;
+    }
+
+    const [{ data: known }, { data: knownPh }] = await Promise.all([
+      profileRows.length > 0
+        ? supabase.from('known_songs').select('profile_id, song_id')
+            .eq('can_sing_lead', true).in('song_id', songIds).in('profile_id', profileRows.map((l) => l.profile_id))
+        : Promise.resolve({ data: [] }),
+      placeholderRows.length > 0
+        ? supabase.from('placeholder_known_songs').select('placeholder_id, song_id')
+            .eq('can_sing_lead', true).in('song_id', songIds).in('placeholder_id', placeholderRows.map((l) => l.placeholder_id))
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const nameByProfileId = Object.fromEntries(profileRows.map((l) => [l.profile_id, l.profiles?.full_name || 'Unknown']));
+    const nameByPlaceholderId = Object.fromEntries(placeholderRows.map((l) => [l.placeholder_id, l.placeholder_musicians?.name || 'Unknown']));
+
+    const map = {};
+    (known || []).forEach((r) => {
+      (map[r.song_id] ??= []).push(nameByProfileId[r.profile_id]);
+    });
+    (knownPh || []).forEach((r) => {
+      (map[r.song_id] ??= []).push(nameByPlaceholderId[r.placeholder_id]);
+    });
+    setVocalsBySong(map);
+  }, [bandSetlists, attachedIds, lineup]);
+
+  useEffect(() => { loadVocalsBySong(); }, [loadVocalsBySong]);
 
   useEffect(() => {
     loadSetlists();
@@ -252,6 +309,7 @@ export default function GigSetlist({ gigId, bandId, refreshSignal, defaultOpen =
           key={setlist.id}
           setlist={setlist}
           songs={songs}
+          vocalsBySong={vocalsBySong}
           bandId={bandId}
           backingTrackSongIds={backingTrackSongIds}
           onTracksChanged={reloadBackingTracks}
@@ -307,7 +365,7 @@ export default function GigSetlist({ gigId, bandId, refreshSignal, defaultOpen =
   );
 }
 
-function SetlistBlock({ setlist, songs, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, vocalsBySong, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
@@ -390,6 +448,7 @@ function SetlistBlock({ setlist, songs, bandId, backingTrackSongIds, onTracksCha
                   key={item.id}
                   item={item}
                   idx={idx}
+                  singers={item.song_id ? vocalsBySong[item.song_id] : undefined}
                   bandId={bandId}
                   backingTrackSongIds={backingTrackSongIds}
                   onTracksChanged={onTracksChanged}
@@ -446,7 +505,7 @@ function SetlistBlock({ setlist, songs, bandId, backingTrackSongIds, onTracksCha
 }
 
 function SortableSongItem({
-  item, idx, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
+  item, idx, singers, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
   onRemoveSong, setShowPlayerId, setShowLyricsId, setShowTrackId, setEditingItemId, reload,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -475,6 +534,16 @@ function SortableSongItem({
           <span className="setlist-song__title">
             {song ? song.title : <em style={{ color: 'var(--text-muted)' }}>Song details unavailable</em>}
             {song?.original_key ? <span className="setlist-song__key">{song.original_key}</span> : null}
+            {/* Blank when nobody on the roster has ticked "Lead vocal" for
+                this song -- deliberately not a warning icon, since that's
+                as likely to mean "nobody's filled their repertoire in yet"
+                as "nobody can actually sing it". title carries the full,
+                untruncated name list -- the tag itself stays capped. */}
+            {singers && singers.length > 0 && (
+              <span className="setlist-song__vocals" title={'Can sing lead: ' + singers.join(', ')}>
+                🎤 {singers.join(', ')}
+              </span>
+            )}
           </span>
         </div>
         <div className="setlist-song__actions">

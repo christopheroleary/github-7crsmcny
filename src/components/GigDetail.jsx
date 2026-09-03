@@ -560,6 +560,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       <GigSetlist
         gigId={gigId}
         bandId={gig.band_id}
+        lineup={lineup}
         refreshSignal={manualRefreshSignal}
         defaultOpen={scrollToSection === 'setlist'}
       />
