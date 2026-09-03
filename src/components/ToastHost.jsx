@@ -7,9 +7,9 @@ export default function ToastHost() {
   const [toasts, setToasts] = useState([]);
   const timers = useRef({});
 
-  useEffect(() => registerToastListener((message) => {
+  useEffect(() => registerToastListener((message, type) => {
     const id = ++idCounter;
-    setToasts((prev) => [...prev, { id, message }]);
+    setToasts((prev) => [...prev, { id, message, type }]);
     timers.current[id] = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
       delete timers.current[id];
@@ -31,7 +31,7 @@ export default function ToastHost() {
   return (
     <div className="toast-stack">
       {toasts.map((t) => (
-        <div className="toast" key={t.id} role="alert">
+        <div className={'toast toast--' + t.type} key={t.id} role="alert">
           <span className="toast__message">{t.message}</span>
           <button type="button" className="toast__close" aria-label="Dismiss" onClick={() => dismiss(t.id)}>×</button>
         </div>

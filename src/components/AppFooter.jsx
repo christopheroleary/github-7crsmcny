@@ -12,7 +12,7 @@ import { APP_VERSION, APP_BUILD_TIME } from '../utils/buildInfo.js';
 // rarely, not content worth spending a nav tab on. Not fixed/sticky, so
 // it never covers page content on a small screen; it's just always the
 // last thing on whichever tab is showing.
-export default function AppFooter() {
+export default function AppFooter({ onOpenWhatsNew }) {
   const [openModal, setOpenModal] = useState(null); // null | 'privacy' | 'terms'
 
   const buildTimeLabel = APP_BUILD_TIME
@@ -31,6 +31,8 @@ export default function AppFooter() {
         <button type="button" className="link-button" onClick={() => setOpenModal('privacy')}>Privacy</button>
         <span aria-hidden="true">·</span>
         <button type="button" className="link-button" onClick={() => setOpenModal('terms')}>Terms</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" className="link-button" onClick={onOpenWhatsNew}>What's new</button>
         <span aria-hidden="true">·</span>
         <button type="button" className="link-button" onClick={handleRefresh}>Refresh app</button>
         <span aria-hidden="true">·</span>

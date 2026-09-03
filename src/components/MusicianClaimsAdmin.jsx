@@ -359,7 +359,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       notify("Couldn't pay via Stripe: " + (serverMessage || error?.message || 'unknown error'));
       return;
     }
-    notify('Paid £' + poundsFromPence(data.amount_pence) + ' via Stripe.');
+    notify('Paid £' + poundsFromPence(data.amount_pence) + ' via Stripe.', 'success');
     load();
   }
 

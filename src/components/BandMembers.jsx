@@ -185,7 +185,7 @@ export default function BandMembers({ bandId, isAdmin }) {
   async function handleCopyInviteLink() {
     try {
       await navigator.clipboard.writeText(generatedLink);
-      notify('Invite link copied.');
+      notify('Invite link copied.', 'success');
     } catch {
       // Clipboard access can fail (permissions, non-HTTPS, older browsers)
       // -- the link is still selectable/visible in the field either way.

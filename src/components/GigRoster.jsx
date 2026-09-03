@@ -566,7 +566,7 @@ export default function GigRoster({ gigId, onRosterChanged, refreshSignal, onEdi
     setBusyEntryId(entry.id);
     const { error } = await supabase.rpc('resend_gig_invite', { p_lineup_id: entry.id });
     if (error) { notify("Couldn't resend: " + error.message); setBusyEntryId(null); return; }
-    notify('Reminder sent to ' + (entry.profiles?.full_name || 'the musician') + '.');
+    notify('Reminder sent to ' + (entry.profiles?.full_name || 'the musician') + '.', 'success');
     await reloadAndNotify();
     setBusyEntryId(null);
   }

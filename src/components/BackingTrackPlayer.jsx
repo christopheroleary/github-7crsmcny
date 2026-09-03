@@ -1,8 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import SignalsmithStretch from '../utils/signalsmithStretch.mjs';
+import { notify } from '../utils/toastService.js';
+import {
+  isTrackOffline,
+  listOfflineTracksForSong,
+  saveTrackOffline,
+  getOfflineTrackBytes,
+  removeTrackOffline,
+} from '../utils/offlineBackingTracks.js';
 
 const BUCKET = 'backing-tracks';
+
+// Shared by loadTrack() (plays it) and the "Save for offline" handler
+// (stores it) -- both need the exact same signed-URL-then-fetch bytes,
+// just for a different purpose once they have them.
+async function fetchTrackBytes(track) {
+  const { data: signed, error: signError } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(track.file_url, 3600);
+  if (signError) throw signError;
+  const res = await fetch(signed.signedUrl);
+  if (!res.ok) throw new Error('Could not download that track');
+  return res.arrayBuffer();
+}
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds)) return '';
@@ -57,10 +78,17 @@ function startClickScheduler(audioContext, clickGain, getBpm) {
 // A band's own recording of a song -- distinct from SongReference.jsx's
 // ReferencePlayer, which just embeds a public YouTube/Spotify link for
 // what the song sounds like in general, not this band's own arrangement.
-export default function BackingTrackPlayer({ band, song }) {
+// `gigId` is optional -- only known when this is rendered from a specific
+// gig's setlist/day sheet, not e.g. a hypothetical band-wide song browser.
+// Passed straight through to saveTrackOffline so an offline save can be
+// tagged with which gig it was for, which is what lets the retention
+// sweep (offlineBackingTracks.js) know when to let it go.
+export default function BackingTrackPlayer({ band, song, gigId }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [offlineIds, setOfflineIds] = useState(() => new Set());
+  const [savingOfflineId, setSavingOfflineId] = useState(null);
 
   const [activeTrackId, setActiveTrackId] = useState(null);
   const [playerLoading, setPlayerLoading] = useState(false);
@@ -116,8 +144,26 @@ export default function BackingTrackPlayer({ band, song }) {
         .eq('song_id', song.id)
         .order('created_at');
       if (cancelled) return;
-      if (fetchError) setError(fetchError.message);
-      else setTracks(data || []);
+
+      const offline = listOfflineTracksForSong(band.id, song.id);
+      if (fetchError) {
+        // Offline (or some other network failure) -- fall back entirely
+        // to whatever's actually been saved for this song, so a track
+        // someone downloaded specifically to survive this moment still
+        // shows up and is playable, instead of an empty/error state.
+        setTracks(offline);
+        setError(offline.length === 0 ? fetchError.message : null);
+      } else {
+        // Merge rather than trust the network list alone -- an offline
+        // save that hasn't round-tripped back through this query yet
+        // (or a network response that's momentarily missing it) shouldn't
+        // make an already-downloaded track disappear from the list.
+        const byId = new Map((data || []).map((t) => [t.id, t]));
+        offline.forEach((t) => { if (!byId.has(t.id)) byId.set(t.id, t); });
+        setTracks([...byId.values()]);
+        setError(null);
+      }
+      setOfflineIds(new Set(offline.map((t) => t.id)));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -172,13 +218,13 @@ export default function BackingTrackPlayer({ band, song }) {
     setActiveTrackId(track.id);
     let audioContext;
     try {
-      const { data: signed, error: signError } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(track.file_url, 3600);
-      if (signError) throw signError;
-
-      const res = await fetch(signed.signedUrl);
-      const arrayBuffer = await res.arrayBuffer();
+      // An offline-saved copy is checked first and, if present, used
+      // outright -- no network touched at all, not even to see whether a
+      // fresher signed URL is reachable. That's deliberate: the whole
+      // point of saving a track offline is that it plays the same
+      // whether or not there's a signal right now.
+      const offlineBytes = await getOfflineTrackBytes(track);
+      const arrayBuffer = offlineBytes || await fetchTrackBytes(track);
 
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -241,6 +287,28 @@ export default function BackingTrackPlayer({ band, song }) {
     }
   }
 
+  async function handleSaveOffline(track) {
+    setSavingOfflineId(track.id);
+    try {
+      await saveTrackOffline(track, { bandId: band.id, songId: song.id, gigId }, () => fetchTrackBytes(track));
+      setOfflineIds((prev) => new Set(prev).add(track.id));
+      notify((track.variant || 'Backing track') + ' saved for offline.', 'success');
+    } catch (err) {
+      notify("Couldn't save it offline: " + err.message);
+    } finally {
+      setSavingOfflineId(null);
+    }
+  }
+
+  async function handleRemoveOffline(track) {
+    await removeTrackOffline(track);
+    setOfflineIds((prev) => {
+      const next = new Set(prev);
+      next.delete(track.id);
+      return next;
+    });
+  }
+
   async function togglePlay() {
     const audioContext = audioCtxRef.current;
     const stretchNode = stretchNodeRef.current;
@@ -269,21 +337,35 @@ export default function BackingTrackPlayer({ band, song }) {
       {error && <p className="form-error" style={{ marginBottom: 8 }}>{error}</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: activeTrack ? 14 : 0 }}>
-        {tracks.map((t) => (
-          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              type="button"
-              className="link-button"
-              style={{ fontWeight: activeTrackId === t.id ? 700 : 400 }}
-              onClick={() => loadTrack(t)}
-            >
-              ▶ {t.variant || 'Backing track'}
-            </button>
-            {t.duration_seconds && (
-              <span className="field__hint">{formatDuration(t.duration_seconds)}</span>
-            )}
-          </div>
-        ))}
+        {tracks.map((t) => {
+          const offline = offlineIds.has(t.id);
+          const savingOffline = savingOfflineId === t.id;
+          return (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="link-button"
+                style={{ fontWeight: activeTrackId === t.id ? 700 : 400 }}
+                onClick={() => loadTrack(t)}
+              >
+                ▶ {t.variant || 'Backing track'}
+              </button>
+              {t.duration_seconds && (
+                <span className="field__hint">{formatDuration(t.duration_seconds)}</span>
+              )}
+              <button
+                type="button"
+                className="link-button"
+                style={{ fontSize: 12, color: offline ? 'var(--teal)' : undefined }}
+                onClick={() => (offline ? handleRemoveOffline(t) : handleSaveOffline(t))}
+                disabled={savingOffline}
+                title={offline ? 'Saved on this device — plays with no signal. Tap to remove.' : 'Save on this device so it still plays with no signal'}
+              >
+                {savingOffline ? 'Saving…' : offline ? '✓ Offline' : '📥 Save for offline'}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {activeTrack && (

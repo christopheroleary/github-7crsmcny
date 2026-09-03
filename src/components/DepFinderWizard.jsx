@@ -226,7 +226,7 @@ export default function DepFinderWizard({ gigId, instruments, initialInstrumentI
       notify("Couldn't add " + candidate.name + ': ' + error.message);
       return;
     }
-    notify(candidate.name + ' added to the gig.');
+    notify(candidate.name + ' added to the gig.', 'success');
     if (onAdded) onAdded();
     setCandidates((cs) => cs.filter((c) => c.id !== candidate.id));
   }

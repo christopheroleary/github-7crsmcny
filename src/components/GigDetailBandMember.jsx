@@ -526,8 +526,13 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
                       {isShowingLyrics && song?.lyrics && (
                         <LyricsView text={song.lyrics} />
                       )}
-                      {showTrackId === item.id && song && gig.band_id && !isOffline && (
-                        <BackingTrackPlayer band={{ id: gig.band_id }} song={song} />
+                      {/* No !isOffline gate here, unlike ReferencePlayer above -- that
+                          embeds an external YouTube/Spotify iframe with no offline story
+                          of its own, but BackingTrackPlayer now checks for (and offers to
+                          save) an on-device copy, so it has something real to show even
+                          with no signal. */}
+                      {showTrackId === item.id && song && gig.band_id && (
+                        <BackingTrackPlayer band={{ id: gig.band_id }} song={song} gigId={gig.id} />
                       )}
                     </li>
                   );
@@ -542,6 +547,7 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
         <PerformanceMode
           setlists={setlists}
           bandId={gig.band_id}
+          gigId={gig.id}
           backingTrackSongIds={backingTrackSongIds}
           isOffline={isOffline}
           onClose={() => setShowPerformanceMode(false)}

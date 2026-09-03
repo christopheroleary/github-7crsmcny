@@ -350,7 +350,16 @@ export default function BandForm({ band, onSaved, onCancel }) {
             <button
               type="button"
               className="btn btn--ghost btn--small"
-              onClick={() => navigator.clipboard.writeText(window.location.origin + '/band/' + slugify(publicSlug))}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.origin + '/band/' + slugify(publicSlug));
+                  notify('Link copied.', 'success');
+                } catch {
+                  // Clipboard access can fail (permissions, non-HTTPS, older
+                  // browsers) -- the link is still selectable in the field.
+                  notify("Couldn't copy automatically -- select and copy the link instead.");
+                }
+              }}
             >
               Copy
             </button>

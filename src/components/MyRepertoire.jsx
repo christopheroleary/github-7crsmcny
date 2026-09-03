@@ -111,7 +111,7 @@ export default function MyRepertoire({ profileId }) {
       .join('\n');
     try {
       await navigator.clipboard.writeText(list);
-      notify('Copied ' + idSet.size + ' ' + label + ' song' + (idSet.size === 1 ? '' : 's') + ' to clipboard.');
+      notify('Copied ' + idSet.size + ' ' + label + ' song' + (idSet.size === 1 ? '' : 's') + ' to clipboard.', 'success');
     } catch {
       // Clipboard access can fail (permissions, non-HTTPS, older browsers)
       // -- same fallback wording as BandMembers.jsx's invite-link copy.

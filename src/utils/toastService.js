@@ -12,7 +12,11 @@ export function registerToastListener(fn) {
   };
 }
 
-export function notify(message) {
+// type defaults to 'error' since that's what the vast majority of existing
+// call sites actually are (save/validation failures) -- callers reporting
+// something that went right pass 'success' explicitly rather than every
+// other call site needing to opt in just to keep today's look.
+export function notify(message, type = 'error') {
   if (!listener) return;
-  listener(message);
+  listener(message, type);
 }

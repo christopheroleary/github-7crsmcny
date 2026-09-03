@@ -164,3 +164,15 @@ export function MoneyIcon() {
     </svg>
   );
 }
+
+// Header "What's new" button (App.jsx) -- not a tab icon, but lives here
+// alongside the others since it's the same hand-drawn stroke convention.
+export function MegaphoneIcon() {
+  return (
+    <svg {...svgProps}>
+      <path d="M3 9h4l9-5v16l-9-5H3z" />
+      <rect x="4" y="15" width="3" height="5" rx="1" />
+      <path d="M19 8a5 5 0 0 1 0 8" />
+    </svg>
+  );
+}

@@ -28,6 +28,16 @@ export function registerServiceWorker() {
       reloading = true;
       window.location.reload();
     });
+
+    // The browser's own periodic check (and the explicit one at sign-in)
+    // both miss the "left a tab open in the background all day" case --
+    // easy to hit at a gig, where the app might sit backgrounded for
+    // hours. Catching up the moment the tab is looked at again means
+    // whatever's new (including a What's new entry) is there as soon as
+    // it's plausible for someone to notice, not next reload.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkForServiceWorkerUpdate();
+    });
   });
 }
 

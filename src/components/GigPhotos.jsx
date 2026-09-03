@@ -189,7 +189,7 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
 
   function copyToClipboard(text, label) {
     navigator.clipboard.writeText(text).then(
-      () => notify(label + ' copied'),
+      () => notify(label + ' copied', 'success'),
       () => notify("Couldn't copy — select and copy manually.")
     );
   }

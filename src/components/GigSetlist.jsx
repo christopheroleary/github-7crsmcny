@@ -299,6 +299,7 @@ export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, 
         <PerformanceMode
           setlists={attachedSetlists}
           bandId={bandId}
+          gigId={gigId}
           backingTrackSongIds={backingTrackSongIds}
           onClose={() => setShowPerformanceMode(false)}
         />
@@ -311,6 +312,7 @@ export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, 
           songs={songs}
           vocalsBySong={vocalsBySong}
           bandId={bandId}
+          gigId={gigId}
           backingTrackSongIds={backingTrackSongIds}
           onTracksChanged={reloadBackingTracks}
           isAdmin={canManage}
@@ -365,7 +367,7 @@ export default function GigSetlist({ gigId, bandId, lineup = [], refreshSignal, 
   );
 }
 
-function SetlistBlock({ setlist, songs, vocalsBySong, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
+function SetlistBlock({ setlist, songs, vocalsBySong, bandId, gigId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, onAddSong, onRemoveSong, onReorder, onDetach, onDeleteTemplate, reload }) {
   const [pickedSongId, setPickedSongId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
@@ -450,6 +452,7 @@ function SetlistBlock({ setlist, songs, vocalsBySong, bandId, backingTrackSongId
                   idx={idx}
                   singers={item.song_id ? vocalsBySong[item.song_id] : undefined}
                   bandId={bandId}
+                  gigId={gigId}
                   backingTrackSongIds={backingTrackSongIds}
                   onTracksChanged={onTracksChanged}
                   isAdmin={isAdmin}
@@ -505,7 +508,7 @@ function SetlistBlock({ setlist, songs, vocalsBySong, bandId, backingTrackSongId
 }
 
 function SortableSongItem({
-  item, idx, singers, bandId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
+  item, idx, singers, bandId, gigId, backingTrackSongIds, onTracksChanged, isAdmin, canMakePublic, isEditing, showPlayerId, showLyricsId, showTrackId,
   onRemoveSong, setShowPlayerId, setShowLyricsId, setShowTrackId, setEditingItemId, reload,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -588,7 +591,7 @@ function SortableSongItem({
       {!isEditing && showPlayerId === item.id && <ReferencePlayer url={song?.reference_url} />}
       {!isEditing && showLyricsId === item.id && <LyricsView text={song?.lyrics} />}
       {!isEditing && showTrackId === item.id && song && bandId && (
-        <BackingTrackPlayer band={{ id: bandId }} song={song} />
+        <BackingTrackPlayer band={{ id: bandId }} song={song} gigId={gigId} />
       )}
     </li>
   );

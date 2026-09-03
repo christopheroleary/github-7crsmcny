@@ -36,6 +36,17 @@ export default function ShareLinkField({ docType, doc, onChange, label = 'Client
     !revoked && doc.share_token_expires_at && new Date(doc.share_token_expires_at) <= new Date();
   const dead = revoked || expired;
 
+  async function copyUrl(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify('Link copied.', 'success');
+    } catch {
+      // Clipboard access can fail (permissions, non-HTTPS, older browsers)
+      // -- the link is still selectable/visible in the field either way.
+      notify("Couldn't copy automatically -- select and copy the link instead.");
+    }
+  }
+
   async function rotate() {
     const ok = await confirmAsync(
       'Issue a new link? The current link will stop working immediately, so anyone you already sent it to will need the new one.'
@@ -48,7 +59,7 @@ export default function ShareLinkField({ docType, doc, onChange, label = 'Client
     });
     setBusy(false);
     if (error) { notify(friendlyDbError(error)); return; }
-    notify('New link issued. The old one no longer works.');
+    notify('New link issued. The old one no longer works.', 'success');
     onChange?.({ ...doc, share_token: data, share_token_revoked_at: null });
   }
 
@@ -64,7 +75,7 @@ export default function ShareLinkField({ docType, doc, onChange, label = 'Client
     });
     setBusy(false);
     if (error) { notify(friendlyDbError(error)); return; }
-    notify('Link revoked.');
+    notify('Link revoked.', 'success');
     onChange?.({ ...doc, share_token_revoked_at: new Date().toISOString() });
   }
 
@@ -92,7 +103,7 @@ export default function ShareLinkField({ docType, doc, onChange, label = 'Client
           type="button"
           className="btn btn--ghost btn--small"
           disabled={dead}
-          onClick={() => navigator.clipboard.writeText(url)}
+          onClick={() => copyUrl(url)}
         >
           Copy
         </button>

@@ -31,12 +31,15 @@ import FeedbackModal from './components/FeedbackModal.jsx';
 import JoinBandInvite from './components/JoinBandInvite.jsx';
 import FeedbackInbox from './components/FeedbackInbox.jsx';
 import SongsList from './components/SongsList.jsx';
+import WhatsNewModal from './components/WhatsNewModal.jsx';
+import { WHATS_NEW } from './data/whatsNew.js';
 import { checkForServiceWorkerUpdate } from './utils/serviceWorker.js';
+import { isNetworkAuthError } from './utils/authErrors.js';
 import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
 import {
   DashboardIcon, GigsIcon, EnquiriesIcon, VenuesIcon, ClientsIcon, SuppliersIcon,
   BandsIcon, MusiciansIcon, RepertoireIcon, ActivityIcon, FeedbackIcon,
-  SettingsIcon, GetStartedIcon, DepProfileIcon, MoneyIcon,
+  SettingsIcon, GetStartedIcon, DepProfileIcon, MoneyIcon, MegaphoneIcon,
 } from './utils/tabIcons.jsx';
 
 function UserIcon() {
@@ -46,19 +49,6 @@ function UserIcon() {
       <circle cx="12" cy="7" r="4"/>
     </svg>
   );
-}
-
-// True when a Supabase auth call failed because the *fetch* to the auth
-// server didn't succeed (offline, timed out, DNS/TLS failure on a captive
-// portal, connection dropped mid-request) rather than because the server
-// rejected the request (expired/revoked refresh token, bad credentials).
-// supabase-js's own retry logic already makes this distinction internally
-// (see @supabase/auth-js's isAuthRetryableFetchError) but doesn't expose
-// the helper from the public package, so we match its tag directly. This
-// is deliberately not navigator.onLine, which reports true on a wifi
-// network with no working internet -- exactly the case we need to catch.
-function isNetworkAuthError(error) {
-  return error?.name === 'AuthRetryableFetchError';
 }
 
 // Public enquiry form — no auth needed
@@ -137,6 +127,25 @@ export default function App() {
   });
   const { show: showPwaSetup, dismiss: dismissPwaSetup } = usePwaSetupGate();
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // Shared here rather than owned by whichever component happens to render
+  // the button, since the header megaphone and the footer's "What's new"
+  // link are siblings with no other common parent, and both need to open
+  // the same panel and agree on what's already been seen. The badge only
+  // needs a per-device "have they opened it since the newest entry shipped"
+  // check -- localStorage, not an account-synced value -- this is far
+  // lower-stakes than a real notification.
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const latestWhatsNewId = WHATS_NEW[0]?.id ?? null;
+  const [whatsNewSeenId, setWhatsNewSeenId] = useState(() => {
+    try { return localStorage.getItem('whatsNewSeenId'); } catch { return null; }
+  });
+  const hasUnseenWhatsNew = Boolean(latestWhatsNewId) && whatsNewSeenId !== latestWhatsNewId;
+  function openWhatsNew() {
+    setShowWhatsNew(true);
+    try { localStorage.setItem('whatsNewSeenId', latestWhatsNewId); } catch { /* private browsing etc -- badge just reappears next time, harmless */ }
+    setWhatsNewSeenId(latestWhatsNewId);
+  }
 
   // Strip the query param once read -- otherwise it'd force back to Profile
   // on every future reload, not just this one return trip.
@@ -361,8 +370,20 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-header__title">Seeau</span>
+        <span className="app-header__logo">
+          <img src="/icons/icon.svg" alt="" width="30" height="30" />
+          <span className="app-header__title">Seeau</span>
+        </span>
         <div className="app-header__right">
+        <button
+          className="notif-bell__btn"
+          onClick={openWhatsNew}
+          title="What's new"
+          aria-label={"What's new" + (hasUnseenWhatsNew ? ', new update' : '')}
+        >
+          <MegaphoneIcon />
+          {hasUnseenWhatsNew && <span className="notif-bell__badge notif-bell__badge--dot" />}
+        </button>
         <NotificationBell onNavigate={handleNavigate} />
           <button
             className="feedback-btn"
@@ -390,6 +411,7 @@ export default function App() {
       </header>
 
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} page={view} />}
+      {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
 
       <PushHealthBanner />
 
@@ -436,7 +458,7 @@ export default function App() {
         {view === 'depprofile' && <DepProfile />}
         {view === 'money' && <Money />}
       </main>
-      <AppFooter />
+      <AppFooter onOpenWhatsNew={openWhatsNew} />
       {pendingJoinToken && (
         <JoinBandInvite token={pendingJoinToken} onDone={() => setPendingJoinToken(null)} />
       )}

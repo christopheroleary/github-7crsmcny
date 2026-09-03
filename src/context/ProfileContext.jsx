@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { getDeviceInfo } from '../utils/deviceInfo.js';
+import { isNetworkAuthError } from '../utils/authErrors.js';
 
 // Applies the user's app-wide UI colour theme (My Profile) via a
 // data-theme attribute on <html> -- separate from --doc-accent/
@@ -80,12 +81,34 @@ export function ProfileProvider({ children }) {
   const loadedRef = useRef(false);
 
   async function loadProfile() {
-    // getSession() reads the persisted session locally — unlike getUser(),
-    // it doesn't require a network round-trip, so this still resolves when
-    // the app is reopened somewhere with no signal.
-    const { data: sessionData } = await supabase.auth.getSession();
+    // getSession() reads the persisted session locally *unless* the stored
+    // access token has expired, in which case it tries to refresh over the
+    // network first -- exactly what "reopened the app a few hours after
+    // last using it" guarantees. Over no signal that refresh fails, and
+    // supabase-js resolves session: null with an AuthRetryableFetchError
+    // rather than throwing -- indistinguishable from a real sign-out
+    // unless that error is checked. This used to just fall into the
+    // no-uid branch below: profile wiped, cache cleared, while App.jsx's
+    // own (separate) getSession() call correctly fell back to the stale
+    // session instead. Session stayed truthy, profile went null, and nothing
+    // downstream expects that -- the first component reading
+    // profile.something without a null-check threw, and with no error
+    // boundary that took the whole app down to a blank screen. Caught
+    // live, at a gig, with no signal.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id;
     if (!uid) {
+      if (sessionError && isNetworkAuthError(sessionError)) {
+        const cached = readCachedProfile();
+        if (cached) {
+          setProfile(cached.profile);
+          setLedBandIds(cached.ledBandIds || []);
+          applyUiTheme(cached.profile?.ui_theme);
+          loadedRef.current = true;
+        }
+        setLoading(false);
+        return;
+      }
       setProfile(null);
       setLedBandIds([]);
       setLoading(false);

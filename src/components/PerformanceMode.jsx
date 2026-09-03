@@ -91,7 +91,7 @@ function PerformanceLyrics({ text }) {
 // musicians) already have the exact shape loaded (setlists -> setlist_items
 // -> songs, position-sorted) before this ever opens, so there's no separate
 // query and no new RLS surface to reason about.
-export default function PerformanceMode({ setlists, bandId, backingTrackSongIds, startIndex = 0, isOffline = false, onClose }) {
+export default function PerformanceMode({ setlists, bandId, gigId, backingTrackSongIds, startIndex = 0, isOffline = false, onClose }) {
   // Flattens every attached set into one continuous ordered list (set order,
   // then position within each set) -- "swipe through the whole night" rather
   // than treating sets as separate chapters. _setName is carried along
@@ -315,7 +315,7 @@ export default function PerformanceMode({ setlists, bandId, backingTrackSongIds,
       )}
       {showTrack && hasBackingTrack && (
         <div className="pm-panel">
-          <BackingTrackPlayer band={{ id: bandId }} song={song} />
+          <BackingTrackPlayer band={{ id: bandId }} song={song} gigId={gigId} />
         </div>
       )}
 
