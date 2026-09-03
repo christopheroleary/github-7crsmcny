@@ -4,6 +4,7 @@ import { formatCompactDate, formatMonthYear, todayStr } from '../utils/formatDat
 import { parseTownFromAddress } from '../utils/parseAddress.js';
 import { displayBandName } from '../utils/bandName.js';
 import { isLikelyOfflineError } from '../utils/networkError.js';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import { readGigCache, getKnownCachedIds } from '../hooks/useOfflineGigList.js';
 
 // Shown only when offline AND no per-gig cache exists yet for anything
@@ -247,6 +248,11 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
   const [showBandColumn, setShowBandColumn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // True whenever the grid currently on screen came from loadFromCache()
+  // rather than a fresh fetch -- previously this silently showed stale
+  // data with no indication at all, unlike every other offline-aware view
+  // in the app. See the banner in the render below.
+  const [usingCache, setUsingCache] = useState(false);
 
   // The sticky month row needs to sit right below the sticky header, not
   // under it -- its `top` offset has to equal the header's actual rendered
@@ -290,6 +296,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
 
     if (gigs.length === 0) {
       setError(OFFLINE_MESSAGE);
+      setUsingCache(false);
       setRows([]);
       setLoading(false);
       return;
@@ -304,6 +311,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     setRows(grouped);
     setShowBandColumn(sbc);
     setError(null);
+    setUsingCache(true);
     setLoading(false);
   }, []);
 
@@ -338,6 +346,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     const gigIds = (gigs || []).map((g) => g.id);
     if (gigIds.length === 0) {
       setRows([]);
+      setUsingCache(false);
       setLoading(false);
       return;
     }
@@ -367,16 +376,14 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     const { grouped, showBandColumn: sbc } = buildRows(gigs, lineupRows, reqRows);
     setRows(grouped);
     setShowBandColumn(sbc);
+    setUsingCache(false);
     setLoading(false);
   }, [loadFromCache]);
 
   // Reload the moment connectivity returns -- without this, a grid opened
   // while offline (serving cached data, if any existed) keeps showing that
   // snapshot until this component happens to unmount/remount.
-  useEffect(() => {
-    window.addEventListener('online', load);
-    return () => window.removeEventListener('online', load);
-  }, [load]);
+  const isOffline = useIsOffline(load);
 
   useEffect(() => {
     load();
@@ -401,6 +408,11 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
 
   return (
     <div className="gig-grid-wrap">
+      {usingCache && (
+        <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
+          {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the grid as it was last saved to this device. Numbers may be out of date until you're back online.
+        </p>
+      )}
       <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
         <table>
           <colgroup>
