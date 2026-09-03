@@ -181,6 +181,7 @@ export default function GigsList() {
   const {
     gigs: rawGigs,
     isOffline,
+    usingCache,
     syncing,
     syncedAt,
     cachedGigIds,
@@ -478,6 +479,31 @@ export default function GigsList() {
             </span>
           </div>
         </div>
+      )}
+      {/* Online per the browser, but the last refresh failed for what looks
+          like a network reason (flaky venue wifi, a captive portal) --
+          same "showing what was last saved" convention as every other
+          offline-aware section, just not spelled "Offline" since the
+          device itself isn't. Applies to List, Calendar, and Grid alike
+          (Grid shows its own copy of this same banner independently, since
+          it keeps a separate fetch/cache from this one). */}
+      {!isOffline && usingCache && (
+        <div className="sync-bar sync-bar--offline">
+          <div className="sync-bar__left">
+            <span className="sync-bar__dot sync-bar__dot--offline" />
+            <span>
+              <strong>Connection trouble</strong>
+              {' — showing the list as it was last saved'}
+              {syncedAt ? ' ' + formatSyncTime(syncedAt) : ''}
+              {'. Numbers may be out of date until you\'re back online.'}
+            </span>
+          </div>
+        </div>
+      )}
+      {!isOffline && !usingCache && error && rawGigs.length > 0 && (
+        <p className="form-error" style={{ marginBottom: 12 }}>
+          Couldn't refresh the list: {error}
+        </p>
       )}
       {!isOffline && syncing && (
         <div className="sync-bar sync-bar--online">

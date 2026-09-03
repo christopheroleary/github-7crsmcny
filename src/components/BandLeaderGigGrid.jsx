@@ -236,6 +236,38 @@ function buildRows(gigs, lineupRows, reqRows) {
   return { grouped, showBandColumn: new Set(gigs.map((g) => g.band_id)).size > 1 };
 }
 
+// Pure: reassembles rows from whatever per-gig caches exist -- the same
+// gigcache:<id> entries List/Calendar's background precache
+// (useOfflineGigList) already populates, widened to also carry what this
+// view needs (is_captain/is_dj/is_roadie, gig_requirements). A gig with no
+// cache entry at all (never opened/precached while online) is left out
+// rather than shown as a broken row -- partial data offline, not
+// all-or-nothing. No state here -- callable both from a lazy useState
+// initializer (paint instantly from whatever's on the device, same as
+// List/Calendar already do) and from load()'s own fallback path.
+function buildFromCache() {
+  const today = todayStr();
+  const gigs = [];
+  const lineupRows = [];
+  const reqRows = [];
+  for (const id of getKnownCachedIds()) {
+    const cached = readGigCache(id);
+    const g = cached?.gig;
+    if (!g || g.gig_date < today || g.status === 'cancelled') continue;
+    gigs.push(g);
+    for (const l of cached.lineup || []) lineupRows.push({ ...l, gig_id: id });
+    for (const r of cached.requirements || []) reqRows.push({ ...r, gig_id: id });
+  }
+  if (gigs.length === 0) return null;
+
+  gigs.sort((a, b) =>
+    a.gig_date !== b.gig_date
+      ? a.gig_date < b.gig_date ? -1 : 1
+      : (a.band_id || '').localeCompare(b.band_id || '')
+  );
+  return buildRows(gigs, lineupRows, reqRows);
+}
+
 // Everyone gets this grid (admin sees every band's gigs, a band leader
 // sees gigs for the bands they lead plus any they personally perform on,
 // a plain band member sees just their own gigs) — the `gigs` query below
@@ -244,15 +276,37 @@ function buildRows(gigs, lineupRows, reqRows) {
 // up in the current result set, so a single-band leader's view stays as
 // compact as before.
 export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
-  const [rows, setRows] = useState([]);
-  const [showBandColumn, setShowBandColumn] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Painted synchronously from whatever's already on the device -- same
+  // "instant, then refine in the background" behaviour List/Calendar
+  // already get from useOfflineGigList's own lazy-initialized state.
+  // Previously this always started blank and showed "Loading gig grid…"
+  // for the full length of the live fetch even when a perfectly good
+  // cached grid was sitting right there, most noticeable on a slow
+  // connection that still eventually succeeds (not a genuine offline/error
+  // case at all, just slow -- confirmed live under a simulated slow-3G
+  // delay).
+  const initialCache = useState(buildFromCache)[0];
+  const [rows, setRows] = useState(initialCache?.grouped || []);
+  const [showBandColumn, setShowBandColumn] = useState(initialCache?.showBandColumn || false);
+  // Only a genuine cold start (nothing cached at all yet) blocks on the
+  // live fetch -- otherwise the cached grid above is shown immediately and
+  // `syncing` (below) is what indicates a fresher copy is on its way.
+  const [loading, setLoading] = useState(!initialCache);
   const [error, setError] = useState(null);
-  // True whenever the grid currently on screen came from loadFromCache()
-  // rather than a fresh fetch -- previously this silently showed stale
-  // data with no indication at all, unlike every other offline-aware view
-  // in the app. See the banner in the render below.
-  const [usingCache, setUsingCache] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  // True whenever the grid currently on screen came from cache rather than
+  // a fresh fetch -- previously this silently showed stale data with no
+  // indication at all, unlike every other offline-aware view in the app.
+  // Seeded true here since the initial paint above, if any, is exactly
+  // that. See the banner in the render below.
+  const [usingCache, setUsingCache] = useState(Boolean(initialCache));
+  // Mirrors rows.length in a ref so load() below can check "is there
+  // already something on screen" without needing `rows` in its own
+  // useCallback deps -- that would give it a new identity on every
+  // successful fetch, which would retrigger the effect that calls it,
+  // i.e. a fetch loop.
+  const hasRowsRef = useRef(rows.length > 0);
+  useEffect(() => { hasRowsRef.current = rows.length > 0; }, [rows]);
 
   // The sticky month row needs to sit right below the sticky header, not
   // under it -- its `top` offset has to equal the header's actual rendered
@@ -272,51 +326,39 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     return () => ro.disconnect();
   }, []);
 
-  // Reassembles rows from whatever per-gig caches exist -- the same
-  // gigcache:<id> entries List/Calendar's background precache
-  // (useOfflineGigList) already populates, widened to also carry what this
-  // view needs (is_captain/is_dj/is_roadie, gig_requirements). Used both
-  // when genuinely offline and as a fallback when a fresh fetch fails for
-  // what looks like a network reason. A gig with no cache entry at all
-  // (never opened/precached while online) is left out rather than shown as
-  // a broken row -- partial data offline, not all-or-nothing.
+  // Falls back to whatever's cached -- used both when genuinely offline and
+  // when a fresh fetch fails for what looks like a network reason. Distinct
+  // from the initial paint above (which runs once, synchronously, before
+  // any fetch is even attempted): this is the "tried live, couldn't, here's
+  // the last-known-good instead" path, same shape as every other
+  // offline-aware view's own fallback.
   const loadFromCache = useCallback(() => {
-    const today = todayStr();
-    const gigs = [];
-    const lineupRows = [];
-    const reqRows = [];
-    for (const id of getKnownCachedIds()) {
-      const cached = readGigCache(id);
-      const g = cached?.gig;
-      if (!g || g.gig_date < today || g.status === 'cancelled') continue;
-      gigs.push(g);
-      for (const l of cached.lineup || []) lineupRows.push({ ...l, gig_id: id });
-      for (const r of cached.requirements || []) reqRows.push({ ...r, gig_id: id });
-    }
-
-    if (gigs.length === 0) {
+    const result = buildFromCache();
+    if (!result) {
       setError(OFFLINE_MESSAGE);
       setUsingCache(false);
       setRows([]);
       setLoading(false);
+      setSyncing(false);
       return;
     }
-
-    gigs.sort((a, b) =>
-      a.gig_date !== b.gig_date
-        ? a.gig_date < b.gig_date ? -1 : 1
-        : (a.band_id || '').localeCompare(b.band_id || '')
-    );
-    const { grouped, showBandColumn: sbc } = buildRows(gigs, lineupRows, reqRows);
-    setRows(grouped);
-    setShowBandColumn(sbc);
+    setRows(result.grouped);
+    setShowBandColumn(result.showBandColumn);
     setError(null);
     setUsingCache(true);
     setLoading(false);
+    setSyncing(false);
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // A cold start (nothing painted yet) blocks the whole view on this
+    // fetch, same as before. Once something's on screen -- the initial
+    // cache paint, or any previous successful load -- this is a quiet
+    // background refresh instead (`syncing`), so a slow connection that's
+    // still going to succeed doesn't blank out a perfectly good grid for
+    // however long that takes.
+    setLoading(!hasRowsRef.current);
+    setSyncing(true);
     setError(null);
 
     if (!navigator.onLine) {
@@ -340,6 +382,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
       if (isLikelyOfflineError(gigsError)) { loadFromCache(); return; }
       setError(gigsError.message);
       setLoading(false);
+      setSyncing(false);
       return;
     }
 
@@ -348,6 +391,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
       setRows([]);
       setUsingCache(false);
       setLoading(false);
+      setSyncing(false);
       return;
     }
 
@@ -370,6 +414,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
       if (isLikelyOfflineError(rosterError)) { loadFromCache(); return; }
       setError(rosterError.message);
       setLoading(false);
+      setSyncing(false);
       return;
     }
 
@@ -378,6 +423,7 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
     setShowBandColumn(sbc);
     setUsingCache(false);
     setLoading(false);
+    setSyncing(false);
   }, [loadFromCache]);
 
   // Reload the moment connectivity returns -- without this, a grid opened
@@ -408,10 +454,18 @@ export default function BandLeaderGigGrid({ onSelectGig, gigsVersion }) {
 
   return (
     <div className="gig-grid-wrap">
-      {usingCache && (
+      {usingCache && !syncing && (
         <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
           {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing the grid as it was last saved to this device. Numbers may be out of date until you're back online.
         </p>
+      )}
+      {syncing && (
+        <div className="sync-bar sync-bar--online" style={{ marginBottom: 10 }}>
+          <div className="sync-bar__left">
+            <span className="sync-bar__dot sync-bar__dot--online" />
+            <span>Syncing gigs…</span>
+          </div>
+        </div>
       )}
       <div className="gig-grid" style={{ '--gig-grid-header-h': headerH + 'px' }}>
         <table>

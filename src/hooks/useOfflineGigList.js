@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { todayStr } from '../utils/formatDate.js';
 import { useIsOffline } from './useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -343,6 +344,12 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
   const [syncedAt, setSyncedAt] = useState(cached?.synced_at || null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
+  // True whenever `gigs` above is a previous snapshot rather than what the
+  // last refresh() actually returned -- previously nothing distinguished
+  // this from a genuinely fresh list once navigator.onLine read true again
+  // (a flaky venue wifi/captive-portal fetch failure), so List/Calendar/Grid
+  // all silently kept showing stale data with no indication at all.
+  const [usingCache, setUsingCache] = useState(false);
   const [cachedGigIds, setCachedGigIds] = useState(getKnownCachedIds);
 
   const activeRef = useRef(true);
@@ -403,12 +410,25 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
       if (activeRef.current) {
         setGigs(freshGigs);
         setSyncedAt(new Date().toISOString());
+        setUsingCache(false);
       }
 
       // Fire-and-forget — don't block the list render
       preCacheGigs(freshGigs);
     } catch (err) {
-      if (activeRef.current) setError(err.message);
+      if (!activeRef.current) return;
+      // A genuine (non-network) error -- a real bug, an RLS change -- is
+      // surfaced honestly even though `gigs` still holds whatever was
+      // cached, rather than silently continuing to show stale data as if
+      // nothing had gone wrong. A network-shaped failure, by contrast, just
+      // flags what's already on screen as stale (gigs was already painted
+      // from cache on mount/the last successful refresh).
+      if (isLikelyOfflineError(err)) {
+        setUsingCache(true);
+      } else {
+        setError(err.message);
+        setUsingCache(false);
+      }
     } finally {
       if (activeRef.current) setSyncing(false);
     }
@@ -459,6 +479,8 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
   return {
     gigs,         // Gig list (from cache or network), same shape as before
     isOffline,    // True when device has no connection
+    usingCache,   // True when online but the last refresh failed for a
+                  // network-shaped reason, and `gigs` is a stale snapshot
     syncing,      // True while fetching from Supabase
     syncedAt,     // ISO string of last successful sync
     cachedGigIds, // String[] — gig IDs with full offline detail cached
