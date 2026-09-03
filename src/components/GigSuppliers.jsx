@@ -30,17 +30,28 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Without this, a failed fetch left `attached` at its initial [] and
+  // this rendered "No suppliers tagged yet" -- indistinguishable from
+  // genuinely having none, when what actually happened is there's no
+  // signal to check.
+  const [loadError, setLoadError] = useState(null);
 
   // Split from loadAllSuppliers below: attaching/removing a supplier on
   // THIS gig never changes the supplier directory itself, so a mutation's
   // post-write refresh only needs to redo this, not the whole directory.
   const loadAttached = useCallback(async () => {
     setLoading(true);
-    const { data: gs } = await supabase
+    const { data: gs, error: loadAttachedError } = await supabase
       .from('gig_suppliers')
       .select('id, person_met_on_site, supplier_id, suppliers(*)')
       .eq('gig_id', gigId)
       .order('created_at');
+    if (loadAttachedError) {
+      setLoadError(navigator.onLine ? "Couldn't load suppliers: " + loadAttachedError.message : "Couldn't load suppliers — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setAttached(gs || []);
 
     // "Worked together before" -- does this supplier show up on any OTHER
@@ -143,7 +154,9 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
         <InfoTooltip text="Photographer, florist, DJ and other vendors working this gig — tag them here so everyone knows who to credit in photos, and so a follow-up thank-you is one click away." />
       }
     >
-      {attached.length === 0 ? (
+      {loadError ? (
+        <p className="form-error">{loadError}</p>
+      ) : attached.length === 0 ? (
         <p className="field__hint">No suppliers tagged yet.</p>
       ) : (
         <ul className="simple-list">

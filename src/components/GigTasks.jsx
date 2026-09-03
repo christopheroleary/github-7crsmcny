@@ -13,19 +13,29 @@ export default function GigTasks({ gigId, bandId, defaultOpen }) {
   const { profile: me } = useCurrentProfile();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `tasks` at its initial [] and this
+  // rendered "No open tasks for this gig" -- indistinguishable from
+  // genuinely having none, when what actually happened is there's no
+  // signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tasks')
       .select('id, title, due_date, done')
       .eq('gig_id', gigId)
       .eq('done', false)
       .order('due_date', { ascending: true, nullsFirst: false });
-    setTasks(data || []);
+    if (error) {
+      setLoadError(navigator.onLine ? "Couldn't load tasks: " + error.message : "Couldn't load tasks — no signal.");
+    } else {
+      setTasks(data || []);
+      setLoadError(null);
+    }
     setLoading(false);
   }, [gigId]);
 
@@ -59,6 +69,8 @@ export default function GigTasks({ gigId, bandId, defaultOpen }) {
     <CollapsibleSection id="gig-section-tasks" title="Tasks" defaultOpen={defaultOpen}>
       {loading ? (
         <p className="state-message">Loading tasks…</p>
+      ) : loadError ? (
+        <p className="state-message state-message--error">{loadError}</p>
       ) : tasks.length === 0 ? (
         <p className="state-message">No open tasks for this gig.</p>
       ) : (

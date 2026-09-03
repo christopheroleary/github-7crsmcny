@@ -45,6 +45,11 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState(null);
+  // Distinguishes "this band genuinely has no custom split configured" from
+  // "couldn't reach the server to check" -- without it, a failed fetch left
+  // `template` null and the two looked identical, so offline always showed
+  // "No custom split set for this band" even for a band that has one.
+  const [templateLoadFailed, setTemplateLoadFailed] = useState(false);
 
   // Stays in sync if the parent's own lineup changes (a musician added or
   // removed elsewhere on the page and the parent gig data is refreshed) --
@@ -58,11 +63,12 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data: bandData } = bandId
+      const { data: bandData, error: templateError } = bandId
         ? await supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
-        : { data: null };
+        : { data: null, error: null };
       if (cancelled) return;
       setTemplate(bandData || null);
+      setTemplateLoadFailed(Boolean(templateError));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -166,7 +172,12 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
         <InfoTooltip text="Splits the total fee across the roster — a base share per musician plus bonuses for singer/captain/DJ/roadie roles, and whatever's left over as band-leader profit." />
       </h3>
 
-      {!hasTemplate && (
+      {!hasTemplate && templateLoadFailed && (
+        <p className="field__hint">
+          Couldn't check this band's custom split{navigator.onLine ? '' : ' — no signal'} — splitting the fee equally for now. Reconnect and reload to use the real one.
+        </p>
+      )}
+      {!hasTemplate && !templateLoadFailed && (
         <p className="field__hint">
           No custom split set for this band — splitting the fee equally instead.{' '}
           <button type="button" className="link-button" onClick={goToBandSettings}>Set percentages for this band →</button>

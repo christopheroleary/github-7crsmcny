@@ -36,6 +36,10 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
   const { profile, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `photos` at its initial [] and this
+  // rendered "No photos yet" -- indistinguishable from genuinely having
+  // none, when what actually happened is there's no signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total }
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
@@ -58,7 +62,7 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
   const load = useCallback(async () => {
     if (!canView) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('gig_photos')
       // gig_photos has two FKs to profiles (uploaded_by AND hidden_by), so
       // a bare `profiles(full_name)` embed is ambiguous to PostgREST --
@@ -66,6 +70,12 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
       .select('id, uploaded_by, storage_path, byte_size, caption, hidden_at, created_at, profiles!gig_photos_uploaded_by_fkey(full_name)')
       .eq('gig_id', gigId)
       .order('created_at', { ascending: false });
+    if (error) {
+      setLoadError(navigator.onLine ? "Couldn't load photos: " + error.message : "Couldn't load photos — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setPhotos(data || []);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,6 +241,8 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
 
       {loading ? (
         <p className="field__hint">Loading photos…</p>
+      ) : loadError ? (
+        <p className="form-error">{loadError}</p>
       ) : visiblePhotos.length === 0 ? (
         <p className="field__hint">No photos yet.</p>
       ) : (

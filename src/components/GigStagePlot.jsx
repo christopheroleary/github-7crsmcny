@@ -45,21 +45,25 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
   // after switching away from the app and back.
   const seed = useMemo(() => (config ? { ...config, __gigId: gigId } : null), [config, gigId]);
 
+  // Loading/error states are wrapped in the same CollapsibleSection as the
+  // real thing below, not a bare <div> -- otherwise this section briefly (or
+  // permanently, offline with no cache) broke the folded page's rhythm by
+  // rendering as an always-open card with no chevron among all the others.
   if (loading) {
     return (
-      <div className="roster-section">
-        <h3 className="roster-section__title">Stage plot</h3>
+      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" defaultOpen={defaultOpen}>
         <p className="state-message">Loading stage plot…</p>
-      </div>
+      </CollapsibleSection>
     );
   }
 
   if (error) {
     return (
-      <div className="roster-section">
-        <h3 className="roster-section__title">Stage plot</h3>
-        <p className="state-message state-message--error">Couldn't load: {error}</p>
-      </div>
+      <CollapsibleSection id="gig-section-stage-plot" title="Stage plot" defaultOpen={defaultOpen}>
+        <p className="state-message state-message--error">
+          {navigator.onLine ? "Couldn't load: " + error : "Couldn't load — no signal."}
+        </p>
+      </CollapsibleSection>
     );
   }
 

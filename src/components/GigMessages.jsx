@@ -49,6 +49,11 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
   const [namesById, setNamesById] = useState({});
   const [reactionsByMessage, setReactionsByMessage] = useState({}); // message_id -> { count, mine }
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `messages` at its initial [] and this
+  // rendered "No messages yet — say hi" -- indistinguishable from a
+  // genuinely empty chat, when what actually happened is there's no
+  // signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef(null);
@@ -65,12 +70,18 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
   const load = useCallback(async () => {
     if (!canAccess) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('gig_messages')
       .select('id, sender_id, body, created_at, sender:profiles(full_name)')
       .eq('gig_id', gigId)
       .order('created_at', { ascending: true })
       .limit(200);
+    if (error) {
+      setLoadError(navigator.onLine ? "Couldn't load messages: " + error.message : "Couldn't load messages — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setMessages(data || []);
     setNamesById((prev) => {
       const next = { ...prev };
@@ -248,7 +259,8 @@ export default function GigMessages({ gigId, bandId, lineup = [] }) {
 
       <div className="gig-chat__messages" ref={listRef}>
         {loading && <p className="field__hint">Loading messages…</p>}
-        {!loading && messages.length === 0 && (
+        {!loading && loadError && <p className="form-error">{loadError}</p>}
+        {!loading && !loadError && messages.length === 0 && (
           <p className="field__hint">No messages yet — say hi.</p>
         )}
         {messages.map((m, i) => {

@@ -244,6 +244,11 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
   const { isPro, isAdmin } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `claims` at its initial [] and this
+  // rendered "No payment claims submitted yet" -- indistinguishable from
+  // genuinely having none, when what actually happened is there's no
+  // signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [editingClaimId, setEditingClaimId] = useState(null);
@@ -263,11 +268,17 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('musician_claims')
       .select('*, profiles(full_name, stripe_connect_status), placeholder_musicians(name), musician_claim_items(*)')
       .eq('gig_id', gigId)
       .order('created_at');
+    if (error) {
+      setLoadError(navigator.onLine ? "Couldn't load claims: " + error.message : "Couldn't load claims — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setClaims(data || []);
     setLoading(false);
   }, [gigId]);
@@ -363,10 +374,32 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
     load();
   }
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <CollapsibleSection
+        id="gig-section-claims"
+        title="Musician claims"
+        defaultOpen={defaultOpen}
+        titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+      >
+        <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>Loading claims…</p>
+      </CollapsibleSection>
+    );
+  }
 
   const canAddDepInvoice = (isAdmin || isPro) && deps.length > 0 && !adding && !editingClaimId;
   const editingClaim = editingClaimId ? claims.find((c) => c.id === editingClaimId) : null;
+
+  if (loadError && !adding) return (
+    <CollapsibleSection
+      id="gig-section-claims"
+      title="Musician claims"
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+    >
+      <p className="form-error">{loadError}</p>
+    </CollapsibleSection>
+  );
 
   if (claims.length === 0 && !adding) return (
     <CollapsibleSection

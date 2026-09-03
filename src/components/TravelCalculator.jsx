@@ -9,15 +9,26 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
   const [calculating, setCalculating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Separate from `error` above -- that one is scoped to calculateAll()'s
+  // own validation/results and gets cleared every time it runs. This tracks
+  // whether the initial load itself failed, so "no signal" doesn't get
+  // silently overwritten as soon as someone clicks Recalculate.
+  const [loadError, setLoadError] = useState(null);
 
   const rate = mileageRatePence ?? 35;
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error: loadErr } = await supabase
       .from('gig_lineup')
       .select('id, travel_miles, travel_cost_pence, lift_share, profiles(full_name, home_latitude, home_longitude, home_address), placeholder_musicians(name, latitude, longitude, address)')
       .eq('gig_id', gigId);
+    if (loadErr) {
+      setLoadError(navigator.onLine ? "Couldn't load travel costs: " + loadErr.message : "Couldn't load travel costs — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setLineup(data || []);
     setLoading(false);
   }, [gigId]);
@@ -116,6 +127,14 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
   const hasAnyMissing = lineup.some((l) => homeOf(l).lat == null);
 
   if (loading) return <p className="state-message">Loading travel costs…</p>;
+  if (loadError) {
+    return (
+      <div className="roster-section">
+        <h3 className="roster-section__title">Travel costs</h3>
+        <p className="form-error">{loadError}</p>
+      </div>
+    );
+  }
   if (lineup.length === 0) return null;
 
   return (

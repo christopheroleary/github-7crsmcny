@@ -35,6 +35,11 @@ function generateShareCode() {
 export default function GigWhatsAppGroup({ gig }) {
   const [recipients, setRecipients] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `recipients` at its initial [] and
+  // this rendered "No one on the roster has a phone number on file yet" --
+  // indistinguishable from that genuinely being true, when what actually
+  // happened is there's no signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [inviteLink, setInviteLink] = useState(gig.whatsapp_invite_link || '');
   const [editingLink, setEditingLink] = useState(!gig.whatsapp_invite_link);
   const [saving, setSaving] = useState(false);
@@ -54,7 +59,7 @@ export default function GigWhatsAppGroup({ gig }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: lineup }, { data: leaders }, { data: invites }] = await Promise.all([
+    const results = await Promise.all([
       supabase
         .from('gig_lineup')
         .select('profile_id, placeholder_id, profiles(full_name), placeholder_musicians(name, phone)')
@@ -68,6 +73,17 @@ export default function GigWhatsAppGroup({ gig }) {
         .select('profile_id, placeholder_id, sent_at')
         .eq('gig_id', gig.id),
     ]);
+    // A network failure resolves gracefully as { data: null, error } rather
+    // than rejecting -- has to be surfaced by hand or the recipient list
+    // below silently computes as empty.
+    const firstError = results.find((r) => r.error)?.error;
+    if (firstError) {
+      setLoadError(navigator.onLine ? "Couldn't load the roster: " + firstError.message : "Couldn't load the roster — no signal.");
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
+    const [{ data: lineup }, { data: leaders }, { data: invites }] = results;
 
     // phone isn't in the blanket column grant (see
     // 20260826150000_restrict_profile_phone.sql) -- this component only
@@ -233,6 +249,8 @@ export default function GigWhatsAppGroup({ gig }) {
           </span>
           {loading ? (
             <p className="state-message">Loading lineup…</p>
+          ) : loadError ? (
+            <p className="form-error">{loadError}</p>
           ) : !inviteLink ? (
             <p className="field__hint">Save the invite link above first.</p>
           ) : withPhone.length === 0 ? (

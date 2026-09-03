@@ -87,6 +87,10 @@ export default function SongRequestsPanel({ gig }) {
   const { isAdmin, ledBandIds } = useCurrentProfile();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Without this, a failed fetch left `requests` at its initial [] and this
+  // rendered "No requests yet" -- indistinguishable from genuinely having
+  // none, when what actually happened is there's no signal to check.
+  const [loadError, setLoadError] = useState(null);
   const [showQr, setShowQr] = useState(false);
 
   const canManage = isAdmin || ledBandIds.includes(gig.band_id);
@@ -103,14 +107,19 @@ export default function SongRequestsPanel({ gig }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('song_requests')
         .select('*, songs(title, artist)')
         .eq('gig_id', gig.id);
-      if (!cancelled) {
-        setRequests(sortRequests((data || []).map(flattenSongJoin)));
+      if (cancelled) return;
+      if (error) {
+        setLoadError(navigator.onLine ? "Couldn't load requests: " + error.message : "Couldn't load requests — no signal.");
         setLoading(false);
+        return;
       }
+      setLoadError(null);
+      setRequests(sortRequests((data || []).map(flattenSongJoin)));
+      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [gig.id]);
@@ -197,7 +206,9 @@ export default function SongRequestsPanel({ gig }) {
         </div>
       )}
 
-      {requests.length === 0 ? (
+      {loadError ? (
+        <p className="form-error">{loadError}</p>
+      ) : requests.length === 0 ? (
         <p className="field__hint">No requests yet.</p>
       ) : (
         <div className="song-request-list">
