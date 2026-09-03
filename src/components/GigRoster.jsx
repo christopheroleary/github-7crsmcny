@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
 import InfoTooltip from './InfoTooltip.jsx';
@@ -167,18 +169,6 @@ export default function GigRoster({ gigId, cachedLineup = [], cachedRequirements
   // top of the section instead.
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
   // Guards the per-row Confirm/Remove/vocal-role/DJ/Roadie/Captain actions
   // against a rapid double-click sending two overlapping mutations for the
   // same roster row -- kept until loadLineup() finishes, not just the write, so a
@@ -306,17 +296,27 @@ export default function GigRoster({ gigId, cachedLineup = [], cachedRequirements
       // gig. Caught live: most of the gig detail page not working
       // offline, including reaching an offline-saved backing track,
       // since the setlist below has the identical gap.
-      if (cachedLineup.length > 0) {
+      // A genuine (non-network) error -- a real bug, an RLS change -- is
+      // surfaced honestly even when cachedLineup exists, rather than
+      // silently hiding it behind a "connection trouble" banner that would
+      // misdescribe what actually happened.
+      if (cachedLineup.length > 0 && isLikelyOfflineError(err)) {
         setRequirements(cachedRequirements);
         setLineup(cachedLineup);
         setUsingCache(true);
       } else {
-        setLoadError("Couldn't load the roster" + (navigator.onLine ? ': ' + (err.message || 'unknown error') : ' — no signal, and nothing saved yet for this gig.'));
+        setUsingCache(false);
+        setLoadError("Couldn't load the roster" + (isLikelyOfflineError(err) ? ' — no signal, and nothing saved yet for this gig.' : ': ' + (err.message || 'unknown error')));
       }
     } finally {
       setLoading(false);
     }
   }, [gigId, cachedLineup, cachedRequirements]);
+
+  // Re-fetches the moment connectivity returns -- without this, a roster
+  // that fell back to cache stayed on that stale snapshot even once back
+  // online.
+  const isOffline = useIsOffline(loadLineup);
 
   // Every mutation below (add/remove/confirm/toggle) calls this instead of
   // loadLineup() directly -- it does the same local reload plus tells the

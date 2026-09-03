@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { calculateFeeSplit } from '../utils/feeSplit.js';
 import { notify } from '../utils/toastService.js';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import NumberInput from './NumberInput.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 
@@ -59,20 +60,22 @@ export default function GigFeeSplit({ gigId, feeAmount, bandId, estimatedTravelP
 
   // The band's fee-split template is the only thing left that's genuinely
   // this component's own to fetch -- the parent has no reason to carry it.
-  useEffect(() => {
-    let cancelled = false;
+  const loadTemplate = useCallback(async () => {
     setLoading(true);
-    (async () => {
-      const { data: bandData, error: templateError } = bandId
-        ? await supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
-        : { data: null, error: null };
-      if (cancelled) return;
-      setTemplate(bandData || null);
-      setTemplateLoadFailed(Boolean(templateError));
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    const { data: bandData, error: templateError } = bandId
+      ? await supabase.from('bands').select('fee_split_owner_profit_pct, fee_split_singer_bonus_pct, fee_split_captain_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct').eq('id', bandId).maybeSingle()
+      : { data: null, error: null };
+    setTemplate(bandData || null);
+    setTemplateLoadFailed(Boolean(templateError));
+    setLoading(false);
   }, [bandId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // check stayed on "couldn't check this band's custom split" even once
+  // back online.
+  useIsOffline(loadTemplate);
+
+  useEffect(() => { loadTemplate(); }, [loadTemplate]);
 
   const totalFeePence = feeAmount != null ? Math.round(Number(feeAmount) * 100) : 0;
   const regularCount = lineup.filter((l) => l.instrument_id).length;

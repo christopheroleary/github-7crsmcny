@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { todayStr, twelveMonthsAgoStr, formatShortDate } from '../utils/formatDate.js';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import DailyNewsWidget from './DailyNewsWidget.jsx';
 import MyEarnings from './MyEarnings.jsx';
 import TasksWidget from './TasksWidget.jsx';
@@ -125,62 +127,9 @@ export default function Dashboard({ onNavigate }) {
   const [usingCache, setUsingCache] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [syncedAt, setSyncedAt] = useState(null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-
-  useEffect(() => {
+  const load = useCallback(async () => {
     const cacheKey = DASH_KEY(isAdmin, bandFilterIds, profile?.id);
-
-    async function load() {
-      // Guards the whole body: an uncaught throw anywhere in here (as just
-      // happened with an embedded-relation shape mismatch, or -- the more
-      // common case out at a gig -- no signal at all) used to leave
-      // setLoading(false) unreached, freezing the page on "Loading
-      // dashboard…" forever with no visible error. Now it falls back to
-      // whatever was last cached on this device instead of silently
-      // stranding every KPI at its initial zero, which used to read as "you
-      // genuinely have 0 gigs and 0 enquiries" rather than "couldn't reach
-      // the server".
-      try {
-        const snapshot = await loadImpl();
-        writeDashCache(cacheKey, snapshot);
-        setUsingCache(false);
-        setLoadError(null);
-        setSyncedAt(new Date().toISOString());
-      } catch (err) {
-        console.error('Dashboard failed to load:', err);
-        const cached = readDashCache(cacheKey);
-        if (cached) {
-          setOutstanding(cached.outstanding);
-          setUpcoming(cached.upcoming);
-          setThisMonth(cached.thisMonth);
-          setAllGigs(cached.allGigs);
-          setUnInvoiced(cached.unInvoiced);
-          setInquiries(cached.inquiries);
-          setTrends(cached.trends);
-          setUsingCache(true);
-          setSyncedAt(cached.synced_at || null);
-        } else {
-          setLoadError(
-            navigator.onLine
-              ? "Couldn't load the dashboard: " + (err.message || 'unknown error')
-              : "Couldn't load the dashboard — no signal, and nothing saved on this device yet. Open the app while online at least once to see your gigs and enquiries offline."
-          );
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
 
     async function loadImpl() {
       const today = todayStr();
@@ -375,8 +324,59 @@ export default function Dashboard({ onNavigate }) {
       }
     }
 
-    load();
+    // Guards the whole body: an uncaught throw anywhere in here (as just
+    // happened with an embedded-relation shape mismatch, or -- the more
+    // common case out at a gig -- no signal at all) used to leave
+    // setLoading(false) unreached, freezing the page on "Loading
+    // dashboard…" forever with no visible error. Now it falls back to
+    // whatever was last cached on this device instead of silently
+    // stranding every KPI at its initial zero, which used to read as "you
+    // genuinely have 0 gigs and 0 enquiries" rather than "couldn't reach
+    // the server".
+    try {
+      const snapshot = await loadImpl();
+      writeDashCache(cacheKey, snapshot);
+      setUsingCache(false);
+      setLoadError(null);
+      setSyncedAt(new Date().toISOString());
+    } catch (err) {
+      console.error('Dashboard failed to load:', err);
+      const cached = readDashCache(cacheKey);
+      // A genuine (non-network) error -- a real bug, an RLS change, a bad
+      // query -- is surfaced honestly even when a cache exists, rather than
+      // silently hiding it behind a "connection trouble, showing what was
+      // last saved" banner that would misdescribe what actually happened.
+      if (cached && isLikelyOfflineError(err)) {
+        setOutstanding(cached.outstanding);
+        setUpcoming(cached.upcoming);
+        setThisMonth(cached.thisMonth);
+        setAllGigs(cached.allGigs);
+        setUnInvoiced(cached.unInvoiced);
+        setInquiries(cached.inquiries);
+        setTrends(cached.trends);
+        setUsingCache(true);
+        setSyncedAt(cached.synced_at || null);
+      } else {
+        setUsingCache(false);
+        setLoadError(
+          isLikelyOfflineError(err)
+            ? "Couldn't load the dashboard — no signal, and nothing saved on this device yet. Open the app while online at least once to see your gigs and enquiries offline."
+            : "Couldn't load the dashboard: " + (err.message || 'unknown error')
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [isAdmin, bandFilterIds, profile]);
+
+  // Re-fetches the moment connectivity returns -- without this, a Dashboard
+  // that fell back to cache stayed on that stale snapshot even once back
+  // online, since navigator.onLine flipping true on its own retries nothing.
+  const isOffline = useIsOffline(load);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) return <p className="state-message">Loading dashboard…</p>;
 

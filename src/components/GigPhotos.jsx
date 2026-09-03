@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import InfoTooltip from './InfoTooltip.jsx';
 import { notify } from '../utils/toastService.js';
 import { resizeImageFile } from '../utils/resizeImage.js';
@@ -71,7 +73,7 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
       .eq('gig_id', gigId)
       .order('created_at', { ascending: false });
     if (error) {
-      setLoadError(navigator.onLine ? "Couldn't load photos: " + error.message : "Couldn't load photos — no signal.");
+      setLoadError(isLikelyOfflineError(error) ? "Couldn't load photos — no signal." : "Couldn't load photos: " + error.message);
       setLoading(false);
       return;
     }
@@ -80,6 +82,10 @@ export default function GigPhotos({ gigId, bandId, gig, lineup = [], refreshSign
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gigId, canView]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   useEffect(() => { load(); }, [load, refreshSignal]);
 

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import ShareLinkField from './ShareLinkField.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import InvoicePrintModal from './InvoicePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
 import DateInput from './DateInput.jsx';
@@ -43,6 +44,7 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
 
     const { data: invData, error: invLoadError } = await supabase
       .from('invoices')
@@ -64,6 +66,10 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
 
     setLoading(false);
   }, [gigId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   useEffect(() => {
     load();

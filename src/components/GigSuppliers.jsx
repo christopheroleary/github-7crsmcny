@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import SupplierForm from './SupplierForm.jsx';
@@ -38,18 +40,6 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
   // offline support, no write queue).
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
 
   // Split from loadAllSuppliers below: attaching/removing a supplier on
   // THIS gig never changes the supplier directory itself, so a mutation's
@@ -62,13 +52,18 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
       .eq('gig_id', gigId)
       .order('created_at');
     if (loadAttachedError) {
-      if (cachedSuppliers.length > 0) {
+      // A genuine (non-network) error is surfaced honestly even when
+      // cachedSuppliers exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedSuppliers.length > 0 && isLikelyOfflineError(loadAttachedError)) {
         setAttached(cachedSuppliers);
         setUsingCache(true);
         setLoadError(null);
         setPriorCounts({});
       } else {
-        setLoadError(navigator.onLine ? "Couldn't load suppliers: " + loadAttachedError.message : "Couldn't load suppliers — no signal.");
+        setUsingCache(false);
+        setLoadError(isLikelyOfflineError(loadAttachedError) ? "Couldn't load suppliers — no signal." : "Couldn't load suppliers: " + loadAttachedError.message);
       }
       setLoading(false);
       return;
@@ -103,6 +98,11 @@ export default function GigSuppliers({ gigId, gig, readOnly = false, refreshSign
     const { data: suppliers } = await supabase.from('suppliers').select('id, company_name, category').order('company_name');
     setAllSuppliers(suppliers || []);
   }, [canManage]);
+
+  // Re-fetches the moment connectivity returns -- without this, a supplier
+  // list that fell back to cache stayed on that stale snapshot even once
+  // back online.
+  const isOffline = useIsOffline(loadAttached);
 
   useEffect(() => {
     loadAttached();

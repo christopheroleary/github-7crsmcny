@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { useIsOffline } from './useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 
 // cachedStagePlot: the { config, visible_to_band } row as last saved to
 // this device by useOfflineGigData, or null if this gig's never been
@@ -8,7 +10,10 @@ import { supabase } from '../supabaseClient';
 // last-saved layout with no signal, dragging/saving/toggling visibility
 // still needs one (GigStagePlot.jsx's own save()/setVisibleToBand calls
 // aren't guarded here, they just fail the way any offline write does).
-export function useGigStagePlot(gigId, buildSeed, cachedStagePlot = null) {
+//
+// refreshSignal: bumped by the gig page's own "↻ Refresh" button --
+// previously unused here, so that button silently skipped the stage plot.
+export function useGigStagePlot(gigId, buildSeed, cachedStagePlot = null, refreshSignal) {
   const [config, setConfig] = useState(null);
   const [visibleToBand, setVisibleToBandState] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,36 +26,46 @@ export function useGigStagePlot(gigId, buildSeed, cachedStagePlot = null) {
   const configRef = useRef(config);
   configRef.current = config;
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    (async () => {
-      const { data, error: loadError } = await supabase
-        .from('gig_stage_plots')
-        .select('config, visible_to_band')
-        .eq('gig_id', gigId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (loadError) {
-        if (cachedRef.current) {
-          setConfig(cachedRef.current.config ?? buildSeedRef.current());
-          setVisibleToBandState(cachedRef.current.visible_to_band ?? false);
-          setUsingCache(true);
-          setLoading(false);
-        } else {
-          setError(loadError.message);
-          setLoading(false);
-        }
-        return;
+    const { data, error: loadError } = await supabase
+      .from('gig_stage_plots')
+      .select('config, visible_to_band')
+      .eq('gig_id', gigId)
+      .maybeSingle();
+    if (loadError) {
+      // A genuine (non-network) error is surfaced honestly even when a
+      // cached plot exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedRef.current && isLikelyOfflineError(loadError)) {
+        setConfig(cachedRef.current.config ?? buildSeedRef.current());
+        setVisibleToBandState(cachedRef.current.visible_to_band ?? false);
+        setUsingCache(true);
+        setLoading(false);
+      } else {
+        setUsingCache(false);
+        setError(loadError.message);
+        setLoading(false);
       }
-      setUsingCache(false);
-      setConfig(data?.config ?? buildSeedRef.current());
-      setVisibleToBandState(data?.visible_to_band ?? false);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+      return;
+    }
+    setUsingCache(false);
+    setConfig(data?.config ?? buildSeedRef.current());
+    setVisibleToBandState(data?.visible_to_band ?? false);
+    setLoading(false);
   }, [gigId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a stage
+  // plot that fell back to cache stayed on that stale snapshot even once
+  // back online.
+  const isOffline = useIsOffline(load);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, refreshSignal]);
 
   const save = useCallback(async (nextConfig) => {
     const { error: saveError } = await supabase
@@ -86,5 +101,5 @@ export function useGigStagePlot(gigId, buildSeed, cachedStagePlot = null) {
     if (visError) { setVisibleToBandState(!next); throw visError; }
   }, [gigId]);
 
-  return { config, visibleToBand, setVisibleToBand, loading, error, usingCache, save };
+  return { config, visibleToBand, setVisibleToBand, loading, error, usingCache, isOffline, save };
 }

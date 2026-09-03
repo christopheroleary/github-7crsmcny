@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import InfoTooltip from './InfoTooltip.jsx';
 import qrcode from '../utils/qrcode.js';
 import { printHtmlDocument, esc, fontFaceCss } from '../utils/printHtml.js';
@@ -83,7 +85,7 @@ function buildTableTentHTML(band, url, dataUrl) {
 // GigMessages.jsx's exact recipe (channel scoped by gig_id, cleaned up via
 // supabase.removeChannel on unmount) -- RLS (song_requests_select) is what
 // actually decides who receives events, this just opens the channel.
-export default function SongRequestsPanel({ gig, cachedRequests = [] }) {
+export default function SongRequestsPanel({ gig, cachedRequests = [], refreshSignal }) {
   const { isAdmin, ledBandIds } = useCurrentProfile();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,19 +97,7 @@ export default function SongRequestsPanel({ gig, cachedRequests = [] }) {
   // write queue).
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showQr, setShowQr] = useState(false);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
 
   const canManage = isAdmin || ledBandIds.includes(gig.band_id);
   const url = window.location.origin + '/requests/' + gig.requests_token;
@@ -120,32 +110,38 @@ export default function SongRequestsPanel({ gig, cachedRequests = [] }) {
     return qr.createDataURL(8, 8);
   }, [showQr, url]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('song_requests')
-        .select('*, songs(title, artist)')
-        .eq('gig_id', gig.id);
-      if (cancelled) return;
-      if (error) {
-        if (cachedRequests.length > 0) {
-          setRequests(sortRequests(cachedRequests.map(flattenSongJoin)));
-          setUsingCache(true);
-          setLoadError(null);
-        } else {
-          setLoadError(navigator.onLine ? "Couldn't load requests: " + error.message : "Couldn't load requests — no signal.");
-        }
-        setLoading(false);
-        return;
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('song_requests')
+      .select('*, songs(title, artist)')
+      .eq('gig_id', gig.id);
+    if (error) {
+      // A genuine (non-network) error is surfaced honestly even when
+      // cachedRequests exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedRequests.length > 0 && isLikelyOfflineError(error)) {
+        setRequests(sortRequests(cachedRequests.map(flattenSongJoin)));
+        setUsingCache(true);
+        setLoadError(null);
+      } else {
+        setUsingCache(false);
+        setLoadError(isLikelyOfflineError(error) ? "Couldn't load requests — no signal." : "Couldn't load requests: " + error.message);
       }
-      setLoadError(null);
-      setUsingCache(false);
-      setRequests(sortRequests((data || []).map(flattenSongJoin)));
       setLoading(false);
-    })();
-    return () => { cancelled = true; };
+      return;
+    }
+    setLoadError(null);
+    setUsingCache(false);
+    setRequests(sortRequests((data || []).map(flattenSongJoin)));
+    setLoading(false);
   }, [gig.id, cachedRequests]);
+
+  // Re-fetches the moment connectivity returns, and also whenever the gig
+  // page's own "↻ Refresh" button is clicked (refreshSignal).
+  const isOffline = useIsOffline(load);
+  useEffect(() => { load(); }, [load, refreshSignal]);
 
   useEffect(() => {
     const channel = supabase

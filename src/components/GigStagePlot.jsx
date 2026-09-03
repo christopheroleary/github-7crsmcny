@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import StagePlot from './StagePlot.jsx';
@@ -16,20 +16,8 @@ import useBandBackingTrackSongIds from '../hooks/useBandBackingTrackSongIds.js';
  * belt-and-suspenders alongside the RLS policies that are what actually
  * block a musician's write (see the stage_plot migration).
  */
-export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly, defaultOpen = false, cachedStagePlot = null }) {
+export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlists, readOnly, defaultOpen = false, cachedStagePlot = null, refreshSignal }) {
   const { songIds: backingTrackSongIds } = useBandBackingTrackSongIds(bandId);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
 
   // Real automation, not a manual flag: true if this gig's attached
   // setlist has any song with a backing track saved for this band.
@@ -44,7 +32,7 @@ export default function GigStagePlot({ gigId, bandId, gig, venue, lineup, setlis
     [gig, venue, lineup, hasBackingTracks]
   );
 
-  const { config, visibleToBand, setVisibleToBand, loading, error, usingCache, save } = useGigStagePlot(gigId, buildSeed, cachedStagePlot);
+  const { config, visibleToBand, setVisibleToBand, loading, error, usingCache, isOffline, save } = useGigStagePlot(gigId, buildSeed, cachedStagePlot, refreshSignal);
 
   // Stamped with the gig id so StagePlot's own identity check
   // (initialConfig !== the last one it saw) treats a genuinely different

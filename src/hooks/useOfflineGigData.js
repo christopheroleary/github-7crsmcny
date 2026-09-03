@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { useIsOffline } from './useIsOffline.js';
 
 // ─── Cache helpers ────────────────────────────────────────────────────────────
 
@@ -220,7 +221,6 @@ async function fetchGigData(gigId) {
  */
 export function useOfflineGigData(gigId) {
   const [data, setData] = useState(() => readCache(gigId));
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const activeRef = useRef(true);
@@ -243,22 +243,11 @@ export function useOfflineGigData(gigId) {
     }
   }, [gigId]);
 
-  // ── Online / offline listeners ──────────────────────────────────────────────
   // Re-fetches the moment connectivity returns -- without this, a gig opened
   // while offline (serving cached data) stays on that stale snapshot until
   // the component happens to unmount/remount, even though the network is
-  // back and fresher data is one query away. Declared after `refresh` so it
-  // can call it directly.
-  useEffect(() => {
-    const up = () => { setIsOffline(false); refresh(); };
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, [refresh]);
+  // back and fresher data is one query away.
+  const isOffline = useIsOffline(refresh);
 
   // ── Boot ────────────────────────────────────────────────────────────────────
   useEffect(() => {

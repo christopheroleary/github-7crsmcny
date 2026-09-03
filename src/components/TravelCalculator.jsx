@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { notify } from '../utils/toastService.js';
 import { fetchDrivingMiles } from '../utils/distance.js';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import InfoTooltip from './InfoTooltip.jsx';
 
 export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRatePence, rosterVersion, refreshSignal }) {
@@ -32,6 +33,10 @@ export default function TravelCalculator({ gigId, venueLat, venueLon, mileageRat
     setLineup(data || []);
     setLoading(false);
   }, [gigId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   // A lineup entry's home location comes from whichever side is set —
   // a full member's profile, or a dep's own saved address.

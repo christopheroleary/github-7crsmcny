@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { todayStr } from '../utils/formatDate.js';
+import { useIsOffline } from './useIsOffline.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -340,7 +341,6 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
 
   const [gigs, setGigs] = useState(cached?.gigs || []);
   const [syncedAt, setSyncedAt] = useState(cached?.synced_at || null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [cachedGigIds, setCachedGigIds] = useState(getKnownCachedIds);
@@ -414,22 +414,11 @@ export function useOfflineGigList({ isAdmin, profileId, showHistoric }) {
     }
   }, [isAdmin, profileId, showHistoric, cacheKey, preCacheGigs]);
 
-  // ── Online / offline listeners ──────────────────────────────────────────────
   // Re-fetches the list the moment connectivity returns -- without this, a
   // list opened while offline keeps showing that stale snapshot (e.g. a gig
   // someone else just confirmed, or an invoice that got paid) until this
-  // component happens to unmount/remount. Declared after `refresh` so it can
-  // call it directly.
-  useEffect(() => {
-    const up = () => { setIsOffline(false); refresh(); };
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, [refresh]);
+  // component happens to unmount/remount.
+  const isOffline = useIsOffline(refresh);
 
   // ── Claim-updated listener ──────────────────────────────────────────────────
   // MusicianClaim dispatches 'claim-updated' after a successful save so the list

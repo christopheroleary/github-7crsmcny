@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import ShareLinkField from './ShareLinkField.jsx';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import QuotePrintModal from './QuotePrintModal.jsx';
 import LineItemsEditor from './LineItemsEditor.jsx';
 import DateInput from './DateInput.jsx';
@@ -32,6 +33,7 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
 
     const { data: quoteData, error: quoteLoadError } = await supabase
       .from('quotes')
@@ -53,6 +55,10 @@ export default function GigQuote({ gigId, gig, client, band, gigFeeAmount, onCon
 
     setLoading(false);
   }, [gigId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   useEffect(() => {
     load();

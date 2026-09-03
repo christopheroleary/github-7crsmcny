@@ -564,11 +564,11 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
           isOffline -- GigStagePlot now falls back to cachedStagePlot the
           same way the setlist above already does, so there's somewhere
           real to render instead of hiding the section outright. */}
-      <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} readOnly cachedStagePlot={stagePlot} />
+      <GigStagePlot gigId={gigId} bandId={gig.band_id} gig={gig} venue={venue} lineup={lineup} setlists={setlists} readOnly cachedStagePlot={stagePlot} refreshSignal={manualRefreshSignal} />
 
       {/* Gig chat -- no longer gated on isOffline, GigMessages now falls
           back to cachedMessages/cachedReactions on a failed live fetch. */}
-      <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} />
+      <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} refreshSignal={manualRefreshSignal} />
 
       {/* Break-time games -- deliberately NOT gated on isOffline like chat
           above. The games themselves are pure client-side canvas/DOM logic

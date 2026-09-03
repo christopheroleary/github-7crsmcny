@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import InfoTooltip from './InfoTooltip.jsx';
 import { confirmAsync } from '../utils/confirmService.js';
 import { notify } from '../utils/toastService.js';
@@ -43,7 +45,7 @@ function autoResizeCompose(el) {
 // elsewhere on this page). Messages are immutable once sent -- there's no
 // edit, only delete-your-own-or-admin -- and capped at 160 characters,
 // same as a classic SMS.
-export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages = [], cachedReactions = [] }) {
+export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages = [], cachedReactions = [], refreshSignal }) {
   const { profile, isAdmin, isBandLeader, ledBandIds } = useCurrentProfile();
   const [messages, setMessages] = useState([]);
   const [namesById, setNamesById] = useState({});
@@ -58,24 +60,12 @@ export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages
   // compose box stays enabled and just fails with its own error if tried.
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef(null);
   const composeRef = useRef(null);
 
   useEffect(() => { autoResizeCompose(composeRef.current); }, [body]);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
 
   const canAccess = Boolean(profile) && (
     isAdmin
@@ -93,7 +83,11 @@ export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages
       .order('created_at', { ascending: true })
       .limit(200);
     if (error) {
-      if (cachedMessages.length > 0) {
+      // A genuine (non-network) error is surfaced honestly even when
+      // cachedMessages exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedMessages.length > 0 && isLikelyOfflineError(error)) {
         setMessages(cachedMessages);
         setNamesById((prev) => {
           const next = { ...prev };
@@ -104,7 +98,8 @@ export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages
         setUsingCache(true);
         setLoadError(null);
       } else {
-        setLoadError(navigator.onLine ? "Couldn't load messages: " + error.message : "Couldn't load messages — no signal.");
+        setUsingCache(false);
+        setLoadError(isLikelyOfflineError(error) ? "Couldn't load messages — no signal." : "Couldn't load messages: " + error.message);
       }
       setLoading(false);
       return;
@@ -133,7 +128,10 @@ export default function GigMessages({ gigId, bandId, lineup = [], cachedMessages
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gigId, canAccess, profile?.id, cachedMessages, cachedReactions]);
 
-  useEffect(() => { load(); }, [load]);
+  // Re-fetches the moment connectivity returns, and also whenever the gig
+  // page's own "↻ Refresh" button is clicked (refreshSignal).
+  const isOffline = useIsOffline(load);
+  useEffect(() => { load(); }, [load, refreshSignal]);
 
   // Realtime -- new messages (from anyone with access) and deletions both
   // show up live without needing a refresh. A brand-new sender we haven't

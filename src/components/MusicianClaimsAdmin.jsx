@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import { confirmAsync } from '../utils/confirmService.js';
 import { promptAsync } from '../utils/promptService.js';
 import { notify } from '../utils/toastService.js';
@@ -240,7 +242,7 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
 // compare against what a musician claimed), never written, so there's no
 // need to fetch them independently -- GigDetail already has them loaded
 // via useOfflineGigData and passes them straight through.
-export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp = [], defaultOpen = false, cachedClaims = [] }) {
+export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp = [], defaultOpen = false, cachedClaims = [], refreshSignal }) {
   const { isPro, isAdmin } = useCurrentProfile();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -253,7 +255,6 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
   // fail with their own error if tried.
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [payingId, setPayingId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [editingClaimId, setEditingClaimId] = useState(null);
@@ -271,17 +272,6 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
 
   const deps = lineupProp.filter((l) => l.placeholder_id);
 
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -290,12 +280,17 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       .eq('gig_id', gigId)
       .order('created_at');
     if (error) {
-      if (cachedClaims.length > 0) {
+      // A genuine (non-network) error is surfaced honestly even when
+      // cachedClaims exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedClaims.length > 0 && isLikelyOfflineError(error)) {
         setClaims(cachedClaims);
         setUsingCache(true);
         setLoadError(null);
       } else {
-        setLoadError(navigator.onLine ? "Couldn't load claims: " + error.message : "Couldn't load claims — no signal.");
+        setUsingCache(false);
+        setLoadError(isLikelyOfflineError(error) ? "Couldn't load claims — no signal." : "Couldn't load claims: " + error.message);
       }
       setLoading(false);
       return;
@@ -306,9 +301,12 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
     setLoading(false);
   }, [gigId, cachedClaims]);
 
+  // Re-fetches the moment connectivity returns, and also whenever the gig
+  // page's own "↻ Refresh" button is clicked (refreshSignal).
+  const isOffline = useIsOffline(load);
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshSignal]);
 
   async function updateStatus(claim, status) {
     const payload = { status };

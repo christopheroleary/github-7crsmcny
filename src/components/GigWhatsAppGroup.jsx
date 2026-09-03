@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import InfoTooltip from './InfoTooltip.jsx';
 import { formatFullDate, formatShortDate } from '../utils/formatDate.js';
 import { notify } from '../utils/toastService.js';
@@ -78,7 +80,7 @@ export default function GigWhatsAppGroup({ gig }) {
     // below silently computes as empty.
     const firstError = results.find((r) => r.error)?.error;
     if (firstError) {
-      setLoadError(navigator.onLine ? "Couldn't load the roster: " + firstError.message : "Couldn't load the roster — no signal.");
+      setLoadError(isLikelyOfflineError(firstError) ? "Couldn't load the roster — no signal." : "Couldn't load the roster: " + firstError.message);
       setLoading(false);
       return;
     }
@@ -133,6 +135,10 @@ export default function GigWhatsAppGroup({ gig }) {
     setRecipients(deduped);
     setLoading(false);
   }, [gig.id, gig.band_id]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   useEffect(() => { load(); }, [load]);
 

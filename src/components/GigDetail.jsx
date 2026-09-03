@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useOfflineGigData } from '../hooks/useOfflineGigData.js';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import { useSwipeBack } from '../hooks/useSwipeBack.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
@@ -81,51 +82,51 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   // this for them -- gig is still null on the very first render, before
   // useOfflineGigData resolves, hence the optional chaining.
   const canManageThisGig = isAdminRole || (gig?.band_id && ledBandIds.includes(gig.band_id));
-  useEffect(() => {
+  const loadDocClientBand = useCallback(async () => {
     if (!canManageThisGig) return;
-    let cancelled = false;
-    (async () => {
-      // bands(*) -- not clients(*), that table's grant is untouched -- would
-      // fail outright rather than silently drop columns: bank_*/
-      // stripe_connect_account_id are no longer part of the broad grant
-      // (restrict_sensitive_band_columns), and Postgres checks column-level
-      // SELECT privileges before expanding a wildcard, not per-column after.
-      // Fetched separately below via get_band_payment_details instead.
-      const { data } = await supabase
-        .from('gigs')
-        .select(
-          'clients(*), bands(' +
-            'id, name, notes, created_at, contact_email, contact_phone, address, ' +
-            'vat_number, invoice_notes, invoice_name, ' +
-            'fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct, ' +
-            'fee_split_owner_profit_pct, fee_split_captain_bonus_pct, ' +
-            'created_by, doc_accent_colour, doc_secondary_colour, vat_rate, ' +
-            'logo_url, website_url, social_links, ' +
-            'public_slug, public_bio, public_genres, public_enabled, ' +
-            'stripe_connect_status' +
-          ')'
-        )
-        .eq('id', gigId)
-        .single();
-      if (cancelled) return;
-      setDocClient(data?.clients || null);
-      const band = data?.bands || null;
-      setDocBand(band);
-      // bank_*/stripe_connect_account_id are no longer part of the plain
-      // bands(*) select (restrict_sensitive_band_columns) -- fetched
-      // separately here and merged in. get_band_payment_details re-checks
-      // admin/is_band_leader_of itself, so this is safe even though
-      // canManageThisGig's own ledBandIds check is what actually gates
-      // this effect running at all.
-      if (band?.id) {
-        const { data: paymentDetails } = await supabase.rpc('get_band_payment_details', { p_band_id: band.id });
-        if (cancelled) return;
-        const details = paymentDetails?.[0];
-        if (details) setDocBand((prev) => (prev ? { ...prev, ...details } : prev));
-      }
-    })();
-    return () => { cancelled = true; };
+    // bands(*) -- not clients(*), that table's grant is untouched -- would
+    // fail outright rather than silently drop columns: bank_*/
+    // stripe_connect_account_id are no longer part of the broad grant
+    // (restrict_sensitive_band_columns), and Postgres checks column-level
+    // SELECT privileges before expanding a wildcard, not per-column after.
+    // Fetched separately below via get_band_payment_details instead.
+    const { data } = await supabase
+      .from('gigs')
+      .select(
+        'clients(*), bands(' +
+          'id, name, notes, created_at, contact_email, contact_phone, address, ' +
+          'vat_number, invoice_notes, invoice_name, ' +
+          'fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct, ' +
+          'fee_split_owner_profit_pct, fee_split_captain_bonus_pct, ' +
+          'created_by, doc_accent_colour, doc_secondary_colour, vat_rate, ' +
+          'logo_url, website_url, social_links, ' +
+          'public_slug, public_bio, public_genres, public_enabled, ' +
+          'stripe_connect_status' +
+        ')'
+      )
+      .eq('id', gigId)
+      .single();
+    setDocClient(data?.clients || null);
+    const band = data?.bands || null;
+    setDocBand(band);
+    // bank_*/stripe_connect_account_id are no longer part of the plain
+    // bands(*) select (restrict_sensitive_band_columns) -- fetched
+    // separately here and merged in. get_band_payment_details re-checks
+    // admin/is_band_leader_of itself, so this is safe even though
+    // canManageThisGig's own ledBandIds check is what actually gates
+    // this effect running at all.
+    if (band?.id) {
+      const { data: paymentDetails } = await supabase.rpc('get_band_payment_details', { p_band_id: band.id });
+      const details = paymentDetails?.[0];
+      if (details) setDocBand((prev) => (prev ? { ...prev, ...details } : prev));
+    }
   }, [gigId, canManageThisGig]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load left docClient/docBand null forever, even once back online.
+  useIsOffline(loadDocClientBand);
+
+  useEffect(() => { loadDocClientBand(); }, [loadDocClientBand]);
 
   const [editing, setEditing] = useState(false);
   // Set only by the "Fix required instruments" link on a roster warning
@@ -479,7 +480,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
 
       <GigRoster gigId={gigId} cachedLineup={lineup} cachedRequirements={requirements} onRosterChanged={bumpRoster} refreshSignal={manualRefreshSignal} onEditRequirements={openEditRequirements} />
 
-      <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} cachedTasks={tasks} />
+      <GigTasks gigId={gigId} bandId={gig.band_id} defaultOpen={scrollToSection === 'tasks'} cachedTasks={tasks} refreshSignal={manualRefreshSignal} />
 
       <CollapsibleSection
         id="gig-section-chat-group"
@@ -487,7 +488,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         defaultOpen={scrollToSection === 'chat'}
         titleExtra={<InfoTooltip text="The gig's group chat, plus everything needed to set up a WhatsApp group for it — group title, invite link, and one-tap invites." />}
       >
-        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} />
+        <GigMessages gigId={gigId} bandId={gig.band_id} lineup={lineup} cachedMessages={messages} cachedReactions={reactions} refreshSignal={manualRefreshSignal} />
         <GigWhatsAppGroup gig={gig} />
       </CollapsibleSection>
 
@@ -559,7 +560,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         />
       </CollapsibleSection>
 
-      <MusicianClaimsAdmin gigId={gigId} bandId={gig.band_id} lineup={lineup} defaultOpen={scrollToSection === 'claims'} cachedClaims={claims} />
+      <MusicianClaimsAdmin gigId={gigId} bandId={gig.band_id} lineup={lineup} defaultOpen={scrollToSection === 'claims'} cachedClaims={claims} refreshSignal={manualRefreshSignal} />
 
       <GigSetlist
         gigId={gigId}
@@ -579,6 +580,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         setlists={setlists}
         defaultOpen={scrollToSection === 'stage-plot'}
         cachedStagePlot={stagePlot}
+        refreshSignal={manualRefreshSignal}
       />
 
       <CollapsibleSection
@@ -588,7 +590,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         titleExtra={<InfoTooltip text="Everything for gig day itself — break-time games, a QR code for song requests, and a place to share photos afterwards." />}
       >
         <ArcadeSection gigId={gigId} />
-        <SongRequestsPanel gig={gig} cachedRequests={songRequests} />
+        <SongRequestsPanel gig={gig} cachedRequests={songRequests} refreshSignal={manualRefreshSignal} />
         <GigPhotos gigId={gigId} bandId={gig.band_id} gig={gig} lineup={lineup} refreshSignal={manualRefreshSignal} />
       </CollapsibleSection>
 

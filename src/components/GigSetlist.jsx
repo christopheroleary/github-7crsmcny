@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import ImportSetlist from './ImportSetlist.jsx';
@@ -23,18 +25,6 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
   // songId -> array of display names -- who on THIS gig's roster (real
   // member or dep, confirmed or not -- still the plan either way) has
   // ticked "Lead vocal" for that song in their own repertoire. Recomputed
@@ -97,7 +87,11 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
       // different one is a mutation that needs a connection anyway) --
       // songs() there doesn't carry a top-level song_id the way the live
       // query's embed does, so it's normalized in here.
-      if (cachedSetlists.length > 0) {
+      // A genuine (non-network) error -- a real bug, an RLS change -- is
+      // surfaced honestly even when cachedSetlists exists, rather than
+      // silently hiding it behind a "connection trouble" banner that would
+      // misdescribe what actually happened.
+      if (cachedSetlists.length > 0 && isLikelyOfflineError(err)) {
         const normalized = cachedSetlists.map((sl) => ({
           ...sl,
           setlist_items: (sl.setlist_items || []).map((item) => ({
@@ -109,12 +103,18 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
         setAttachedIds(normalized.map((sl) => sl.id));
         setUsingCache(true);
       } else {
-        setError("Couldn't load the setlist" + (navigator.onLine ? ': ' + (err.message || 'unknown error') : ' — no signal, and nothing saved yet for this gig.'));
+        setUsingCache(false);
+        setError("Couldn't load the setlist" + (isLikelyOfflineError(err) ? ' — no signal, and nothing saved yet for this gig.' : ': ' + (err.message || 'unknown error')));
       }
     } finally {
       setLoading(false);
     }
   }, [gigId, bandId, cachedSetlists]);
+
+  // Re-fetches the moment connectivity returns -- without this, a setlist
+  // that fell back to cache stayed on that stale snapshot even once back
+  // online.
+  const isOffline = useIsOffline(loadSetlists);
 
   // The whole-catalog "add a song" picker -- not scoped to this band or gig
   // at all, so it only needs loading once per mount, plus again on the two

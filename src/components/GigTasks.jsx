@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
+import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
 import { notify } from '../utils/toastService.js';
 
@@ -9,7 +11,7 @@ import { notify } from '../utils/toastService.js';
 // band-wide by nature -- needs-invoicing/anniversary/uninvited-dep don't
 // belong to one specific gig the way "confirm parking with the venue"
 // does), so there's nothing to duplicate between the two surfaces.
-export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [] }) {
+export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [], refreshSignal }) {
   const { profile: me } = useCurrentProfile();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,21 +24,9 @@ export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [] 
   // fail with their own error if tried.
   const [loadError, setLoadError] = useState(null);
   const [usingCache, setUsingCache] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    const up = () => setIsOffline(false);
-    const down = () => setIsOffline(true);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,12 +37,17 @@ export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [] 
       .eq('done', false)
       .order('due_date', { ascending: true, nullsFirst: false });
     if (error) {
-      if (cachedTasks.length > 0) {
+      // A genuine (non-network) error is surfaced honestly even when
+      // cachedTasks exists, rather than silently hiding it behind a
+      // "connection trouble" banner that would misdescribe what actually
+      // happened.
+      if (cachedTasks.length > 0 && isLikelyOfflineError(error)) {
         setTasks(cachedTasks);
         setUsingCache(true);
         setLoadError(null);
       } else {
-        setLoadError(navigator.onLine ? "Couldn't load tasks: " + error.message : "Couldn't load tasks — no signal.");
+        setUsingCache(false);
+        setLoadError(isLikelyOfflineError(error) ? "Couldn't load tasks — no signal." : "Couldn't load tasks: " + error.message);
       }
     } else {
       setTasks(data || []);
@@ -62,7 +57,11 @@ export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [] 
     setLoading(false);
   }, [gigId, cachedTasks]);
 
-  useEffect(() => { load(); }, [load]);
+  // Re-fetches the moment connectivity returns, and also whenever the gig
+  // page's own "↻ Refresh" button is clicked (refreshSignal) -- previously
+  // neither retried this section at all.
+  const isOffline = useIsOffline(load);
+  useEffect(() => { load(); }, [load, refreshSignal]);
 
   async function handleAdd(e) {
     e.preventDefault();

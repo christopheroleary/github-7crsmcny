@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
+import { useIsOffline } from '../hooks/useIsOffline.js';
 import ContractPrintModal from './ContractPrintModal.jsx';
 import SignatureCapture from './SignatureCapture.jsx';
 import DateInput from './DateInput.jsx';
@@ -34,6 +35,7 @@ export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) 
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
 
     const { data: contractData, error: contractLoadError } = await supabase
       .from('contracts')
@@ -46,6 +48,10 @@ export default function GigContract({ gigId, gig, client, band, gigFeeAmount }) 
     setContract(contractData || null);
     setLoading(false);
   }, [gigId]);
+
+  // Re-fetches the moment connectivity returns -- without this, a failed
+  // load stayed on its error message even once back online.
+  useIsOffline(load);
 
   useEffect(() => {
     load();
