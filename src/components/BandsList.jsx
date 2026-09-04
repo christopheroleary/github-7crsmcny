@@ -79,7 +79,7 @@ export default function BandsList() {
         'created_by, doc_accent_colour, doc_secondary_colour, vat_rate, ' +
         'logo_url, website_url, social_links, ' +
         'public_slug, public_bio, public_genres, public_enabled, ' +
-        'stripe_connect_status'
+        'stripe_connect_status, is_solo'
       )
       .order('name');
     if (error) setError(error.message);

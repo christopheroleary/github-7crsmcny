@@ -1,0 +1,20 @@
+-- is_solo (added in 20260904090000_add_bands_is_solo.sql) was never added
+-- to the explicit column-select whitelist restrict_sensitive_band_columns
+-- put in place the week before -- that migration REVOKEd the old blanket
+-- "select * on bands" grant and replaced it with a named column list, so a
+-- column added afterward with no matching grant isn't just silently
+-- excluded from '*', it makes ANY query that explicitly names it fail
+-- outright with "permission denied for table bands" (same column-level-
+-- privilege-checked-before-wildcard-expansion mechanism BandsList.jsx's
+-- own comment already describes for '*'). Confirmed live: adding is_solo
+-- to BandsList.jsx's select (fixing the "editing a solo band via Bands
+-- reverts is_solo to false" bug) broke the whole Bands list with exactly
+-- that error, because authenticated had UPDATE/INSERT on is_solo but no
+-- SELECT at all.
+--
+-- Same UI-only reasoning as the rest of the broad whitelist applies here
+-- too -- is_solo is never read by RLS, a trigger, or fee-split math, purely
+-- drives which BandForm fields are shown, so it belongs in the broad grant
+-- alongside the other cosmetic/contact/branding columns, not behind
+-- get_band_payment_details with the genuinely sensitive ones.
+grant select (is_solo) on public.bands to authenticated;

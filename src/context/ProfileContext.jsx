@@ -132,7 +132,7 @@ export function ProfileProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, ui_theme, avatar_url, subscription_tier, usage_logging_opt_out')
+        .select('id, full_name, role, ui_theme, avatar_url, subscription_tier, usage_logging_opt_out, whats_new_seen_id')
         .eq('id', uid)
         .single();
       if (error) throw error;

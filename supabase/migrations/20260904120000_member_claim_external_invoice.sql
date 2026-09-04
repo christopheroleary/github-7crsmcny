@@ -1,0 +1,9 @@
+-- SUPERSEDED: the self-serve external-invoice attach for a musician's own
+-- claim (originally added by this migration) was a design mistake -- the
+-- band leader/admin is the one who receives a dep's own-software invoice
+-- by email/WhatsApp and needs to attach it, never the musician themselves.
+-- See 20260904130000_leader_claims_for_any_roster_member.sql, which drops
+-- the two overloads this file added and generalises the leader-side RPCs
+-- instead. This file is left in place (rather than deleted) only so the
+-- migration history stays honest about what actually ran against the
+-- live database; its effect is fully undone by the follow-up migration.

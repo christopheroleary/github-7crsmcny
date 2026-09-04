@@ -167,6 +167,14 @@ export function MoneyIcon() {
   );
 }
 
+export function ToolsIcon() {
+  return (
+    <svg {...svgProps}>
+      <path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2 2.6-2.6Z" />
+    </svg>
+  );
+}
+
 // Header "What's new" button (App.jsx) -- not a tab icon, but lives here
 // alongside the others since it's the same hand-drawn stroke convention.
 export function MegaphoneIcon() {

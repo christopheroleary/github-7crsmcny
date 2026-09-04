@@ -18,8 +18,45 @@ function formatDate(dateStr) {
     return 'INV-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
       '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
   }
-  
-  function buildPrintHTML({ invoice, items, payments, gig, band, client }) {
+
+  // Prefers an explicit bill-to override (another band, or a venue) over
+  // the gig's own client -- band > venue > client, the same priority
+  // order get_invoice_by_token uses server-side for the public share-link
+  // view. billToVenue/billToBand are resolved independently by their own
+  // id (invoice.bill_to_venue_id/bill_to_band_id), NOT the gig's current
+  // venue -- a gig's venue can change after the invoice was billed to it,
+  // and this must keep showing who was actually billed, not wherever the
+  // gig happens to point today (see GigInvoice.jsx's billToVenueDetails).
+  //
+  // When an override id IS set but the row couldn't be resolved (RLS, or
+  // it's been deleted), this deliberately does NOT fall through to the
+  // client -- that would silently bill/email the wrong party with no
+  // indication anything's wrong. Instead it surfaces the problem: a name
+  // that says so, and null contact details (so the email button simply
+  // doesn't render).
+  //
+  // Venue/band rows carry an address where clients don't (clients has no
+  // address column at all today), so this always returns an `address`
+  // key, null or not, rather than only sometimes having one.
+  function resolveBillTo(invoice, client, billToVenue, billToBand) {
+    if (invoice.bill_to_band_id) {
+      if (!billToBand) return { name: '(Unable to load bill-to band details)', email: null, phone: null, address: null };
+      return {
+        name: billToBand.invoice_name || billToBand.name,
+        email: billToBand.contact_email,
+        phone: billToBand.contact_phone,
+        address: billToBand.address,
+      };
+    }
+    if (invoice.bill_to_venue_id) {
+      if (!billToVenue) return { name: '(Unable to load bill-to venue details)', email: null, phone: null, address: null };
+      return { name: billToVenue.name, email: billToVenue.email, phone: billToVenue.phone, address: billToVenue.address };
+    }
+    return { name: client?.name, email: client?.email, phone: client?.phone, address: null };
+  }
+
+  function buildPrintHTML({ invoice, items, payments, gig, band, client, billToVenue, billToBand }) {
+    const billTo = resolveBillTo(invoice, client, billToVenue, billToBand);
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
     const vatRate = band?.vat_rate || 0;
     const vatPence = Math.round(total * (vatRate / 100));
@@ -245,9 +282,10 @@ function formatDate(dateStr) {
     <div class="parties">
       <div class="bill-to">
         <p class="label">Bill to</p>
-        <p class="client-name">${esc(client?.name || '—')}</p>
-        ${client?.email ? '<p class="detail">' + esc(client.email) + '</p>' : ''}
-        ${client?.phone ? '<p class="detail">' + esc(client.phone) + '</p>' : ''}
+        <p class="client-name">${esc(billTo.name || '—')}</p>
+        ${billTo.address ? '<p class="detail">' + esc(billTo.address.split('\n').join(', ')) + '</p>' : ''}
+        ${billTo.email ? '<p class="detail">' + esc(billTo.email) + '</p>' : ''}
+        ${billTo.phone ? '<p class="detail">' + esc(billTo.phone) + '</p>' : ''}
       </div>
       ${eventBoxHTML}
     </div>
@@ -299,7 +337,8 @@ function formatDate(dateStr) {
   </html>`;
   }
   
-  export default function InvoicePrintModal({ invoice, items, payments = [], gig, band, client, onClose }) {
+  export default function InvoicePrintModal({ invoice, items, payments = [], gig, band, client, billToVenue, billToBand, onClose }) {
+    const billTo = resolveBillTo(invoice, client, billToVenue, billToBand);
     const total = items.reduce((sum, i) => sum + i.unit_amount_pence * i.quantity, 0);
     const vatRate = band?.vat_rate || 0;
     const vatPence = Math.round(total * (vatRate / 100));
@@ -318,10 +357,10 @@ function formatDate(dateStr) {
       'If you have any questions, please don\'t hesitate to get in touch.\n\n' +
       'Kind regards,\n' + (band?.name || 'The Band')
     );
-    const mailtoHref = 'mailto:' + (client?.email || '') + '?subject=' + mailtoSubject + '&body=' + mailtoBody;
-  
+    const mailtoHref = 'mailto:' + (billTo.email || '') + '?subject=' + mailtoSubject + '&body=' + mailtoBody;
+
     function handlePrint() {
-      const html = buildPrintHTML({ invoice, items, payments, gig, band, client });
+      const html = buildPrintHTML({ invoice, items, payments, gig, band, client, billToVenue, billToBand });
       printHtmlDocument(html);
     }
   
@@ -333,9 +372,9 @@ function formatDate(dateStr) {
             <span className={`status-tag status-tag--${invoice.status}`}>{invoice.status}</span>
           </div>
           <div className="print-modal-toolbar__actions">
-            {client?.email && (
+            {billTo.email && (
               <a href={mailtoHref} className="btn btn--toolbar-ghost btn--small" style={{ textDecoration: 'none' }}>
-                ✉ Email client
+                ✉ Email {invoice.bill_to_band_id ? 'band' : invoice.bill_to_venue_id ? 'venue' : 'client'}
               </a>
             )}
             <button className="btn btn--primary btn--small" onClick={handlePrint}>
@@ -411,9 +450,10 @@ function formatDate(dateStr) {
           <div className="invoice-parties">
             <div className="invoice-parties__bill-to">
               <p className="invoice-parties__heading">Bill to</p>
-              <p className="invoice-parties__name">{client?.name || '—'}</p>
-              {client?.email && <p className="invoice-parties__detail">{client.email}</p>}
-              {client?.phone && <p className="invoice-parties__detail">{client.phone}</p>}
+              <p className="invoice-parties__name">{billTo.name || '—'}</p>
+              {billTo.address && <p className="invoice-parties__detail">{billTo.address.split('\n').join(', ')}</p>}
+              {billTo.email && <p className="invoice-parties__detail">{billTo.email}</p>}
+              {billTo.phone && <p className="invoice-parties__detail">{billTo.phone}</p>}
             </div>
             {gig && (
               <div className="invoice-event-box">

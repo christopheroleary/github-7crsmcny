@@ -191,6 +191,41 @@ export default function TaxRecords({ profileId }) {
     URL.revokeObjectURL(url);
   }
 
+  // Xero has no public "connect your own account" step in the app yet
+  // (a real OAuth integration is a much bigger, ongoing-maintenance piece
+  // of work -- this is deliberately the cheap first step) -- but it does
+  // natively import a plain bank-statement-shaped CSV (Accounting -> Bank
+  // Accounts -> Import a Statement, mapping columns at import time), so a
+  // Date/Amount/Payee/Description/Reference file needs nothing else to be
+  // useful: no OAuth, no review process, no ongoing cost. Same
+  // period-filtered rows the plain export above already has -- just a
+  // different shape, income positive and expenses negative like a real
+  // statement.
+  function ddmmyyyy(isoDate) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate || '');
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : (isoDate || '');
+  }
+
+  function handleExportXero() {
+    const lines = [['Date', 'Amount', 'Payee', 'Description', 'Reference'].join(',')];
+    income.forEach((i) =>
+      lines.push([ddmmyyyy(i.date), poundsFromPence(i.amount_pence), csvEscape(i.venue || 'Gig income'), csvEscape(i.description), csvEscape(i.category)].join(','))
+    );
+    otherIncomeRows.forEach((r) =>
+      lines.push([ddmmyyyy(r.date), poundsFromPence(r.amount_pence), csvEscape(r.category), csvEscape(r.description), csvEscape(r.category)].join(','))
+    );
+    expenseRows.forEach((e) =>
+      lines.push([ddmmyyyy(e.date), '-' + poundsFromPence(e.amount_pence), csvEscape(e.category), csvEscape(e.description), csvEscape(e.category)].join(','))
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `xero-statement-${period.label.replace('/', '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="day-sheet__section">
       <h3 className="day-sheet__section-title">Tax records</h3>
@@ -316,6 +351,9 @@ export default function TaxRecords({ profileId }) {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn btn--primary btn--small" onClick={handleExport} disabled={!hasData}>
           ⬇ Export CSV
+        </button>
+        <button className="btn btn--ghost btn--small" onClick={handleExportXero} disabled={!hasData}>
+          ⬇ Export for Xero
         </button>
         <a
           href="https://www.tax.service.gov.uk/find-making-tax-digital-income-tax-software"

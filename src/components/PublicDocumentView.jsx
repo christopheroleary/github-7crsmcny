@@ -119,6 +119,11 @@ export default function PublicDocumentView({ type, token }) {
   const items = data.items || [];
   const payments = data.payments || [];
   const { band, client, gig, venue } = data;
+  // Only get_invoice_by_token returns a 'bill_to' key -- data.bill_to is
+  // simply undefined for quotes/contracts, so this transparently
+  // reproduces today's exact client-only behaviour for those two document
+  // types with no branching on `type` needed.
+  const billTo = data.bill_to || client;
   const bandDisplayName = band?.invoice_name || band?.name;
   const prefix = type === 'invoice' ? 'INV' : type === 'quote' ? 'QUO' : 'CON';
   const number = docNumber(prefix, doc.created_at);
@@ -266,9 +271,10 @@ export default function PublicDocumentView({ type, token }) {
           <div className="invoice-parties">
             <div className="invoice-parties__bill-to">
               <p className="invoice-parties__heading">{type === 'contract' ? 'Between' : type === 'quote' ? 'Prepared for' : 'Bill to'}</p>
-              <p className="invoice-parties__name">{client?.name || '—'}</p>
-              {client?.email && <p className="invoice-parties__detail">{client.email}</p>}
-              {client?.phone && <p className="invoice-parties__detail">{client.phone}</p>}
+              <p className="invoice-parties__name">{billTo?.name || '—'}</p>
+              {billTo?.address && <p className="invoice-parties__detail">{billTo.address.split('\n').join(', ')}</p>}
+              {billTo?.email && <p className="invoice-parties__detail">{billTo.email}</p>}
+              {billTo?.phone && <p className="invoice-parties__detail">{billTo.phone}</p>}
             </div>
             {gig && (
               <div className="invoice-event-box">
@@ -445,7 +451,7 @@ export default function PublicDocumentView({ type, token }) {
                   <p className="field__hint" style={{ margin: '2px 0' }}>Date</p>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p className="invoice-parties__heading">For {client?.name || 'the client'}</p>
+                  <p className="invoice-parties__heading">For {billTo?.name || 'the client'}</p>
                   {doc.client_signed_date ? (
                     <>
                       {doc.client_signature_image && (

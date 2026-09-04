@@ -1888,11 +1888,8 @@ input:not([type]) {
 .import-match-label--green {
   color: #15803d;
 }
-/* Either exactly one candidate worth suggesting (pre-selected, but still
-   only a guess) or no candidate at all (defaulted to "create new song")
-   -- both are the matcher making a call with nothing to cross-check it
-   against, so both get the same "take a look" colour; the label text
-   next to it says which. */
+/* Exactly one candidate worth suggesting -- pre-selected, but still only a
+   guess with nothing else to cross-check it against. */
 .import-match-select--yellow {
   border-color: #a16207;
   background: rgba(234, 179, 8, 0.2);
@@ -1900,6 +1897,22 @@ input:not([type]) {
 }
 .import-match-label--yellow {
   color: #a16207;
+}
+/* No candidate at all -- left as "+ Create new song" with nothing
+   pre-selected. Deliberately its own colour, not lumped in with yellow
+   (a single-guess row that's merely worth checking): this row will
+   silently create a brand-new song in the catalogue unless someone picks
+   an existing one by hand, which is a more consequential, easier-to-miss
+   default than "the matcher guessed and might be wrong" -- it earns the
+   same red/rust family the rest of the app already uses for something
+   that needs deliberate attention (--rust, form-error, link-button--danger). */
+.import-match-select--red {
+  border-color: #b91c1c;
+  background: rgba(239, 68, 68, 0.16);
+  box-shadow: inset 5px 0 0 #dc2626;
+}
+.import-match-label--red {
+  color: #b91c1c;
 }
 /* More than one plausible candidate -- the matcher can't tell which is
    right, so this is the one that most needs a human decision. The
@@ -5117,4 +5130,145 @@ details[open] > .collapsible-summary::before {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* ---------- Guitar tuner (GuitarTuner.jsx) ---------- */
+.tuner-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.tuner-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+.tuner-note--idle { color: var(--text-muted); }
+.tuner-note--off { color: var(--rust); }
+.tuner-note--in-tune { color: var(--teal); }
+.tuner-note__octave {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+.tuner-cents {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 48px;
+}
+
+.tuner-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.tuner-meter__label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.tuner-meter__track {
+  position: relative;
+  flex: 1;
+  height: 40px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tuner-meter__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 45%;
+  width: 10%;
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  border-left: 1px dashed var(--line);
+  border-right: 1px dashed var(--line);
+}
+.tuner-meter__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.tuner-needle {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--line);
+  will-change: left;
+}
+.tuner-needle--in-tune {
+  background: var(--teal);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--teal) 70%, transparent);
+}
+.tuner-needle--off { background: var(--rust); }
+
+.tuner-strings {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tuner-string {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+.tuner-string--active {
+  color: #fff;
+  background: var(--teal);
+  border-color: var(--teal);
+}
+/* The reference-tone row's string buttons are real, clickable <button>s
+   (select/retune the held tone) -- same look as the read-only detected-note
+   spans above, plus pointer affordances a plain span doesn't need. */
+.tuner-string--btn {
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+.tuner-string--btn:hover { border-color: var(--teal); }
+
+.tuner-tone {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.tuner-tone__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tuner-tone__toggle {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 18px;
+  padding: 6px 12px;
+  line-height: 1;
 }

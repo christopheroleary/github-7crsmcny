@@ -77,6 +77,12 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   // once here and passed down alongside `gig` itself.
   const [docClient, setDocClient] = useState(null);
   const [docBand, setDocBand] = useState(null);
+  // Billing-grade venue detail (contact_name/phone/email) for GigInvoice's
+  // "Bill to: Venue" option -- richer than the thin venue embed
+  // useOfflineGigData carries for the day-sheet, so fetched here alongside
+  // client/band rather than widening that shared query for every other
+  // consumer that doesn't need it.
+  const [docVenue, setDocVenue] = useState(null);
   // Gated the same way the render logic below decides admin vs musician
   // view: a plain musician never sees GigInvoice/GigQuote/GigContract at
   // all (GigDetailBandMember renders instead), so there's no point firing
@@ -94,7 +100,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
     const { data } = await supabase
       .from('gigs')
       .select(
-        'clients(*), bands(' +
+        'clients(*), venues(id, name, address, contact_name, phone, email), bands(' +
           'id, name, notes, created_at, contact_email, contact_phone, address, ' +
           'vat_number, invoice_notes, invoice_name, ' +
           'fee_split_singer_bonus_pct, fee_split_dj_pct, fee_split_roadie_pct, ' +
@@ -108,6 +114,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
       .eq('id', gigId)
       .single();
     setDocClient(data?.clients || null);
+    setDocVenue(data?.venues || null);
     const band = data?.bands || null;
     setDocBand(band);
     // bank_*/stripe_connect_account_id are no longer part of the plain
@@ -565,6 +572,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
           gig={gig}
           client={docClient}
           band={docBand}
+          venue={docVenue}
           lineup={lineup}
           gigFeeAmount={gig.fee_amount}
           mileageRatePence={gig.mileage_rate_pence}

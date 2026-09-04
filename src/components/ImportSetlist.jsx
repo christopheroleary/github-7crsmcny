@@ -17,6 +17,10 @@ const SUGGEST_THRESHOLD = 0.6;
 // within this of each other, don't silently auto-pick either one -- e.g. the
 // library having both "Mr Brightside" and "Mr Brightside — The Killers".
 const AMBIGUOUS_DELTA = 0.15;
+// How much the combined title+artist score is allowed to *improve* (never
+// worsen) a song's title-only score -- see the comment above `scoreSongs`
+// for why this is bounded rather than a straight blend.
+const TITLE_TIEBREAK_BAND = 0.1;
 
 // Apostrophes are the single biggest source of otherwise-identical titles
 // missing each other -- a pasted list missing one entirely ("Im A
@@ -68,44 +72,160 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
     () =>
       allSongs.map((s) => ({
         ...s,
+        _normTitle: normalizeForMatch(s.title),
         _normFull: normalizeForMatch(s.title + ' ' + (s.artist || '')),
       })),
     [allSongs]
   );
 
-  // Search against the combined "title artist" string as a single Fuse key,
-  // not title and artist as two separate keys -- caught live: a clean,
-  // unambiguous paste like "Africa - Toto" scored ~0.54 (above
-  // MATCH_THRESHOLD, so not auto-matched) against two short separate
-  // fields, because Fuse's per-key scoring penalises a query that only
-  // partially overlaps EACH field even when the two fields together
-  // account for the whole query. Against one combined field the same
-  // query scores ~0.03 -- correctly confident. Verified this doesn't
-  // regress the cases the two-field split was presumably for: a
-  // title-only paste ("Sweet Caroline") still scores ~0.03 against the
-  // longer combined field, and true near-duplicates ("Mr Brightside" vs
-  // "Mr. Brightside") still tie exactly, so the ambiguous check below
-  // still catches them rather than either key change picking one blindly.
+  // Two separate single-key Fuse indexes, not one combined-field index (the
+  // previous approach) and not one Fuse instance with two weighted keys
+  // (tried first, reverted -- see below). Title is searched and scored on
+  // its own, completely independent of artist, which is what a title match
+  // needs to be: "Angels" (pasted with no artist) used to score too poorly
+  // against a library row of "Angels — Robbie Williams" to auto-match --
+  // the combined string comparison penalised the query for not containing
+  // "robbie williams" even though the title itself was a perfect match.
+  // Worse, the same combined-string approach could let a completely
+  // different song whose ARTIST happened to overlap the pasted artist
+  // outrank the correct title match -- title is the one signal that should
+  // never lose to artist-only noise, so it's scored in complete isolation
+  // here; see scoreSongs below for how the two are recombined.
   //
-  // threshold: 1 means "return every song, ranked" -- SUGGEST_THRESHOLD and
-  // MATCH_THRESHOLD are applied explicitly below instead of letting Fuse
-  // silently drop candidates before the token-distance blend ever runs.
-  const fuse = useMemo(
-    () => new Fuse(songsForMatching, { keys: ['_normFull'], threshold: 1, ignoreLocation: true, includeScore: true }),
+  // threshold: SUGGEST_THRESHOLD, not 1 -- caught live: with threshold 1
+  // ("return every song, ranked"), Fuse never gets to use its own Bitap
+  // early-termination and instead fully scores all ~300+ catalogue songs
+  // against every one of up to 150+ pasted lines, twice over (this index
+  // and fuseFull below) -- measured at ~8s for a 160-song paste against a
+  // 312-song catalogue, the actual cause of the import screen feeling slow
+  // to open (not the <select> itself -- see the dropdown-render note on
+  // ImportRow further down). Capping the threshold at SUGGEST_THRESHOLD
+  // lets Fuse skip full scoring for the (vast majority of) songs nowhere
+  // close to matching, with no behaviour change: anything Fuse would drop
+  // for scoring worse than SUGGEST_THRESHOLD gets filtered out of
+  // `candidates` immediately below anyway, and scoreSongs' own
+  // Math.min(fuseScore ?? 1, tokenSetDistance(...)) already tolerates a
+  // missing Fuse score by falling back to the independent token-distance
+  // value, which is unaffected by Fuse's own threshold.
+  const fuseTitle = useMemo(
+    () => new Fuse(songsForMatching, { keys: ['_normTitle'], threshold: SUGGEST_THRESHOLD, ignoreLocation: true, includeScore: true }),
     [songsForMatching]
   );
+  // Kept alongside the title-only index specifically for when title alone
+  // can't tell two songs apart (two different "Angels"es) -- see
+  // scoreSongs. A single Fuse instance with two *weighted* keys was tried
+  // here first and reverted: Fuse's own per-key scoring penalises a query
+  // that only partially overlaps EACH key even when the two keys together
+  // account for the whole query (a clean, unambiguous paste like
+  // "Africa - Toto" scored ~0.54 against separate weighted title/artist
+  // keys -- above MATCH_THRESHOLD, so not auto-matched). Running two
+  // independent single-key searches and blending the results with our own
+  // bounded formula (scoreSongs) sidesteps that without giving up on
+  // catching the "Africa - Toto" case, which now matches via the
+  // title-only search alone (title "Africa" matches perfectly on its own,
+  // no artist needed).
+  const fuseFull = useMemo(
+    () => new Fuse(songsForMatching, { keys: ['_normFull'], threshold: SUGGEST_THRESHOLD, ignoreLocation: true, includeScore: true }),
+    [songsForMatching]
+  );
+
+  // The actual fix for the slow parse: capping Fuse's own threshold above
+  // only trims which results it *returns* -- it still pays the full
+  // character-level (Bitap) comparison cost against every catalogue song
+  // for every parsed row regardless, measured live at ~8s for 160 rows
+  // against a 312-song catalogue (an O(rows x catalogue) cost, run twice
+  // over for the two indexes above). This one-time inverted index (built
+  // once per catalogue load, not per row) maps each normalised word in a
+  // song's title or artist to the song's index, so a parsed row can be
+  // narrowed down to only the catalogue songs sharing at least one real
+  // word with it -- typically a handful, not hundreds -- before Fuse ever
+  // runs, turning each row's cost from O(catalogue) into O(matching
+  // pool). STOPWORDS are excluded so "the"/"a" don't put half the
+  // catalogue in every pool.
+  const wordIndex = useMemo(() => {
+    const idx = new Map();
+    songsForMatching.forEach((song, i) => {
+      const words = new Set([...tokenize(song._normTitle), ...tokenize(normalizeForMatch(song.artist || ''))]);
+      words.forEach((w) => {
+        let set = idx.get(w);
+        if (!set) idx.set(w, (set = new Set()));
+        set.add(i);
+      });
+    });
+    return idx;
+  }, [songsForMatching]);
+
+  function poolIndicesFor(...normalizedStrings) {
+    const out = new Set();
+    normalizedStrings.forEach((s) => {
+      tokenize(s).forEach((w) => {
+        const hit = wordIndex.get(w);
+        if (hit) hit.forEach((i) => out.add(i));
+      });
+    });
+    return out;
+  }
+
+  // Ranks every song in the catalogue against one parsed line, title-first.
+  // Title score is the primary signal and the combined title+artist score
+  // can only ever *tighten* it (an artist that also agrees makes an
+  // already-plausible title more confident, within TITLE_TIEBREAK_BAND) --
+  // never loosen it. That asymmetry is the actual fix for both bugs this
+  // was built to catch: a title-only query (or a library row missing an
+  // artist) is never penalised just because the combined strings disagree,
+  // and a wrong-titled song is never rescued past a bounded nudge just
+  // because its artist happens to overlap the query's. Two songs that
+  // genuinely share an identical title (real duplicates, or two different
+  // "Angels") still tie and fall through to the ambiguous check below --
+  // deliberately not resolved by artist alone, since forcing a glance-and-
+  // confirm for that case is safer than guessing.
+  function scoreSongs(query, normTitle) {
+    // Narrow to songs sharing a real word with either the title or the
+    // full query before running Fuse at all. An empty pool (zero shared
+    // words anywhere in the catalogue -- e.g. a single badly-typo'd word
+    // with no artist to rescue it) falls back to the full catalogue via
+    // the pre-built fuseTitle/fuseFull above, rather than silently giving
+    // up: that's exactly the kind of near-miss Fuse's char-level matching
+    // exists to catch, and it's the rare case, not the common one.
+    const poolIdx = poolIndicesFor(normTitle, query);
+    const usingPool = poolIdx.size > 0;
+    const pool = usingPool ? [...poolIdx].map((i) => songsForMatching[i]) : songsForMatching;
+
+    const titleFuse = usingPool
+      ? new Fuse(pool, { keys: ['_normTitle'], threshold: SUGGEST_THRESHOLD, ignoreLocation: true, includeScore: true })
+      : fuseTitle;
+    const fullFuse = usingPool
+      ? new Fuse(pool, { keys: ['_normFull'], threshold: SUGGEST_THRESHOLD, ignoreLocation: true, includeScore: true })
+      : fuseFull;
+    const titleScoreById = new Map(titleFuse.search(normTitle).map((r) => [r.item.id, r.score]));
+    const fullScoreById = new Map(fullFuse.search(query).map((r) => [r.item.id, r.score]));
+    return pool
+      .map((song) => {
+        // Best-of char-level (Fuse) and whole-word (token-set) distance on
+        // title alone -- the same "whichever catches it" principle the old
+        // combined-field scoring used for word-reordering/insertion typos
+        // ("Bet That You Look Good Dancefloor" vs "...On The Dance Floor"),
+        // just scoped to title only now instead of the whole combined string.
+        const titleScore = Math.min(
+          titleScoreById.get(song.id) ?? 1,
+          tokenSetDistance(normTitle, song._normTitle)
+        );
+        const fullScore = fullScoreById.get(song.id) ?? 1;
+        const score = fullScore < titleScore ? Math.max(titleScore - TITLE_TIEBREAK_BAND, fullScore) : titleScore;
+        return { score, item: song };
+      })
+      .sort((a, b) => a.score - b.score);
+  }
 
   function handleParse() {
     const items = parseSongList(rawText);
     const withMatches = items.map((item) => {
+      const normTitle = normalizeForMatch(item.title);
       const query = normalizeForMatch([item.title, item.artist].filter(Boolean).join(' '));
-      const fuseResults = fuse.search(query);
+      const scored = scoreSongs(query, normTitle);
 
-      // Auto-match and ambiguity stay strictly on Fuse's own char-level score
-      // -- deliberately not loosened by the token blend below, which is only
-      // for surfacing suggestions, not for silently picking one.
-      const best = fuseResults[0];
-      const secondBest = fuseResults[1];
+      const best = scored[0];
+      const secondBest = scored[1];
       const ambiguous = Boolean(
         best && secondBest &&
         best.score <= MATCH_THRESHOLD && secondBest.score <= MATCH_THRESHOLD &&
@@ -113,21 +233,19 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
       );
       const confidentMatch = Boolean(best && !ambiguous && best.score <= MATCH_THRESHOLD);
 
-      const candidates = fuseResults
-        .map((r) => ({ ...r, combined: Math.min(r.score, tokenSetDistance(query, r.item._normFull)) }))
-        .filter((r) => r.combined <= SUGGEST_THRESHOLD)
-        .sort((a, b) => a.combined - b.combined)
+      const candidates = scored
+        .filter((r) => r.score <= SUGGEST_THRESHOLD)
         .slice(0, 5)
         .map((r) => ({ id: r.item.id, title: r.item.title, artist: r.item.artist }));
 
       // Colour is a scannable "how sure was the matcher" signal down a long
       // pasted list -- green needs no attention, yellow is a single guess
-      // (a lone suggestion, or none at all -- both are the matcher making a
-      // call with nothing to cross-check against), orange is where a human
-      // decision actually matters because more than one candidate is
-      // plausible. Green always wins over orange even when a confident
-      // match also happens to have weaker candidates nearby -- those don't
-      // need a second look just because they showed up in the list.
+      // worth a glance, orange is where a human decision actually matters
+      // because more than one candidate is plausible, and red is "nothing
+      // matched at all, this will create a brand-new song unless you pick
+      // one." Green always wins over orange even when a confident match
+      // also happens to have weaker candidates nearby -- those don't need
+      // a second look just because they showed up in the list.
       //
       // Every case with at least one candidate pre-selects the top-ranked
       // one (candidates is already sorted best-first) -- including orange,
@@ -144,7 +262,11 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         matchedSongId = candidates[0].id;
         matchStatus = candidates.length > 1 ? 'orange' : 'yellow';
       } else {
-        matchStatus = 'yellow';
+        // Nothing worth suggesting at all -- left as "+ Create new song"
+        // with nothing pre-selected, which is a more consequential default
+        // than a single unconfirmed guess (yellow), so it gets its own
+        // colour rather than sharing yellow's.
+        matchStatus = 'red';
       }
 
       return { ...item, matchedSongId, candidates, ambiguous, matchStatus, skip: false };
@@ -254,6 +376,27 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
         const { error: itemsError } = await supabase.from('setlist_items').insert(itemsToInsert);
         if (itemsError) throw itemsError;
       }
+
+      // Backfill an existing library song's missing artist from the pasted
+      // line's artist, one song at a time -- only for rows that opted in
+      // (see the "Also save … as this song's artist" checkbox in
+      // ImportRow, which only appears when the matched song has no artist
+      // of its own). .is('artist', null) repeats that guard server-side
+      // rather than trusting the parse-time check alone, in case something
+      // else set the song's artist in the meantime -- this never
+      // overwrites a real value, it only ever fills a blank one.
+      const backfillRows = parsed.filter(
+        (item) => !item.skip && item.matchedSongId && item.backfillArtist !== false && item.artist?.trim()
+      );
+      for (const item of backfillRows) {
+        const { error: backfillError } = await supabase
+          .from('songs')
+          .update({ artist: item.artist.trim() })
+          .eq('id', item.matchedSongId)
+          .is('artist', null);
+        if (backfillError) throw backfillError;
+      }
+
       onImported();
     } catch (err) {
       setError(err.message);
@@ -327,14 +470,12 @@ export default function ImportSetlist({ bandId, gigId, allSongs, newSongCreatedB
 // row; otherSongs is memoized too, so it's computed once per row instead
 // of once per row per keystroke anywhere in the form.
 // One line per status, doubling as the "why is this coloured like this"
-// explanation color alone can't carry -- the single-candidate and
-// no-candidate cases share a colour (both are the matcher making an
-// unchecked call) but need different words, since one is a guess sitting
-// in the box and the other is "create new song" left as-is.
+// explanation colour alone can't carry.
 const MATCH_LABELS = {
   green: 'Matched',
-  yellow: (hasGuess) => (hasGuess ? 'Best guess — check it' : 'No match — new song'),
+  yellow: 'Best guess — check it',
   orange: 'Multiple matches — check it',
+  red: 'No match — new song',
 };
 
 const ImportRow = memo(function ImportRow({ index, item, allSongs, onUpdate }) {
@@ -343,7 +484,18 @@ const ImportRow = memo(function ImportRow({ index, item, allSongs, onUpdate }) {
     return allSongs.filter((s) => !candidateIds.has(s.id));
   }, [item.candidates, allSongs]);
 
-  const label = item.matchStatus === 'yellow' ? MATCH_LABELS.yellow(item.candidates.length > 0) : MATCH_LABELS[item.matchStatus];
+  const label = MATCH_LABELS[item.matchStatus];
+
+  // Looked up fresh from allSongs (not item.candidates, which only ever
+  // holds the matcher's own top 5) so this still works after a manual
+  // re-pick from "All other songs" too -- re-evaluated live as
+  // matchedSongId changes, not decided once at parse time, since which
+  // song is actually selected can change after the fact.
+  const matchedSong = item.matchedSongId ? allSongs.find((s) => s.id === item.matchedSongId) : null;
+  // Only offered when the paste has an artist the library song doesn't --
+  // never when the library song already has one of its own, so this can
+  // only ever fill a blank, never look like it's overwriting something.
+  const canBackfillArtist = Boolean(matchedSong && !item.skip && item.artist.trim() && !matchedSong.artist?.trim());
 
   return (
     <div className="import-row" style={{ opacity: item.skip ? 0.5 : 1 }}>
@@ -398,6 +550,16 @@ const ImportRow = memo(function ImportRow({ index, item, allSongs, onUpdate }) {
         <p className="field__hint" style={{ color: 'var(--rust)', margin: '6px 0 0' }}>
           ⚠ Found more than one similar song in your library — double-check the right one is selected above.
         </p>
+      )}
+      {canBackfillArtist && (
+        <label className="field__hint" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0 0', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={item.backfillArtist !== false}
+            onChange={(e) => onUpdate(index, { backfillArtist: e.target.checked })}
+          />
+          Also save "{item.artist}" as {matchedSong.title}'s artist in your library — it's currently blank
+        </label>
       )}
     </div>
   );

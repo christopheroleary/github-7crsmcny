@@ -72,6 +72,7 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
   const [bandId, setBandId] = useState(gig?.band_id || '');
   const [showNewBand, setShowNewBand] = useState(false);
   const [newBandName, setNewBandName] = useState('');
+  const [newBandIsSolo, setNewBandIsSolo] = useState(false);
 
   // Venue
   const [venueId, setVenueId] = useState(gig?.venue_id || '');
@@ -227,7 +228,16 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
     // Quick-create band
     let finalBandId = bandId || null;
     if (showNewBand && newBandName.trim()) {
-      const { data: nb, error: be } = await supabase.from('bands').insert({ name: newBandName }).select('id').single();
+      const { data: nb, error: be } = await supabase.from('bands').insert({
+        name: newBandName,
+        // Solo acts never lose a cut of gig one to an owner-profit % they
+        // didn't know existed -- BandForm.jsx zeroes it the same way when
+        // "Solo act" is checked there; this is the same default applied at
+        // the point a solo DJ/singer is most likely to first create their
+        // band, mid-way through booking their first gig.
+        is_solo: newBandIsSolo,
+        fee_split_owner_profit_pct: newBandIsSolo ? 0 : undefined,
+      }).select('id').single();
       if (be) { setError(be.message); setSubmitting(false); return; }
       finalBandId = nb.id;
     }
@@ -401,6 +411,10 @@ export default function GigForm({ gig, onSaved, onCancel, scrollToRequirements =
         ) : (
           <div className="inline-subform">
             <input placeholder="Band name" value={newBandName} onChange={(e) => setNewBandName(e.target.value)} required />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginTop: 6, cursor: 'pointer' }}>
+              <input type="checkbox" checked={newBandIsSolo} onChange={(e) => setNewBandIsSolo(e.target.checked)} />
+              I'm a solo act (DJ / solo singer, no other musicians)
+            </label>
             <button type="button" className="link-button" onClick={() => setShowNewBand(false)}>Cancel, pick existing instead</button>
           </div>
         )}

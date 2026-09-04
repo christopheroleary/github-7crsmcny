@@ -619,13 +619,14 @@ export default function MusicianClaim({ gigId, myProfileId, refreshSignal }) {
                 <span>{claim.notes}</span>
               </div>
             )}
-            {/* Only ever set on a claim raised on someone's behalf while
-                they were a dep with no account (MusicianClaimsAdmin.jsx's
-                "+ Add invoice for a dep") -- these two carry through
-                automatically once merge_placeholder_musician links that
-                dep to this real account, so this is how they first see the
-                evidence behind a claim they never actually submitted
-                themselves. */}
+            {/* Only ever set by the band leader/admin, not the musician --
+                either raised on their behalf while they were a dep with no
+                account (carried through automatically once
+                merge_placeholder_musician links that dep to this real
+                account), or attached to this claim afterwards from
+                MusicianClaimsAdmin.jsx's leader-facing form, when the
+                musician emailed/WhatsApped their own invoice over rather
+                than itemising it here themselves. */}
             {claim.external_link && (
               <div className="claim-card__row">
                 <span className="claim-card__label">Invoice link</span>

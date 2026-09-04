@@ -17,6 +17,14 @@ const SOCIAL_PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter
 export default function BandForm({ band, onSaved, onCancel }) {
   const isEdit = Boolean(band);
   const [name, setName] = useState(band?.name || '');
+  const [isSolo, setIsSolo] = useState(band?.is_solo || false);
+  // Only relevant once isSolo is on -- lets a solo act reveal the owner/
+  // agent-cut field deliberately instead of it just sitting there hidden.
+  // Starts open if editing a solo band that already has a nonzero cut set,
+  // so an existing value is never hidden out of view.
+  const [showSoloOwnerCut, setShowSoloOwnerCut] = useState(
+    () => Boolean(band?.is_solo && band?.fee_split_owner_profit_pct)
+  );
   const [invoiceName, setInvoiceName] = useState(band?.invoice_name || '');
   const [notes, setNotes] = useState(band?.notes || '');
   const [contactEmail, setContactEmail] = useState(band?.contact_email || '');
@@ -147,6 +155,25 @@ export default function BandForm({ band, onSaved, onCancel }) {
     setSocialLinks((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Captain/singer/DJ/roadie bonuses only mean anything when there's more
+  // than one person to distinguish -- zeroed (not just hidden) so a value
+  // set before "solo act" was checked can't silently keep siphoning a cut
+  // from the one person's own fee. Owner/agent cut is zeroed too, but a
+  // solo act can deliberately bring it back via showSoloOwnerCut below --
+  // some genuinely do want to hold back an agent-style cut for themselves,
+  // most don't.
+  function handleSoloToggle(checked) {
+    setIsSolo(checked);
+    if (checked) {
+      setCaptainBonusPct('');
+      setSingerBonusPct('');
+      setDjPct('');
+      setRoadiePct('');
+      setOwnerProfitPct('');
+      setShowSoloOwnerCut(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -160,6 +187,7 @@ export default function BandForm({ band, onSaved, onCancel }) {
 
     const payload = {
       name,
+      is_solo: isSolo,
       invoice_name: invoiceName || null,
       notes: notes || null,
       contact_email: contactEmail || null,
@@ -209,6 +237,22 @@ export default function BandForm({ band, onSaved, onCancel }) {
         <span className="field__label">Band / agency name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
+
+      <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          style={{ width: 'auto' }}
+          checked={isSolo}
+          onChange={(e) => handleSoloToggle(e.target.checked)}
+        />
+        <span className="field__label" style={{ marginBottom: 0 }}>I'm a solo act (DJ / solo singer, no other musicians)</span>
+      </label>
+      {isSolo && (
+        <p className="field__hint" style={{ marginTop: -8, marginBottom: 16 }}>
+          You'll still use "Band" screens to manage your own bookings, fee and invoices — just for you. Fields below that only
+          make sense with other musicians are hidden.
+        </p>
+      )}
 
       <label className="field">
         <span className="field__label">Official invoice name (optional)</span>
@@ -523,39 +567,61 @@ export default function BandForm({ band, onSaved, onCancel }) {
       </div>
 
       <p className="field__label" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700 }}>Fee split defaults (optional)</p>
-      <p className="field__hint" style={{ marginBottom: 8 }}>
-        Each is a % of the total gig fee, taken off the top — leave any blank if the band doesn't use it. Musicians then split
-        whatever's left evenly across however many are actually booked, so a 3-piece and a 7-piece both get a sensible share of
-        the same fee instead of a fixed cut each that wouldn't scale.
-      </p>
 
-      <div className="field-row">
-        <label className="field">
-          <span className="field__label">Owner / band-leader profit (%)</span>
-          <NumberInput decimals={1} min={0} max={100} suffix="%" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 30" />
-          <span className="field__hint">A band-level pot — e.g. an agent's cut. Not paid to any individual musician, even if they're also playing.</span>
-        </label>
-        <label className="field">
-          <span className="field__label">Captain bonus (%)</span>
-          <NumberInput decimals={1} min={0} max={100} suffix="%" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
-          <span className="field__hint">Extra pay for whoever leads on the day — a real payout, separate from owner profit above.</span>
-        </label>
-      </div>
+      {isSolo ? (
+        <>
+          <p className="field__hint" style={{ marginBottom: 8 }}>
+            As a solo act, you get 100% of every gig fee automatically — no split needed.
+          </p>
+          {!showSoloOwnerCut ? (
+            <button type="button" className="link-button" onClick={() => setShowSoloOwnerCut(true)}>
+              + Hold back a cut for yourself (e.g. an agent fee), separate from your performance fee
+            </button>
+          ) : (
+            <label className="field" style={{ maxWidth: 220 }}>
+              <span className="field__label">Owner / agent cut (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 10" />
+              <span className="field__hint">Most solo acts leave this at 0% — it's taken off the top before the rest becomes your own fee.</span>
+            </label>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="field__hint" style={{ marginBottom: 8 }}>
+            Each is a % of the total gig fee, taken off the top — leave any blank if the band doesn't use it. Musicians then split
+            whatever's left evenly across however many are actually booked, so a 3-piece and a 7-piece both get a sensible share of
+            the same fee instead of a fixed cut each that wouldn't scale.
+          </p>
 
-      <div className="field-row">
-        <label className="field">
-          <span className="field__label">Singer bonus (%)</span>
-          <NumberInput decimals={1} min={0} max={100} suffix="%" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
-        </label>
-        <label className="field">
-          <span className="field__label">DJ (%)</span>
-          <NumberInput decimals={1} min={0} max={100} suffix="%" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />
-        </label>
-        <label className="field">
-          <span className="field__label">Roadie (%)</span>
-          <NumberInput decimals={1} min={0} max={100} suffix="%" value={roadiePct} onChange={(e) => setRoadiePct(e.target.value)} placeholder="e.g. 7.5" />
-        </label>
-      </div>
+          <div className="field-row">
+            <label className="field">
+              <span className="field__label">Owner / band-leader profit (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={ownerProfitPct} onChange={(e) => setOwnerProfitPct(e.target.value)} placeholder="e.g. 30" />
+              <span className="field__hint">A band-level pot — e.g. an agent's cut. Not paid to any individual musician, even if they're also playing.</span>
+            </label>
+            <label className="field">
+              <span className="field__label">Captain bonus (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={captainBonusPct} onChange={(e) => setCaptainBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+              <span className="field__hint">Extra pay for whoever leads on the day — a real payout, separate from owner profit above.</span>
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label className="field">
+              <span className="field__label">Singer bonus (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={singerBonusPct} onChange={(e) => setSingerBonusPct(e.target.value)} placeholder="e.g. 2.5" />
+            </label>
+            <label className="field">
+              <span className="field__label">DJ (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={djPct} onChange={(e) => setDjPct(e.target.value)} placeholder="e.g. 7.5" />
+            </label>
+            <label className="field">
+              <span className="field__label">Roadie (%)</span>
+              <NumberInput decimals={1} min={0} max={100} suffix="%" value={roadiePct} onChange={(e) => setRoadiePct(e.target.value)} placeholder="e.g. 7.5" />
+            </label>
+          </div>
+        </>
+      )}
 
       {error && <p className="form-error">{error}</p>}
 

@@ -16,7 +16,7 @@ import TaxRecords from './TaxRecords.jsx';
 // exactly as it was on the old page (that consolidation is what this
 // split has to preserve, not undo -- see the plan this came from).
 export default function Money() {
-  const { profile } = useCurrentProfile();
+  const { profile, isAdmin } = useCurrentProfile();
   const userId = profile?.id || null;
   const [paymentDetails, setPaymentDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,12 @@ export default function Money() {
       </div>
 
       <ProSubscription />
-      {userId && <ConnectPayoutSetup paymentDetails={paymentDetails} />}
+      {/* Temporarily admin-only -- automatic Stripe payouts is still in
+          test and not fully finished, and a musician setting it up right
+          above the plain bank-details section below confused them into
+          thinking it was part of just adding their bank details for
+          invoicing. Re-open to everyone once it's ready. */}
+      {userId && isAdmin && <ConnectPayoutSetup paymentDetails={paymentDetails} />}
       {userId && <ProfilePaymentDetails profileId={userId} paymentDetails={paymentDetails} />}
       {userId && <OutstandingClaims profileId={userId} />}
 

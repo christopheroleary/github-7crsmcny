@@ -12,6 +12,7 @@ import Settings from './components/Settings.jsx';
 import GetStarted from './components/GetStarted.jsx';
 import DepProfile from './components/DepProfile.jsx';
 import Money from './components/Money.jsx';
+import Tools from './components/Tools.jsx';
 import AppFooter from './components/AppFooter.jsx';
 import PushHealthBanner from './components/PushHealthBanner.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
@@ -39,7 +40,7 @@ import { usePwaSetupGate } from './hooks/usePwaSetupGate.js';
 import {
   DashboardIcon, GigsIcon, EnquiriesIcon, VenuesIcon, ClientsIcon, SuppliersIcon,
   BandsIcon, MusiciansIcon, RepertoireIcon, ActivityIcon, FeedbackIcon,
-  SettingsIcon, GetStartedIcon, DepProfileIcon, MoneyIcon, MegaphoneIcon,
+  SettingsIcon, GetStartedIcon, DepProfileIcon, MoneyIcon, ToolsIcon, MegaphoneIcon,
 } from './utils/tabIcons.jsx';
 
 function UserIcon() {
@@ -131,20 +132,46 @@ export default function App() {
   // Shared here rather than owned by whichever component happens to render
   // the button, since the header megaphone and the footer's "What's new"
   // link are siblings with no other common parent, and both need to open
-  // the same panel and agree on what's already been seen. The badge only
-  // needs a per-device "have they opened it since the newest entry shipped"
-  // check -- localStorage, not an account-synced value -- this is far
-  // lower-stakes than a real notification.
+  // the same panel and agree on what's already been seen.
+  //
+  // Account-synced (profiles.whats_new_seen_id), not just localStorage --
+  // localStorage-only was the original design here, on the reasoning that
+  // this is low-stakes enough not to need it. In practice that produced
+  // exactly the false positives a badge can't afford: dismiss it on your
+  // phone and it's still "unseen" on desktop, and clearing site data,
+  // reinstalling the PWA, or (iOS Safari) just not opening the app for a
+  // week can silently evict localStorage, resetting the marker with no
+  // real new entry behind it. localStorage is kept too, purely so the
+  // badge doesn't flash on for a moment before the profile finishes
+  // loading.
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const latestWhatsNewId = WHATS_NEW[0]?.id ?? null;
   const [whatsNewSeenId, setWhatsNewSeenId] = useState(() => {
     try { return localStorage.getItem('whatsNewSeenId'); } catch { return null; }
   });
+  // Once the account's own marker loads, it's the source of truth. If the
+  // account has none yet but this device's localStorage does (anyone who
+  // dismissed it before this synced version shipped), treat that as
+  // already seen and push it up once instead of surfacing a one-time
+  // false "new" badge to every existing user on rollout.
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.whats_new_seen_id) {
+      setWhatsNewSeenId(profile.whats_new_seen_id);
+      try { localStorage.setItem('whatsNewSeenId', profile.whats_new_seen_id); } catch {}
+    } else if (whatsNewSeenId) {
+      supabase.from('profiles').update({ whats_new_seen_id: whatsNewSeenId }).eq('id', profile.id).then(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, profile?.whats_new_seen_id]);
   const hasUnseenWhatsNew = Boolean(latestWhatsNewId) && whatsNewSeenId !== latestWhatsNewId;
   function openWhatsNew() {
     setShowWhatsNew(true);
-    try { localStorage.setItem('whatsNewSeenId', latestWhatsNewId); } catch { /* private browsing etc -- badge just reappears next time, harmless */ }
+    try { localStorage.setItem('whatsNewSeenId', latestWhatsNewId); } catch { /* private browsing etc -- falls back to the account marker below */ }
     setWhatsNewSeenId(latestWhatsNewId);
+    if (profile?.id) {
+      supabase.from('profiles').update({ whats_new_seen_id: latestWhatsNewId }).eq('id', profile.id).then(() => {});
+    }
   }
 
   // Strip the query param once read -- otherwise it'd force back to Profile
@@ -331,6 +358,7 @@ export default function App() {
     ['getstarted', 'Get started', GetStartedIcon],
     ['depprofile', 'Dep profile', DepProfileIcon],
     ['money', 'Money', MoneyIcon],
+    ['tools', 'Tools', ToolsIcon],
   ];
 
   const adminTabs = [
@@ -457,6 +485,7 @@ export default function App() {
         {view === 'getstarted' && <GetStarted />}
         {view === 'depprofile' && <DepProfile />}
         {view === 'money' && <Money />}
+        {view === 'tools' && <Tools />}
       </main>
       <AppFooter onOpenWhatsNew={openWhatsNew} />
       {pendingJoinToken && (

@@ -90,10 +90,18 @@ function ClaimItemsEditor({ items, setItems }) {
   );
 }
 
-// New claim, or editing an existing placeholder one -- same form either
-// way, just pre-seeded differently.
-function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
-  const [placeholderId, setPlaceholderId] = useState(editingClaim?.placeholder_id || deps[0]?.placeholder_id || '');
+// New claim, or editing an existing one -- same form either way, just
+// pre-seeded differently. Handles both a dep (no account, `placeholder_id`)
+// and a real member (`profile_id`) -- this is always the LEADER/ADMIN
+// raising or amending the claim, e.g. because the musician emailed or
+// WhatsApped their own invoice over rather than itemising it in the app
+// themselves; a musician never attaches anything to their own claim here
+// (see MusicianClaim.jsx, which only itemises).
+function LeaderClaimForm({ gigId, bandId, deps, members, editingClaim, onDone, onCancel }) {
+  const initialKey = editingClaim
+    ? (editingClaim.placeholder_id ? 'dep:' + editingClaim.placeholder_id : 'member:' + editingClaim.profile_id)
+    : (deps[0] ? 'dep:' + deps[0].placeholder_id : members[0] ? 'member:' + members[0].profile_id : '');
+  const [claimantKey, setClaimantKey] = useState(initialKey);
   const [items, setItems] = useState(() =>
     editingClaim
       ? sortedItems(editingClaim).map((i) => ({ category: i.category, description: i.description, amountPounds: poundsFromPence(i.amount_pence) }))
@@ -106,24 +114,36 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const [claimantType, claimantId] = claimantKey ? claimantKey.split(':') : [null, null];
+  const placeholderId = claimantType === 'dep' ? claimantId : null;
+  const profileId = claimantType === 'member' ? claimantId : null;
+
   // Pre-fill a Fee (+ Travel, if already calculated) line from the roster's
-  // own allocation for that dep -- same convenience MusicianClaim.jsx gives
-  // a real musician starting their own claim.
+  // own allocation for that dep/member -- same convenience MusicianClaim.jsx
+  // gives a real musician starting their own claim.
   useEffect(() => {
-    if (editingClaim || !placeholderId) return;
-    const dep = deps.find((d) => d.placeholder_id === placeholderId);
-    if (!dep) return;
+    if (editingClaim || !claimantKey) return;
+    const roster = claimantType === 'dep'
+      ? deps.find((d) => d.placeholder_id === claimantId)
+      : members.find((m) => m.profile_id === claimantId);
+    if (!roster) return;
     const seeded = [{
       category: 'Fee',
-      description: 'Performance fee' + (dep.instruments?.name ? ' — ' + dep.instruments.name : ''),
-      amountPounds: dep.fee_pence ? poundsFromPence(dep.fee_pence) : '',
+      description: 'Performance fee' + (roster.instruments?.name ? ' — ' + roster.instruments.name : ''),
+      amountPounds: roster.fee_pence ? poundsFromPence(roster.fee_pence) : '',
     }];
-    if (dep.travel_cost_pence) {
-      seeded.push({ category: 'Travel / mileage', description: 'Travel', amountPounds: poundsFromPence(dep.travel_cost_pence) });
+    if (roster.travel_cost_pence) {
+      seeded.push({ category: 'Travel / mileage', description: 'Travel', amountPounds: poundsFromPence(roster.travel_cost_pence) });
     }
     setItems(seeded);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeholderId]);
+  }, [claimantKey]);
+
+  // Deferred until after a successful save (not immediately on a new
+  // upload succeeding) -- deleting the old file eagerly meant Cancelling
+  // right after replacing a file left the claim pointing at a path that no
+  // longer existed.
+  const [pendingDeletePath, setPendingDeletePath] = useState(null);
 
   async function handleFile(e) {
     const file = e.target.files?.[0];
@@ -132,10 +152,9 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
     setUploading(true);
     setError(null);
     try {
-      const oldPath = attachmentPath;
       const path = await uploadDepInvoiceAttachment(file, bandId);
+      setPendingDeletePath((prev) => prev || attachmentPath);
       setAttachmentPath(path);
-      if (oldPath) await deleteDepInvoiceAttachment(oldPath);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -147,8 +166,12 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
     e.preventDefault();
     setError(null);
 
-    if (!placeholderId) { setError('Choose which dep this invoice is for.'); return; }
-    if (items.length === 0) { setError('Add at least one line.'); return; }
+    if (!claimantKey) { setError('Choose who this invoice is for.'); return; }
+    const hasExternalInvoice = Boolean(externalLink.trim() || attachmentPath);
+    if (items.length === 0 && !hasExternalInvoice) {
+      setError('Add at least one line, or attach their invoice below.');
+      return;
+    }
 
     const parsedItems = [];
     for (const it of items) {
@@ -160,16 +183,17 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
 
     setSaving(true);
     const { error: rpcError } = editingClaim
-      ? await supabase.rpc('update_placeholder_claim', {
+      ? await supabase.rpc('update_leader_claim', {
           p_claim_id: editingClaim.id,
           p_notes: notes || null,
           p_items: parsedItems,
           p_external_link: externalLink.trim() || null,
           p_attachment_path: attachmentPath,
         })
-      : await supabase.rpc('create_placeholder_claim', {
+      : await supabase.rpc('create_leader_claim', {
           p_gig_id: gigId,
           p_placeholder_id: placeholderId,
+          p_profile_id: profileId,
           p_notes: notes || null,
           p_items: parsedItems,
           p_external_link: externalLink.trim() || null,
@@ -181,16 +205,26 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
       setError(message);
       return;
     }
+    if (pendingDeletePath) await deleteDepInvoiceAttachment(pendingDeletePath);
     onDone();
   }
 
   return (
     <form className="inline-subform" onSubmit={handleSubmit} style={{ marginBottom: 12 }}>
       <label className="field">
-        <span className="field__label">Dep</span>
-        <select value={placeholderId} onChange={(e) => setPlaceholderId(e.target.value)} disabled={Boolean(editingClaim)} required>
-          <option value="">Choose a dep…</option>
-          {deps.map((d) => <option key={d.placeholder_id} value={d.placeholder_id}>{d.placeholder_musicians?.name}</option>)}
+        <span className="field__label">Who is this invoice for?</span>
+        <select value={claimantKey} onChange={(e) => setClaimantKey(e.target.value)} disabled={Boolean(editingClaim)} required>
+          <option value="">Choose…</option>
+          {members.length > 0 && (
+            <optgroup label="Band members">
+              {members.map((m) => <option key={'member:' + m.profile_id} value={'member:' + m.profile_id}>{m.profiles?.full_name}</option>)}
+            </optgroup>
+          )}
+          {deps.length > 0 && (
+            <optgroup label="Deps">
+              {deps.map((d) => <option key={'dep:' + d.placeholder_id} value={'dep:' + d.placeholder_id}>{d.placeholder_musicians?.name}</option>)}
+            </optgroup>
+          )}
         </select>
       </label>
 
@@ -205,7 +239,7 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
       <label className="field">
         <span className="field__label">
           Invoice link (optional)
-          <InfoTooltip text="A link to the dep's own invoice, e.g. a shareable Xero link — an alternative or addition to uploading a copy below." />
+          <InfoTooltip text="A link to their own invoice, e.g. a shareable Xero link — an alternative or addition to uploading a copy below." />
         </span>
         <input
           type="url"
@@ -230,7 +264,7 @@ function DepClaimForm({ gigId, bandId, deps, editingClaim, onDone, onCancel }) {
 
       {error && <p className="form-error">{error}</p>}
       <div className="form-actions">
-        <button type="button" className="btn btn--ghost btn--small" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn--ghost btn--small" onClick={onCancel} disabled={uploading}>Cancel</button>
         <button type="submit" className="btn btn--primary btn--small" disabled={saving || uploading}>
           {saving ? 'Saving…' : editingClaim ? 'Update invoice' : 'Save invoice'}
         </button>
@@ -272,6 +306,14 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
   });
 
   const deps = lineupProp.filter((l) => l.placeholder_id);
+  const members = lineupProp.filter((l) => l.profile_id);
+  // A real member can have at most one claim per gig (musician_claims'
+  // own gig_id/profile_id unique constraint) -- offering one who already
+  // has a claim in the "+ Add" picker would just fail server-side, so
+  // they're reached via Edit on their existing claim instead. Deps have
+  // no equivalent constraint, so aren't filtered the same way.
+  const claimedProfileIds = new Set(claims.filter((c) => c.profile_id).map((c) => c.profile_id));
+  const availableMembers = members.filter((m) => !claimedProfileIds.has(m.profile_id));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -403,14 +445,14 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
         title="Musician claims"
         icon={<ClaimsIcon />}
         defaultOpen={defaultOpen}
-        titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+        titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one yourself on behalf of a dep or member who invoices you directly (by email or WhatsApp, say)." />}
       >
         <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>Loading claims…</p>
       </CollapsibleSection>
     );
   }
 
-  const canAddDepInvoice = (isAdmin || isPro) && deps.length > 0 && !adding && !editingClaimId;
+  const canAddLeaderClaim = (isAdmin || isPro) && (deps.length > 0 || availableMembers.length > 0) && !adding && !editingClaimId;
   const editingClaim = editingClaimId ? claims.find((c) => c.id === editingClaimId) : null;
   const cacheBanner = usingCache && (
     <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
@@ -424,7 +466,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       title="Musician claims"
       icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
-      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one yourself on behalf of a dep or member who invoices you directly (by email or WhatsApp, say)." />}
     >
       <p className="form-error">{loadError}</p>
     </CollapsibleSection>
@@ -436,17 +478,17 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       title="Musician claims"
       icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
-      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one yourself on behalf of a dep or member who invoices you directly (by email or WhatsApp, say)." />}
     >
       {cacheBanner}
       <p className="state-message" style={{ textAlign: 'left', padding: 0 }}>No payment claims submitted yet.</p>
-      {canAddDepInvoice && (
+      {canAddLeaderClaim && (
         <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>
-          + Add invoice for a dep
+          + Raise an invoice
         </button>
       )}
       {adding && (
-        <DepClaimForm gigId={gigId} bandId={bandId} deps={deps} editingClaim={null} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />
+        <LeaderClaimForm gigId={gigId} bandId={bandId} deps={deps} members={availableMembers} editingClaim={null} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />
       )}
     </CollapsibleSection>
   );
@@ -459,17 +501,18 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
       title="Musician claims"
       icon={<ClaimsIcon />}
       defaultOpen={defaultOpen}
-      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one on behalf of a dep who invoices you directly." />}
+      titleExtra={<InfoTooltip text="Payment claims musicians submit after the gig — approve, reject, or pay them out (via Stripe if they're connected). You can also raise one yourself on behalf of a dep or member who invoices you directly (by email or WhatsApp, say)." />}
     >
       {cacheBanner}
       <ul className="simple-list">
         {claims.map((claim) => (
           <li className="simple-list__item" key={claim.id}>
             {editingClaimId === claim.id ? (
-              <DepClaimForm
+              <LeaderClaimForm
                 gigId={gigId}
                 bandId={bandId}
                 deps={deps}
+                members={members}
                 editingClaim={claim}
                 onDone={() => { setEditingClaimId(null); load(); }}
                 onCancel={() => setEditingClaimId(null)}
@@ -522,7 +565,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
                   <span className={'status-tag status-tag--' + STATUS_COLORS[claim.status]}>
                     {claim.status}
                   </span>
-                  {claim.placeholder_id && (claim.status === 'pending' || claim.status === 'rejected') && (
+                  {(claim.status === 'pending' || claim.status === 'rejected') && (
                     <button className="link-button" onClick={() => setEditingClaimId(claim.id)}>Edit</button>
                   )}
                   {claim.status === 'pending' && (
@@ -545,9 +588,7 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
                       <button className="link-button" onClick={() => updateStatus(claim, 'paid')}>Mark paid manually</button>
                     </>
                   )}
-                  {claim.placeholder_id && (
-                    <button className="link-button link-button--danger" onClick={() => handleDeleteClaim(claim)}>Delete</button>
-                  )}
+                  <button className="link-button link-button--danger" onClick={() => handleDeleteClaim(claim)}>Delete</button>
                 </div>
               </div>
             )}
@@ -558,13 +599,13 @@ export default function MusicianClaimsAdmin({ gigId, bandId, lineup: lineupProp 
         Total claimed: <strong style={{ color: 'var(--ink)' }}>£{poundsFromPence(total)}</strong>
       </p>
 
-      {canAddDepInvoice && (
+      {canAddLeaderClaim && (
         <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>
-          + Add invoice for a dep
+          + Raise an invoice
         </button>
       )}
       {adding && (
-        <DepClaimForm gigId={gigId} bandId={bandId} deps={deps} editingClaim={null} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />
+        <LeaderClaimForm gigId={gigId} bandId={bandId} deps={deps} members={availableMembers} editingClaim={null} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />
       )}
     </CollapsibleSection>
   );

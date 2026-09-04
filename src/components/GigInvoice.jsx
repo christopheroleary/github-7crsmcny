@@ -21,16 +21,25 @@ function vatPenceFor(subtotalPence, ratePercent) {
   return Math.round(subtotalPence * (ratePercent / 100));
 }
 
-// gig/client/band/lineup all come from GigDetail, which already has them
-// loaded (gig/lineup via useOfflineGigData, client/band via its own single
-// shared fetch) -- fetching any of them again here would just repeat a
-// query GigDetail already ran, for the same gig, moments earlier.
-export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigFeeAmount, mileageRatePence }) {
+// gig/client/band/venue/lineup all come from GigDetail, which already has
+// them loaded (gig/lineup via useOfflineGigData, client/band/venue via its
+// own single shared fetch) -- fetching any of them again here would just
+// repeat a query GigDetail already ran, for the same gig, moments earlier.
+export default function GigInvoice({ gigId, gig, client, band, venue, lineup = [], gigFeeAmount, mileageRatePence }) {
   const { isAdmin: isAdminRole, isBandLeader, isPro } = useCurrentProfile();
   const isAdmin = isAdminRole || isBandLeader;
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
   const [payments, setPayments] = useState([]);
+  // Resolved billing details for invoice.bill_to_band_id/bill_to_venue_id,
+  // when set -- fetched independently BY ID rather than reused from the
+  // `venue` prop (the gig's current venue), because those can drift apart:
+  // the gig's venue can be changed after an invoice was billed to it, and
+  // the invoice must keep showing/emailing whoever it was actually billed
+  // to, not wherever the gig happens to point today. Same reasoning as
+  // billToBandDetails, which already worked this way.
+  const [billToBandDetails, setBillToBandDetails] = useState(null);
+  const [billToVenueDetails, setBillToVenueDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -62,6 +71,28 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
       ]);
       setItems(itemData || []);
       setPayments(paymentData || []);
+
+      if (invData.bill_to_band_id) {
+        const { data: bandRow } = await supabase
+          .from('bands')
+          .select('id, name, invoice_name, contact_email, contact_phone, address')
+          .eq('id', invData.bill_to_band_id)
+          .maybeSingle();
+        setBillToBandDetails(bandRow || null);
+      } else {
+        setBillToBandDetails(null);
+      }
+
+      if (invData.bill_to_venue_id) {
+        const { data: venueRow } = await supabase
+          .from('venues')
+          .select('id, name, address, contact_name, phone, email')
+          .eq('id', invData.bill_to_venue_id)
+          .maybeSingle();
+        setBillToVenueDetails(venueRow || null);
+      } else {
+        setBillToVenueDetails(null);
+      }
     }
 
     setLoading(false);
@@ -226,6 +257,11 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
   const grandTotal = total + vatPence;
   const totalPaid = payments.reduce((sum, p) => sum + p.amount_pence, 0);
   const balance = grandTotal - totalPaid;
+  const billToLabel = invoice.bill_to_band_id
+    ? (billToBandDetails?.invoice_name || billToBandDetails?.name || '(Unable to load bill-to band details)')
+    : invoice.bill_to_venue_id
+    ? (billToVenueDetails?.name || '(Unable to load bill-to venue details)')
+    : (client?.name || '—');
 
   return (
     <div className="roster-section">
@@ -238,10 +274,20 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
       </div>
 
       {editing
-        ? <InvoiceEditor invoice={invoice} items={items} onSaved={() => { setEditing(false); load(); }} />
+        ? (
+          <InvoiceEditor
+            invoice={invoice}
+            items={items}
+            client={client}
+            venue={venue}
+            billToBandDetails={billToBandDetails}
+            onSaved={() => { setEditing(false); load(); }}
+          />
+        )
         : (
           <>
             <dl className="detail-list">
+              <dt>Bill to</dt><dd>{billToLabel}</dd>
               <dt>Issued</dt><dd>{invoice.issued_date || '—'}</dd>
               <dt>Due</dt><dd>{invoice.due_date || '—'}</dd>
               <dt>Paid</dt><dd>{invoice.paid_date || '—'}</dd>
@@ -402,6 +448,8 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
           gig={gig}
           band={band}
           client={client}
+          billToVenue={billToVenueDetails}
+          billToBand={billToBandDetails}
           onClose={() => setShowPrint(false)}
         />
       )}
@@ -409,7 +457,7 @@ export default function GigInvoice({ gigId, gig, client, band, lineup = [], gigF
   );
 }
 
-function InvoiceEditor({ invoice, items: initialItems, onSaved }) {
+function InvoiceEditor({ invoice, items: initialItems, client, venue, billToBandDetails, onSaved }) {
   const [status, setStatus] = useState(invoice.status);
   const [issuedDate, setIssuedDate] = useState(invoice.issued_date || '');
   const [dueDate, setDueDate] = useState(invoice.due_date || '');
@@ -419,14 +467,86 @@ function InvoiceEditor({ invoice, items: initialItems, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  // Who this invoice is actually addressed to. Defaults to Client --
+  // today's only option, and what every existing invoice already is.
+  // Venue/Another band are explicit overrides stored as bill_to_venue_id/
+  // bill_to_band_id, resolved by InvoicePrintModal.jsx/
+  // PublicDocumentView.jsx in preference order band > venue > client.
+  // "Client" is never a separate pick from the gig's own client -- it
+  // always saves all three bill_to_* columns null (see handleSave), which
+  // is what keeps it a live fallback to gigs.client_id rather than a
+  // pinned snapshot.
+  const [billToType, setBillToType] = useState(
+    invoice.bill_to_band_id ? 'band' : invoice.bill_to_venue_id ? 'venue' : 'client'
+  );
+  const [billToBandId, setBillToBandId] = useState(invoice.bill_to_band_id || '');
+  const [bandOptions, setBandOptions] = useState([]);
+  const [loadingBands, setLoadingBands] = useState(false);
+  const [bandOptionsFetched, setBandOptionsFetched] = useState(false);
+
+  // Fetched once, whenever "Another band" is the active choice -- on a
+  // deliberate click, but also the moment this form mounts already showing
+  // "Another band" (editing an invoice that already has one saved). Seeding
+  // bandOptions from billToBandDetails directly (the earlier version of
+  // this) was the actual bug: that made the "already 0 items? fetch" guard
+  // below never see 0, so re-opening an invoice that already had a bill-to
+  // band showed ONLY that one band and never fetched the rest -- confirmed
+  // live. A plain useEffect keyed on billToType covers both the click and
+  // the already-set-on-mount case with the same one code path.
+  //
+  // get_billable_bands() (not a raw bands select) is deliberately narrower
+  // than "every band you lead" -- it's exactly the set can_view_band()
+  // allows (created it / lead it / a member of it / played one of its
+  // gigs), which is the real answer to "how would a real solo act even
+  // have this band to pick": they created it (billing an agency they set
+  // up as a band-of-one), lead it, or have actually played for it. It also
+  // deliberately does NOT bypass for admin -- selecting a bill-to band
+  // discloses that band's contact details on a public share link, and an
+  // admin managing many unrelated bands company-wide shouldn't be able to
+  // do that to a band it has no real connection to, any more than a
+  // non-admin leader could.
+  useEffect(() => {
+    if (billToType !== 'band' || bandOptionsFetched) return;
+    setLoadingBands(true);
+    supabase.rpc('get_billable_bands').then(({ data }) => {
+      let opts = data || [];
+      // Defensive: if the currently-saved bill-to band somehow isn't in
+      // that set (e.g. the relationship that made it visible when it was
+      // first picked no longer holds), still show it as the selected
+      // option rather than silently dropping what's actually saved.
+      if (billToBandDetails && !opts.some((b) => b.id === billToBandDetails.id)) {
+        opts = [...opts, { id: billToBandDetails.id, name: billToBandDetails.name }];
+      }
+      setBandOptions(opts);
+      setBandOptionsFetched(true);
+      setLoadingBands(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billToType, bandOptionsFetched]);
+
+  function handleBillToTypeChange(type) {
+    setBillToType(type);
+  }
+
   async function handleSave(e) {
     e.preventDefault();
-    setSaving(true);
     setError(null);
+
+    if (billToType === 'band' && !billToBandId) {
+      setError('Choose which band to bill, or switch "Bill to" back to Client/Venue.');
+      return;
+    }
+
+    setSaving(true);
 
     const { error: invError } = await supabase
       .from('invoices')
-      .update({ status, issued_date: issuedDate || null, due_date: dueDate || null, paid_date: paidDate || null, notes: notes || null })
+      .update({
+        status, issued_date: issuedDate || null, due_date: dueDate || null, paid_date: paidDate || null, notes: notes || null,
+        bill_to_client_id: null,
+        bill_to_venue_id: billToType === 'venue' ? (venue?.id || null) : null,
+        bill_to_band_id: billToType === 'band' ? billToBandId : null,
+      })
       .eq('id', invoice.id);
 
     if (invError) { setError(invError.message); setSaving(false); return; }
@@ -476,6 +596,46 @@ function InvoiceEditor({ invoice, items: initialItems, onSaved }) {
           <span className="field__label">Paid</span>
           <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
         </label>
+      </div>
+
+      <div className="field" style={{ marginTop: 8 }}>
+        <span className="field__label">Bill to</span>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn--small ${billToType === 'client' ? 'btn--primary' : 'btn--ghost'}`}
+            style={{ width: 'auto' }}
+            onClick={() => handleBillToTypeChange('client')}
+          >
+            Client{client?.name ? ' (' + client.name + ')' : ''}
+          </button>
+          <button
+            type="button"
+            className={`btn btn--small ${billToType === 'venue' ? 'btn--primary' : 'btn--ghost'}`}
+            style={{ width: 'auto', opacity: venue ? 1 : 0.5, cursor: venue ? 'pointer' : 'not-allowed' }}
+            disabled={!venue}
+            onClick={() => handleBillToTypeChange('venue')}
+          >
+            Venue{venue?.name ? ' (' + venue.name + ')' : ''}
+          </button>
+          <button
+            type="button"
+            className={`btn btn--small ${billToType === 'band' ? 'btn--primary' : 'btn--ghost'}`}
+            style={{ width: 'auto' }}
+            onClick={() => handleBillToTypeChange('band')}
+          >
+            Another band
+          </button>
+        </div>
+        {billToType === 'band' && (
+          <select value={billToBandId} onChange={(e) => setBillToBandId(e.target.value)} style={{ marginTop: 8 }}>
+            <option value="">{loadingBands ? 'Loading bands…' : 'Choose a band…'}</option>
+            {bandOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+        <span className="field__hint" style={{ display: 'block', marginTop: 4 }}>
+          Who this invoice is actually addressed to — e.g. bill the venue directly for a pub gig, or another band if you were subcontracted.
+        </span>
       </div>
 
       <div className="field" style={{ marginTop: 8 }}>

@@ -13,6 +13,12 @@
 // a date-based slug gets that for free.
 export const WHATS_NEW = [
   {
+    id: '2026-09-04-guitar-tuner',
+    date: '2026-09-04',
+    title: 'A guitar tuner, plus smarter invoicing and setlist import',
+    body: "Tools → Guitar Tuner: tune by microphone, or tap the speaker for a held reference note to tune by ear instead — both work with no signal. Solo acts (a DJ or solo singer working alone) get a simpler band setup, and invoices can now bill the venue or another band instead of always the client. A band leader can raise a claim — invoice attached — on behalf of a full member as well as a dep. Setlist import now matches single-word titles correctly, prioritises the right artist, and pastes in noticeably faster. Tax records can also export in a Xero-ready format.",
+  },
+  {
     id: '2026-09-04-offline-everything',
     date: '2026-09-04',
     title: 'Way more of the app works with no signal',
