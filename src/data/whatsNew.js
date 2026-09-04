@@ -13,6 +13,24 @@
 // a date-based slug gets that for free.
 export const WHATS_NEW = [
   {
+    id: '2026-09-04-offline-everything',
+    date: '2026-09-04',
+    title: 'Way more of the app works with no signal',
+    body: "Chat, tasks, payment claims, suppliers, song requests and the stage plot now all stay readable at a gig with no signal, the same \"showing what was last saved\" behaviour gig details already had. The dashboard, gig list, calendar and grid views are steadier on a shaky signal too.",
+  },
+  {
+    id: '2026-09-04-offline-backing-tracks',
+    date: '2026-09-04',
+    title: 'Backing tracks, saved for when there’s no signal',
+    body: "Save a backing track to your phone ahead of a gig and it'll still play — tempo, pitch and click track included — even with no signal on the night.",
+  },
+  {
+    id: '2026-09-04-chat-reactions',
+    date: '2026-09-04',
+    title: 'React to a message, and a compose box that actually wraps',
+    body: "Gig chat now supports a thumbs-up on any message, and the message box grows as you type instead of scrolling sideways — Shift+Enter for a line break, Enter to send.",
+  },
+  {
     id: '2026-09-03-duplicate-cleanup',
     date: '2026-09-03',
     title: 'Clean up duplicate songs and venues',
