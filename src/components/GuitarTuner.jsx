@@ -97,7 +97,18 @@ function autoCorrelate(buf, sampleRate) {
   let rms = 0;
   for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / SIZE);
-  if (rms < 0.01) return -1; // too quiet -- treat as no note playing
+  // A cheap early-exit for true silence, not the real noise guard --
+  // that's the NSDF clarity threshold below, which works at any signal
+  // level since it's normalised, not tied to absolute amplitude. This
+  // only needs to sit safely under "however quiet a genuine, usable
+  // signal can get". Confirmed live: 0.01 was too high a floor on an
+  // iPhone -- with autoGainControl deliberately off (needed for an
+  // undistorted waveform to read the period from), iOS's mic gain
+  // staging produced noticeably quieter raw samples than a laptop or
+  // Android phone did for the same input volume, so every single frame
+  // was silently discarded before pitch detection ever ran, showing "--"
+  // with no error and no obvious cause.
+  if (rms < 0.0015) return -1; // too quiet -- treat as no note playing
 
   const minLag = Math.floor(sampleRate / MAX_FREQ);
   const maxLag = Math.min(SIZE - 1, Math.ceil(sampleRate / MIN_FREQ));
