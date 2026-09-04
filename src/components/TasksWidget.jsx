@@ -10,6 +10,14 @@ const KIND_ICON = {
   uninvited_dep: '✉',
 };
 
+// Every derived task rendered with no limit made this the single longest
+// thing on the Dashboard by far -- 32 cards / 3000+px on the live data,
+// almost all "still needs invoicing", before you ever reached the trend
+// chart's context. Capped to the N most urgent (already sorted soonest/
+// most-overdue-first by loadMyTasks), with the rest a click away instead
+// of a scroll away.
+const COLLAPSED_COUNT = 6;
+
 // Dashboard's "My tasks" -- every task the viewer can see, company-wide for
 // a real admin, own-bands-only for a leader (loadMyTasks relies on RLS for
 // this, not a band id list, so it never needs to know which case it's in).
@@ -25,6 +33,7 @@ export default function TasksWidget({ isAdmin, ledBandIds, onNavigate }) {
   const [dueDate, setDueDate] = useState('');
   const [addBandId, setAddBandId] = useState('');
   const [adding, setAdding] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,32 +93,39 @@ export default function TasksWidget({ isAdmin, ledBandIds, onNavigate }) {
       ) : items.length === 0 ? (
         <p className="state-message">Nothing needs attention right now.</p>
       ) : (
-        <ul className="simple-list">
-          {items.map((item) => (
-            <li className="simple-list__item" key={item.key}>
-              <div className="simple-list__row">
-                <div
-                  onClick={() => handleRowClick(item)}
-                  style={{ cursor: item.kind === 'needs_invoicing' ? 'pointer' : 'default' }}
-                >
-                  <span className="simple-list__title">
-                    {item.kind !== 'manual' && (KIND_ICON[item.kind] || '') + ' '}
-                    {item.title}
-                  </span>
-                  <span className="simple-list__subtitle">
-                    {item.band_name}
-                    {item.due_date ? ' · due ' + item.due_date : ''}
-                  </span>
-                </div>
-                {item.kind === 'manual' && (
-                  <div className="simple-list__actions">
-                    <button type="button" className="link-button" onClick={() => handleComplete(item)}>Done</button>
+        <>
+          <ul className="simple-list">
+            {(showAll ? items : items.slice(0, COLLAPSED_COUNT)).map((item) => (
+              <li className="simple-list__item" key={item.key}>
+                <div className="simple-list__row">
+                  <div
+                    onClick={() => handleRowClick(item)}
+                    style={{ cursor: item.kind === 'needs_invoicing' ? 'pointer' : 'default' }}
+                  >
+                    <span className="simple-list__title">
+                      {item.kind !== 'manual' && (KIND_ICON[item.kind] || '') + ' '}
+                      {item.title}
+                    </span>
+                    <span className="simple-list__subtitle">
+                      {item.band_name}
+                      {item.due_date ? ' · due ' + item.due_date : ''}
+                    </span>
                   </div>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                  {item.kind === 'manual' && (
+                    <div className="simple-list__actions">
+                      <button type="button" className="link-button" onClick={() => handleComplete(item)}>Done</button>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {items.length > COLLAPSED_COUNT && (
+            <button type="button" className="link-button" style={{ marginTop: 8 }} onClick={() => setShowAll((v) => !v)}>
+              {showAll ? 'Show fewer' : `Show ${items.length - COLLAPSED_COUNT} more`}
+            </button>
+          )}
+        </>
       )}
 
       {bandOptions.length > 0 && (

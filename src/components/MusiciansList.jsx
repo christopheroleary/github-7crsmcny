@@ -255,7 +255,16 @@ export default function MusiciansList() {
   return (
     <div>
       <div className="section-header">
-        <h2 className="section-header__title">Musicians ({bookedMusicians.length})</h2>
+        {/* Omitted, not "(0)", while the fetch that actually populates
+            bookedMusicians is still in flight -- musicians/gigCountsByProfile
+            both come from the same load() call below, so this mirrors the
+            exact condition the body message already gates on. Showing a
+            confident "(0)" here for a moment (then popping to the real
+            number) was the same shape of bug the Dashboard's "0 gigs, 0
+            enquiries" one was. */}
+        <h2 className="section-header__title">
+          Musicians{!(loading && musicians.length === 0) && ` (${bookedMusicians.length})`}
+        </h2>
       </div>
 
       {/* Instrument filter */}
@@ -327,6 +336,12 @@ export default function MusiciansList() {
           isAdmin={isAdmin}
           me={me}
           gigCountsByPlaceholder={gigCountsByPlaceholder}
+          // gigCountsByPlaceholder starts as {} until this component's own
+          // load() resolves -- every dep reads as "0 gigs" (never booked)
+          // until then, which briefly misclassified every dep as
+          // "not yet booked" further down. This lets that section wait for
+          // the real counts instead of the placeholders' own separate fetch.
+          gigCountsLoading={loading}
         />
       )}
     </div>
@@ -513,7 +528,7 @@ function DepDetailsEditor({ ph, onSaved }) {
 
 // ─── Deps / Placeholders ─────────────────────────────────────────────────────
 
-function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlaceholder }) {
+function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlaceholder, gigCountsLoading }) {
   const [placeholders, setPlaceholders] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [allInstruments, setAllInstruments] = useState([]);
@@ -722,7 +737,9 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
   return (
     <div style={{ marginTop: 32 }}>
       <div className="section-header">
-        <h2 className="section-header__title">Deps &amp; session musicians ({bookedDeps.length})</h2>
+        <h2 className="section-header__title">
+          Deps &amp; session musicians{!gigCountsLoading && ` (${bookedDeps.length})`}
+        </h2>
         {!showAddForm && (
           <button className="btn btn--primary btn--small" onClick={() => { setShowAddForm(true); setAddError(null); }}>
             + Add new dep
@@ -778,6 +795,12 @@ function PlaceholdersSection({ filterInstrumentId, isAdmin, me, gigCountsByPlace
         <p className="state-message">No deps in the system yet — add them above or from a gig's roster.</p>
       ) : filteredActive.length === 0 ? (
         <p className="state-message">{query ? `No deps match "${query}".` : 'No deps play that instrument.'}</p>
+      ) : gigCountsLoading ? (
+        // Without this, every dep reads as 0 gigs (gigCountsByPlaceholder is
+        // still {}) and the whole list briefly renders as "Not yet booked"
+        // before the real counts land and some jump up into the section
+        // above -- a visible reshuffle, not just a header number ticking up.
+        <p className="state-message">Loading deps…</p>
       ) : (
         <>
           <ul className="simple-list">

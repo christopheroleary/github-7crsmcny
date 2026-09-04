@@ -33,6 +33,12 @@ function writeDashCache(key, snapshot) {
   } catch {}
 }
 
+// Every KPICard count used to be built inline as `n + ' gigs'` -- always
+// plural, so a count of exactly 1 (e.g. "This month") read as "1 gigs".
+function gigsCount(n) {
+  return n + (n === 1 ? ' gig' : ' gigs');
+}
+
 function KPICard({ label, count, value, colour, onClick }) {
   return (
     <button type="button" className="kpi-card kpi-card--clickable" style={{ borderTopColor: colour }} onClick={onClick}>
@@ -431,17 +437,17 @@ export default function Dashboard({ onNavigate }) {
             </p>
           )}
           <div className="kpi-row">
-            <KPICard label="All gigs" count={allGigs.count + ' gigs'} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
-            <KPICard label="Inquiries" count={inquiries.count + ' gigs'} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
+            <KPICard label="All gigs" count={gigsCount(allGigs.count)} colour="#71717a" onClick={() => setActiveDrilldown('allGigs')} />
+            <KPICard label="Inquiries" count={gigsCount(inquiries.count)} colour="#8b5cf6" onClick={() => setActiveDrilldown('inquiries')} />
 
             {isAdmin && (
               <>
-                <KPICard label="Un-invoiced (past)" count={unInvoiced.count + ' gigs'} value={unInvoiced.value} colour="#c2410c" onClick={() => setActiveDrilldown('unInvoiced')} />
-                <KPICard label="Outstanding (unpaid)" count={outstanding.count + ' gigs'} value={outstanding.value} colour="var(--rust)" onClick={() => setActiveDrilldown('outstanding')} />
+                <KPICard label="Un-invoiced (past)" count={gigsCount(unInvoiced.count)} value={unInvoiced.value} colour="#c2410c" onClick={() => setActiveDrilldown('unInvoiced')} />
+                <KPICard label="Outstanding (unpaid)" count={gigsCount(outstanding.count)} value={outstanding.value} colour="var(--rust)" onClick={() => setActiveDrilldown('outstanding')} />
               </>
             )}
-            <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={upcoming.count + ' gigs'} value={upcoming.value} colour="var(--amber)" onClick={() => setActiveDrilldown('upcoming')} />
-            <KPICard label="This month" count={thisMonth.count + ' gigs'} value={thisMonth.value} colour="var(--teal)" onClick={() => setActiveDrilldown('thisMonth')} />
+            <KPICard label={isAdmin ? "Upcoming gigs" : "My upcoming"} count={gigsCount(upcoming.count)} value={upcoming.value} colour="var(--amber)" onClick={() => setActiveDrilldown('upcoming')} />
+            <KPICard label="This month" count={gigsCount(thisMonth.count)} value={thisMonth.value} colour="var(--teal)" onClick={() => setActiveDrilldown('thisMonth')} />
           </div>
 
           {activeDrilldown && (
