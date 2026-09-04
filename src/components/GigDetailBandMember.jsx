@@ -89,8 +89,16 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   // navigating away, so an edge swipe doesn't just instantly snap to the
   // list -- matched to the animation's own duration.
   const [exiting, setExiting] = useState(false);
+  // Performance Mode has its own swipe-through-the-setlist gesture
+  // (useSwipeHorizontal, in PerformanceMode.jsx) which fires from anywhere
+  // on screen, including the left edge this hook watches for -- suspended
+  // here too, or swiping to the next song near the edge could also
+  // register as a swipe back out of the whole gig mid-swipe. Declared here
+  // rather than down by its sibling show*Id state below so it's in scope
+  // for this hook call.
+  const [showPerformanceMode, setShowPerformanceMode] = useState(false);
   useSwipeBack(
-    exiting
+    exiting || showPerformanceMode
       ? null
       : () => {
           setExiting(true);
@@ -103,7 +111,6 @@ export default function GigDetailBandMember({ gigId, myProfileId, onBack, scroll
   const [showLyricsId, setShowLyricsId] = useState(null);
   const [showPlayerId, setShowPlayerId] = useState(null);
   const [showTrackId, setShowTrackId] = useState(null);
-  const [showPerformanceMode, setShowPerformanceMode] = useState(false);
   // Which songs actually have a band backing track -- read-only here (no
   // Edit/upload on this view at all), same has-track gating as GigSetlist.jsx
   // so the button only appears where there's actually something to play.

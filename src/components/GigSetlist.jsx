@@ -21,7 +21,7 @@ import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists = [], refreshSignal, defaultOpen = false }) {
+export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists = [], refreshSignal, defaultOpen = false, onPerformanceModeChange }) {
   const { isAdmin, isBandLeader, profile } = useCurrentProfile();
   const canManage = isAdmin || isBandLeader;
   const [bandSetlists, setBandSetlists] = useState([]);
@@ -48,6 +48,16 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
   const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState(null);
   const [showPerformanceMode, setShowPerformanceMode] = useState(false);
+  // Lets GigDetail.jsx (the parent) know Performance Mode is covering the
+  // screen, so it can suspend its own edge-swipe-back gesture -- both are
+  // independent global touch listeners (see useSwipeBack.js/
+  // useSwipeHorizontal.js), so without this, swiping to the next song near
+  // the left edge could also register as a swipe back out of the whole gig.
+  useEffect(() => {
+    onPerformanceModeChange?.(showPerformanceMode);
+    return () => onPerformanceModeChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPerformanceMode]);
   // Which songs actually have a band backing track -- the "Backing track"
   // button only shows for those, rather than unconditionally on every row.
   const { songIds: backingTrackSongIds, loading: backingTrackLoading, reload: reloadBackingTracks } = useBandBackingTrackSongIds(bandId);

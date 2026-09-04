@@ -167,9 +167,16 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
   // an edge swipe there should act on whichever screen is actually showing,
   // not jump straight out of the gig entirely.
   const [exiting, setExiting] = useState(false);
+  // Set by GigSetlist.jsx while its Performance Mode overlay is open --
+  // that screen has its own swipe-through-the-setlist gesture
+  // (useSwipeHorizontal), which fires from anywhere on screen including the
+  // left edge this hook watches. Without suspending this one too, swiping
+  // to the next song near the edge could also trigger the edge-swipe-back
+  // and boot out of the whole gig mid-swipe.
+  const [performanceModeOpen, setPerformanceModeOpen] = useState(false);
 
   useSwipeBack(
-    exiting || editing || viewAsProfileId
+    exiting || editing || viewAsProfileId || performanceModeOpen
       ? null
       : () => {
           setExiting(true);
@@ -570,6 +577,7 @@ export default function GigDetail({ gigId, onBack, onDeleted, scrollToSection, o
         gigId={gigId}
         bandId={gig.band_id}
         lineup={lineup}
+        onPerformanceModeChange={setPerformanceModeOpen}
         cachedSetlists={setlists}
         refreshSignal={manualRefreshSignal}
         defaultOpen={scrollToSection === 'setlist'}
