@@ -189,7 +189,7 @@ export default function SongRequestsPanel({ gig, cachedRequests = [], refreshSig
   const win = requestWindow(gig.gig_date);
 
   return (
-    <div className="roster-section">
+    <div className="day-sheet__section">
       <h3 className="roster-section__title">
         Song requests
         <InfoTooltip text="A QR code guests scan at the gig to request a song from tonight's setlist — no app, no login." />

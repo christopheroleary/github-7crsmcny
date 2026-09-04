@@ -89,20 +89,19 @@ export default function ArcadeSection({ gigId }) {
 
       {!activeGame ? (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div className="arcade-game-grid">
             {GAMES.map((g) => (
               <button
                 key={g.key}
                 type="button"
                 onClick={() => openGamePicker(g.key)}
-                className="btn btn--ghost btn--small"
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 16px', height: 'auto' }}
+                className="arcade-game-tile"
               >
-                <span style={{ fontSize: 22 }}>{g.icon}</span>
-                <span>{g.label}</span>
-                {personalBests[g.key] != null && (
-                  <span className="field__hint" style={{ fontSize: 11 }}>Best: {personalBests[g.key]}</span>
-                )}
+                <span className="arcade-game-tile__icon">{g.icon}</span>
+                <span className="arcade-game-tile__label">{g.label}</span>
+                <span className="arcade-game-tile__best">
+                  {personalBests[g.key] != null ? 'Best: ' + personalBests[g.key] : ' '}
+                </span>
               </button>
             ))}
           </div>
@@ -117,9 +116,9 @@ export default function ArcadeSection({ gigId }) {
                   <div key={g.key} style={{ marginBottom: 10 }}>
                     <span className="field__hint" style={{ fontWeight: 600 }}>{g.icon} {g.label}</span>
                     <ol style={{ margin: '4px 0 0', paddingLeft: 20, fontSize: 13 }}>
-                      {board.slice(0, 5).map((row) => (
+                      {board.slice(0, 5).map((row, i) => (
                         <li key={row.profile_id} style={{ fontWeight: row.profile_id === profile.id ? 700 : 400 }}>
-                          {row.name} — {row.score}
+                          {i === 0 && '👑 '}{row.name} — {row.score}
                         </li>
                       ))}
                     </ol>
