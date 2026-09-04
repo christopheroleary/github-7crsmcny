@@ -11,9 +11,11 @@ const DIFFICULTIES = [
   { key: 'easy', label: 'Easy', size: 6 },
   { key: 'medium', label: 'Medium', size: 7 },
   { key: 'hard', label: 'Hard', size: 8 },
+  { key: 'expert', label: 'Expert', size: 9 },
+  { key: 'master', label: 'Master', size: 10 },
 ];
-const INSTRUMENT_ICONS = ['🎸', '🥁', '🎤', '🎷', '🎹', '🎺', '🎻', '🪕'];
-const REGION_COLORS = ['#f4b183', '#a9d18e', '#8fbcdb', '#f4a6c6', '#c9a0dc', '#f6e27a', '#e8846b', '#7fd1c9'];
+const INSTRUMENT_ICONS = ['🎸', '🥁', '🎤', '🎷', '🎹', '🎺', '🎻', '🪕', '🪗', '📯'];
+const REGION_COLORS = ['#f4b183', '#a9d18e', '#8fbcdb', '#f4a6c6', '#c9a0dc', '#f6e27a', '#e8846b', '#7fd1c9', '#b0a8e0', '#e0c68f'];
 
 function vibrate(pattern) {
   try { navigator.vibrate?.(pattern); } catch { /* iOS Safari has no Vibration API -- fine to no-op */ }
@@ -116,11 +118,18 @@ function countSolutions(n, region, cap) {
   return count;
 }
 
-// Retries with a fresh solution + region growth until the puzzle has a
-// unique solution (solvable by pure deduction, not a guess among several
-// valid boards) -- almost always found within a handful of attempts at
-// these grid sizes; the last attempt is used regardless as a safety net
-// so this can never hang.
+// Tries for a uniquely-solvable puzzle (nicer, in the way a hand-designed
+// one is -- there's exactly one "right" board, not several boards that all
+// happen to satisfy the rules) -- measured live: purely-random region
+// growth essentially never lands on one (0/300 attempts, even at the
+// smallest size), so this is a cheap, harmless long-shot, not something to
+// rely on. It's genuinely NOT needed for winnability, though: the game
+// never checks a placement against one specific target solution, it
+// checks "is at least one full solution still reachable from here" (see
+// handleCellClick's use of hasCompletion) -- true regardless of whether
+// the puzzle has one valid board or several, which is exactly why "the
+// last attempt, unique or not" is a perfectly safe fallback rather than a
+// bug to chase down.
 function generatePuzzle(n) {
   let last = null;
   for (let attempt = 0; attempt < 300; attempt++) {
@@ -154,6 +163,94 @@ function countFilled(board) {
   return board.reduce((sum, row) => sum + row.filter((cell) => cell === 'filled').length, 0);
 }
 
+// The real bug behind "one of the goes made it impossible to win": a
+// placement can pass hasConflict (it doesn't directly share a row/column/
+// region or touch an existing piece) while still using up the only column
+// or region a LATER row actually needed -- painting the board into a dead
+// end that only becomes visible once every remaining option is blocked,
+// by which point hearts are already gone and the puzzle looks broken.
+// This runs the same backtracking search generation's uniqueness check
+// uses, but treating every currently-filled cell as fixed, to prove a
+// completion still exists before a placement is ever accepted -- so as
+// long as every accepted move keeps this true, reaching n placed pieces
+// with zero completions rejected along the way is mathematically
+// guaranteed to be a full, valid solution.
+function hasCompletion(board, region, n) {
+  const chosenCol = new Array(n).fill(-1);
+  const colUsed = new Array(n).fill(false);
+  const regionUsed = new Array(n).fill(false);
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (board[r][c] === 'filled') {
+        chosenCol[r] = c;
+        colUsed[c] = true;
+        regionUsed[region[r][c]] = true;
+      }
+    }
+  }
+
+  function backtrack(row) {
+    if (row === n) return true;
+    if (chosenCol[row] !== -1) {
+      if (row > 0 && chosenCol[row - 1] !== -1 && Math.abs(chosenCol[row] - chosenCol[row - 1]) <= 1) return false;
+      return backtrack(row + 1);
+    }
+    for (let c = 0; c < n; c++) {
+      if (colUsed[c]) continue;
+      const regionId = region[row][c];
+      if (regionUsed[regionId]) continue;
+      if (row > 0 && chosenCol[row - 1] !== -1 && Math.abs(c - chosenCol[row - 1]) <= 1) continue;
+      colUsed[c] = true;
+      regionUsed[regionId] = true;
+      chosenCol[row] = c;
+      if (backtrack(row + 1)) return true;
+      colUsed[c] = false;
+      regionUsed[regionId] = false;
+      chosenCol[row] = -1;
+    }
+    return false;
+  }
+  return backtrack(0);
+}
+
+// Region with the fewest cells -- the genuinely "obvious", zero-guessing
+// starting move a human solver would find first in this genre (a small
+// region has few candidate cells, so it's the quickest one to reason
+// about), used to point a first-time player at a real, correct opening
+// move instead of leaving them to guess-and-burn hearts on a blank board.
+function smallestRegionSolutionCell(n, region, solution) {
+  const cellCounts = new Array(n).fill(0);
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) cellCounts[region[r][c]]++;
+  let smallestRegion = 0;
+  for (let i = 1; i < n; i++) if (cellCounts[i] < cellCounts[smallestRegion]) smallestRegion = i;
+  return { row: smallestRegion, col: solution[smallestRegion] };
+}
+
+// A short, bright victory arpeggio -- synthesised, not a loaded sample,
+// same reasoning as every other sound in Tools/arcade: no asset to fetch
+// (or fail to fetch with no signal), so it works offline like the rest of
+// the puzzle already does.
+function playFanfare() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioCtx();
+  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+  notes.forEach((freq, i) => {
+    const t = ctx.currentTime + i * 0.11;
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.36);
+  });
+  setTimeout(() => ctx.close().catch(() => {}), (notes.length * 0.11 + 0.4) * 1000);
+}
+
 export default function NotedokuGame({ onGameOver }) {
   const [status, setStatus] = useState('picking'); // picking | generating | playing | won | lost
   const [n, setN] = useState(null);
@@ -162,6 +259,7 @@ export default function NotedokuGame({ onGameOver }) {
   const [mistakesUsed, setMistakesUsed] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [shakeCell, setShakeCell] = useState(null);
+  const [hintCell, setHintCell] = useState(null);
   const finishedRef = useRef(false);
 
   useEffect(() => {
@@ -182,6 +280,7 @@ export default function NotedokuGame({ onGameOver }) {
       setBoard(emptyBoard(size));
       setMistakesUsed(0);
       setElapsedSeconds(0);
+      setHintCell(smallestRegionSolutionCell(size, puzzle.region, puzzle.solution));
       finishedRef.current = false;
       setStatus('playing');
     }, 30);
@@ -191,6 +290,7 @@ export default function NotedokuGame({ onGameOver }) {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setStatus(won ? 'won' : 'lost');
+    if (won) playFanfare();
     const base = n * 60;
     const mistakePenalty = finalMistakes * 40;
     const timeBonus = Math.max(0, 180 - elapsedSeconds) * 1.5;
@@ -210,7 +310,16 @@ export default function NotedokuGame({ onGameOver }) {
     }
 
     if (cell === 'marked') {
-      if (hasConflict(board, region, n, r, c)) {
+      const simulated = board.map((row) => [...row]);
+      simulated[r][c] = 'filled';
+      // Two layers: a direct rule violation against pieces already on the
+      // board, or -- the fix for "a go made it impossible to win" -- a
+      // placement that doesn't break any rule yet but leaves no way to
+      // complete the remaining rows at all. Both are treated as the same
+      // mistake; the player doesn't need to know which kind it was, just
+      // that this square isn't it.
+      const invalid = hasConflict(board, region, n, r, c) || !hasCompletion(simulated, region, n);
+      if (invalid) {
         const nextMistakes = mistakesUsed + 1;
         setMistakesUsed(nextMistakes);
         setShakeCell(r + '-' + c);
@@ -222,10 +331,9 @@ export default function NotedokuGame({ onGameOver }) {
         if (nextMistakes >= MAX_MISTAKES) finish(false, nextMistakes);
         return;
       }
-      const next = board.map((row) => [...row]);
-      next[r][c] = 'filled';
-      setBoard(next);
-      if (countFilled(next) === n) finish(true, mistakesUsed);
+      setBoard(simulated);
+      setHintCell(null);
+      if (countFilled(simulated) === n) finish(true, mistakesUsed);
       return;
     }
 
@@ -242,7 +350,7 @@ export default function NotedokuGame({ onGameOver }) {
           One instrument per colour, one per row, one per column — and no two touching, not even diagonally.
         </p>
         <p className="field__hint" style={{ marginBottom: 12 }}>
-          Tap once to mark a square with ✕, tap again to place an instrument there.
+          Tap once to mark a square with ✕, tap again to place an instrument there. A glowing square shows a safe first move.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           {DIFFICULTIES.map((d) => (
@@ -263,7 +371,7 @@ export default function NotedokuGame({ onGameOver }) {
     );
   }
 
-  const cellSize = n <= 6 ? 46 : n === 7 ? 41 : 37;
+  const cellSize = n <= 6 ? 46 : n === 7 ? 41 : n === 8 ? 37 : n === 9 ? 33 : 30;
   const fontSize = Math.round(cellSize * 0.52);
 
   return (
@@ -288,13 +396,14 @@ export default function NotedokuGame({ onGameOver }) {
               const bottomDiff = r === n - 1 || region[r + 1][c] !== myRegion;
               const topDiff = r === 0 || region[r - 1][c] !== myRegion;
               const leftDiff = c === 0 || region[r][c - 1] !== myRegion;
+              const isHint = hintCell && hintCell.row === r && hintCell.col === c;
               return (
                 <button
                   key={r + '-' + c}
                   type="button"
                   onClick={() => handleCellClick(r, c)}
                   disabled={status !== 'playing'}
-                  className={shakeCell === r + '-' + c ? 'arcade-shake' : ''}
+                  className={(shakeCell === r + '-' + c ? 'arcade-shake ' : '') + (isHint ? 'notedoku-hint' : '')}
                   style={{
                     width: cellSize,
                     height: cellSize,

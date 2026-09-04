@@ -841,6 +841,21 @@ input {
   100% { transform: scale(1); }
 }
 
+/* Notedoku (src/components/arcade/NotedokuGame.jsx) -- a soft pulsing
+   glow on the one safe, guaranteed-correct opening move a fresh puzzle
+   offers, so a first-time player has somewhere obvious to start instead
+   of guessing blind on a blank board. */
+.notedoku-hint {
+  animation: notedokuHintPulse 1.4s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes notedokuHintPulse {
+  0%, 100% { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 6px 2px rgba(255, 255, 255, 0.5); }
+  50% { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35), 0 0 2px 0 rgba(255, 255, 255, 0); }
+}
+
 /* Snake (src/components/arcade/SnakeGame.jsx) -- board wrapper blocks
    scroll/zoom gestures so swipe-to-steer doesn't fight the page, and the
    D-pad is a plus-shaped 3x3 grid with large rounded touch targets. */
@@ -900,6 +915,10 @@ input {
   }
   .arcade-score-pop {
     animation: none;
+  }
+  .notedoku-hint {
+    animation: none;
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.9);
   }
   .snake-dpad__btn {
     transition: none;
