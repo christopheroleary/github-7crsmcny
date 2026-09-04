@@ -816,11 +816,34 @@ export default function StagePlot({ initialConfig, onSave, onConfigChange, saveL
 
   // A fresh gig loading in should replace the plot, but the effect must
   // not fire on the identical object every re-render — compare by the
-  // gig id the caller stamped on it, falling back to a content check.
-  const lastSeed = useRef(initialConfig);
+  // gig id the caller stamped on it, falling back to reference equality
+  // for a caller that doesn't stamp one (e.g. a standalone integration
+  // with no gig wrapper at all).
+  //
+  // Comparing by raw reference alone (initialConfig !== lastSeed.current,
+  // this function's previous shape) was a real, confirmed bug: GigStagePlot.jsx's
+  // own `seed` is a `useMemo(() => ({ ...config, __gigId }), [config, gigId])`
+  // -- config comes from useGigStagePlot's own state, which autosave() below
+  // updates via setConfig() on every save. That gives `seed` a brand new
+  // object identity on every autosave, which this effect (comparing by
+  // reference) read as "a fresh gig loading in", calling setCfg() again --
+  // which re-triggered the debounced autosave effect below, which saved
+  // again, which updated config again... an infinite ~800ms-interval
+  // autosave loop, confirmed live via a request-timing capture showing the
+  // exact same PUT firing roughly once a second indefinitely, starting
+  // ~800ms after ANY non-readOnly Stage Plot section was opened -- no
+  // editing required to trigger it, and it kept running in the background
+  // even after the section was folded back closed (native <details> hides
+  // content, it doesn't unmount it), for as long as the gig page stayed
+  // open. Comparing by the stamped id instead breaks the cycle: the same
+  // gig producing a new-but-equivalent seed object no longer looks like a
+  // different gig to load.
+  const lastSeedKey = useRef(initialConfig ? (initialConfig.__gigId ?? initialConfig) : null);
   useEffect(() => {
-    if (initialConfig && initialConfig !== lastSeed.current) {
-      lastSeed.current = initialConfig;
+    if (!initialConfig) return;
+    const key = initialConfig.__gigId ?? initialConfig;
+    if (key !== lastSeedKey.current) {
+      lastSeedKey.current = key;
       setCfg(mergeIntoDefaults(initialConfig));
     }
   }, [initialConfig]);

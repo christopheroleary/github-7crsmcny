@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useIsOffline } from '../hooks/useIsOffline.js';
@@ -35,6 +35,14 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
   // whenever the roster or the attached setlists change, not just once,
   // since either can move independently (a roster swap, a song added).
   const [vocalsBySong, setVocalsBySong] = useState({});
+  // See the loading gate below -- without this, the very first paint (the
+  // one case that matters here) showed every song row with no vocals tag
+  // and no "Backing track" button, then grew taller and gained content a
+  // moment later once this and backingTrackLoading below actually
+  // resolved. Every other row-level detail comes from the same
+  // cachedSetlists/live fetch as the songs themselves, so only these two
+  // ever visibly arrived late.
+  const [vocalsLoading, setVocalsLoading] = useState(true);
   const [newSetName, setNewSetName] = useState('');
   const [pickedExistingId, setPickedExistingId] = useState('');
   const [showImport, setShowImport] = useState(false);
@@ -42,7 +50,24 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
   const [showPerformanceMode, setShowPerformanceMode] = useState(false);
   // Which songs actually have a band backing track -- the "Backing track"
   // button only shows for those, rather than unconditionally on every row.
-  const { songIds: backingTrackSongIds, reload: reloadBackingTracks } = useBandBackingTrackSongIds(bandId);
+  const { songIds: backingTrackSongIds, loading: backingTrackLoading, reload: reloadBackingTracks } = useBandBackingTrackSongIds(bandId);
+  // Latches true the first moment all three sources (setlist, vocals,
+  // backing tracks) have loaded at once, and stays true forever after --
+  // gating the render below on `bandSetlists.length === 0` alone (as it
+  // read before this was added) doesn't actually wait for vocals/backing
+  // tracks: loadSetlists() typically resolves before those two do, which
+  // flips bandSetlists.length to non-zero and let the section straight
+  // through regardless of whether vocalsLoading/backingTrackLoading were
+  // still true -- confirmed live, this exact gap let the "loads weirdly"
+  // bug straight through the first attempt at fixing it. This flag is
+  // what actually makes the section wait for everything on the true first
+  // paint, while still never re-blocking on a later reload (adding a
+  // song, reordering) the way blocking on the raw loading flags directly
+  // would.
+  const [hasFullyLoadedOnce, setHasFullyLoadedOnce] = useState(false);
+  useEffect(() => {
+    if (!loading && !backingTrackLoading && !vocalsLoading) setHasFullyLoadedOnce(true);
+  }, [loading, backingTrackLoading, vocalsLoading]);
 
   // Split from loadSongs below: attaching/detaching/reordering a setlist on
   // THIS gig never creates or renames a song, so most mutations' post-write
@@ -56,20 +81,27 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
     setError(null);
 
     try {
-      const { data: setlistRows, error: setlistsError } = await supabase
-        .from('setlists')
-        .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, bpm, lyrics, reference_url, is_public))')
-        .eq('band_id', bandId)
-        .order('name');
+      // Two independent queries -- which setlists exist in this band's
+      // library, and which of them are attached to this gig -- previously
+      // run as sequential awaits for no reason (the second doesn't depend
+      // on the first's result), adding its own latency on top of the
+      // first's own ~1s worst case observed live. Parallelized like every
+      // other multi-query load in this file already is.
+      const [{ data: setlistRows, error: setlistsError }, { data: links, error: linksError }] = await Promise.all([
+        supabase
+          .from('setlists')
+          .select('id, name, setlist_items(id, position, song_id, songs(id, title, artist, original_key, bpm, lyrics, reference_url, is_public))')
+          .eq('band_id', bandId)
+          .order('name'),
+        supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId),
+      ]);
       if (setlistsError) throw setlistsError;
+      if (linksError) throw linksError;
 
       const sorted = (setlistRows || []).map((sl) => ({
         ...sl,
         setlist_items: [...(sl.setlist_items || [])].sort((a, b) => a.position - b.position),
       }));
-
-      const { data: links, error: linksError } = await supabase.from('gig_setlists').select('setlist_id').eq('gig_id', gigId);
-      if (linksError) throw linksError;
 
       setBandSetlists(sorted);
       setAttachedIds((links || []).map((l) => l.setlist_id));
@@ -151,6 +183,7 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
     const placeholderRows = lineup.filter((l) => l.placeholder_id);
     if (songIds.length === 0 || (profileRows.length === 0 && placeholderRows.length === 0)) {
       setVocalsBySong({});
+      setVocalsLoading(false);
       return;
     }
 
@@ -176,9 +209,31 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
       (map[r.song_id] ??= []).push(nameByPlaceholderId[r.placeholder_id]);
     });
     setVocalsBySong(map);
+    setVocalsLoading(false);
   }, [bandSetlists, attachedIds, lineup]);
 
-  useEffect(() => { loadVocalsBySong(); }, [loadVocalsBySong]);
+  // Fires on the actual set of song/profile/placeholder ids this needs to
+  // check, not on bandSetlists/attachedIds/lineup themselves -- those three
+  // can each get a new array reference (a re-render, an unrelated roster
+  // refresh) without the underlying ids actually changing, and depending on
+  // loadVocalsBySong directly (its own identity changes with every one of
+  // those references) meant this was refiring, and re-querying
+  // known_songs/placeholder_known_songs, 2-3 times in quick succession on
+  // a single load -- confirmed live via a request-timing capture.
+  const vocalsQueryKey = useMemo(() => {
+    const songIds = bandSetlists
+      .filter((sl) => attachedIds.includes(sl.id))
+      .flatMap((sl) => sl.setlist_items.map((i) => i.song_id));
+    const profileIds = lineup.filter((l) => l.profile_id).map((l) => l.profile_id);
+    const placeholderIds = lineup.filter((l) => l.placeholder_id).map((l) => l.placeholder_id);
+    return [...new Set(songIds)].sort().join(',') + '|' + profileIds.sort().join(',') + '|' + placeholderIds.sort().join(',');
+  }, [bandSetlists, attachedIds, lineup]);
+
+  useEffect(() => {
+    setVocalsLoading(true);
+    loadVocalsBySong();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vocalsQueryKey]);
 
   useEffect(() => {
     loadSetlists();
@@ -331,7 +386,19 @@ export default function GigSetlist({ gigId, bandId, lineup = [], cachedSetlists 
   // Same reasoning as handleReorderSongs above -- only blank out on the true
   // initial load, not every refetch after a song edit saves, or the whole
   // section unmounts down to a one-line message and back, resetting scroll.
-  if (loading && bandSetlists.length === 0) return <p className="state-message">Loading setlist…</p>;
+  // hasFullyLoadedOnce (not bandSetlists.length, which flips non-zero as
+  // soon as loadSetlists() resolves regardless of whether vocals/backing
+  // tracks are still loading) is what actually makes this wait for all
+  // three sources on the true first paint -- confirmed live (a request-
+  // timing capture) that vocals/backing tracks resolve after the setlist
+  // itself does, so gating on the setlist's own data being present let
+  // the section through before they were ready, showing every song with
+  // no vocals tag and no "Backing track" button, then visibly growing
+  // taller and gaining content a moment later -- the "loads weirdly, much
+  // larger, then settles down" behaviour reported live.
+  if (!hasFullyLoadedOnce && (loading || backingTrackLoading || vocalsLoading)) {
+    return <p className="state-message">Loading setlist…</p>;
+  }
 
   const attachedSetlists = bandSetlists.filter((sl) => attachedIds.includes(sl.id));
   const availableToAttach = bandSetlists.filter((sl) => !attachedIds.includes(sl.id));

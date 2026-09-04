@@ -4,6 +4,7 @@ import { useCurrentProfile } from '../context/ProfileContext.jsx';
 import { useIsOffline } from '../hooks/useIsOffline.js';
 import { isLikelyOfflineError } from '../utils/networkError.js';
 import CollapsibleSection from './CollapsibleSection.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import { TasksIcon } from '../utils/gigSectionIcons.jsx';
 import { notify } from '../utils/toastService.js';
 
@@ -89,7 +90,13 @@ export default function GigTasks({ gigId, bandId, defaultOpen, cachedTasks = [],
   }
 
   return (
-    <CollapsibleSection id="gig-section-tasks" title="Tasks" icon={<TasksIcon />} defaultOpen={defaultOpen}>
+    <CollapsibleSection
+      id="gig-section-tasks"
+      title="Tasks"
+      icon={<TasksIcon />}
+      defaultOpen={defaultOpen}
+      titleExtra={<InfoTooltip text="Anything to chase or remember for this gig specifically — confirm parking, chase a missing dep, check in on the day. Tick one off once it's done." />}
+    >
       {usingCache && (
         <p className="field__hint" style={{ marginBottom: 10, color: 'var(--rust)' }}>
           {isOffline ? '● Offline' : '⚠ Connection trouble'} — showing tasks as they were last saved to this device. Adding or completing one needs a signal.
