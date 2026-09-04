@@ -11,17 +11,13 @@ import { isLikelyOfflineError } from '../../utils/networkError.js';
 const SnakeGame = lazy(() => import('./SnakeGame.jsx'));
 const MusicWordleGame = lazy(() => import('./MusicWordleGame.jsx'));
 const InstrumentTicTacToeGame = lazy(() => import('./InstrumentTicTacToeGame.jsx'));
+const NotedokuGame = lazy(() => import('./NotedokuGame.jsx'));
 
 const GAMES = [
   { key: 'snake', label: 'Snake', icon: '🐍', Component: SnakeGame },
   { key: 'music_wordle', label: 'Music Wordle', icon: '🔤', Component: MusicWordleGame },
   { key: 'instrument_tictactoe', label: 'Noughts & Crosses', icon: '🎸', Component: InstrumentTicTacToeGame },
-];
-
-const COMING_SOON = [
-  { key: 'dual_pong', label: 'Dual Pong', icon: '🏓' },
-  { key: 'battle_tiles', label: 'Battle Tiles', icon: '⚔️' },
-  { key: 'guess_intro', label: 'Guess the Intro', icon: '🎧' },
+  { key: 'notedoku', label: 'Notedoku', icon: '🎼', Component: NotedokuGame },
 ];
 
 function LiveDots({ livesLeft }) {
@@ -108,17 +104,6 @@ export default function ArcadeSection({ gigId }) {
                   <span className="field__hint" style={{ fontSize: 11 }}>Best: {personalBests[g.key]}</span>
                 )}
               </button>
-            ))}
-            {COMING_SOON.map((g) => (
-              <div
-                key={g.key}
-                title="Coming soon"
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 16px', opacity: 0.4 }}
-              >
-                <span style={{ fontSize: 22 }}>{g.icon}</span>
-                <span style={{ fontSize: 13 }}>{g.label}</span>
-                <span className="field__hint" style={{ fontSize: 11 }}>Soon</span>
-              </div>
             ))}
           </div>
 
