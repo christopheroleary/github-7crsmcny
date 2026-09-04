@@ -13,10 +13,10 @@
 // a date-based slug gets that for free.
 export const WHATS_NEW = [
   {
-    id: '2026-09-04-guitar-tuner',
+    id: '2026-09-04-tools-tab',
     date: '2026-09-04',
-    title: 'A guitar tuner, plus smarter invoicing and setlist import',
-    body: "Tools → Guitar Tuner: tune by microphone, or tap the speaker for a held reference note to tune by ear instead — both work with no signal. Solo acts (a DJ or solo singer working alone) get a simpler band setup, and invoices can now bill the venue or another band instead of always the client. A band leader can raise a claim — invoice attached — on behalf of a full member as well as a dep. Setlist import now matches single-word titles correctly, prioritises the right artist, and pastes in noticeably faster. Tax records can also export in a Xero-ready format.",
+    title: 'Four new tools, plus smarter invoicing and setlist import',
+    body: "A new Tools tab: a guitar tuner (by microphone, or tap the speaker for a held reference note to tune by ear instead), a plain no-accent metronome with a choice of click sounds, a rough volume meter for a quick \"is this getting loud\" check, and a countdown timer for a set length or break — all work with no signal. Solo acts (a DJ or solo singer working alone) get a simpler band setup, and invoices can now bill the venue or another band instead of always the client. A band leader can raise a claim — invoice attached — on behalf of a full member as well as a dep. Setlist import now matches single-word titles correctly, prioritises the right artist, and pastes in noticeably faster. Tax records can also export in a Xero-ready format.",
   },
   {
     id: '2026-09-04-offline-everything',

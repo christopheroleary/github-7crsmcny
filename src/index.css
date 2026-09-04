@@ -5272,3 +5272,124 @@ details[open] > .collapsible-summary::before {
   padding: 6px 12px;
   line-height: 1;
 }
+
+/* ---------- Metronome (Metronome.jsx) ---------- */
+.metronome-bpm-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.metronome-bpm-input {
+  width: 110px;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: right;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+.metronome-bpm-input::-webkit-outer-spin-button,
+.metronome-bpm-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.metronome-bpm-input:focus {
+  outline: none;
+  border-bottom-color: var(--amber);
+}
+.metronome-bpm-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  align-self: center;
+}
+.metronome-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+  margin-left: 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.metronome-pulse--flash {
+  animation: metronome-flash 0.15s ease-out;
+}
+@keyframes metronome-flash {
+  from { background: var(--teal); transform: scale(1.35); }
+  to { background: var(--line); transform: scale(1); }
+}
+.metronome-slider {
+  width: 100%;
+  accent-color: var(--teal);
+  margin: 0;
+}
+
+/* ---------- Volume meter (VolumeMeter.jsx) ---------- */
+.volmeter-track {
+  position: relative;
+  height: 28px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.volmeter-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--teal);
+  border-radius: 8px 0 0 8px;
+}
+.volmeter-fill--amber { background: var(--amber); }
+.volmeter-fill--red { background: var(--rust); }
+.volmeter-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  opacity: 0.5;
+}
+
+/* ---------- Countdown timer (CountdownTimer.jsx) ---------- */
+.countdown-display {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 88px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: var(--ink);
+  margin-bottom: 16px;
+  transition: color 0.15s ease;
+}
+.countdown-display--running { color: var(--teal); }
+.countdown-display--finished {
+  color: var(--rust);
+  animation: countdown-finished-pulse 1s ease-in-out infinite;
+}
+@keyframes countdown-finished-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.countdown-inputs {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.countdown-inputs__field {
+  width: 84px;
+  margin-bottom: 0;
+}

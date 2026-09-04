@@ -1,9 +1,12 @@
 import GuitarTuner from './GuitarTuner.jsx';
+import Metronome from './Metronome.jsx';
+import VolumeMeter from './VolumeMeter.jsx';
+import CountdownTimer from './CountdownTimer.jsx';
 
 // Landing page for small standalone utilities that aren't tied to any one
-// gig/band/client record -- just handy on their own. Guitar tuner is the
-// first; more get added here over time as their own day-sheet__section
-// cards below it, same one-tab-many-tools shape Money.jsx already uses.
+// gig/band/client record -- just handy on their own. More get added here
+// over time as their own day-sheet__section cards, same one-tab-many-tools
+// shape Money.jsx already uses.
 export default function Tools() {
   return (
     <>
@@ -11,6 +14,9 @@ export default function Tools() {
         <h2 className="section-header__title">Tools</h2>
       </div>
       <GuitarTuner />
+      <Metronome />
+      <VolumeMeter />
+      <CountdownTimer />
     </>
   );
 }
